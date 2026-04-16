@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useGame, ACTION_TYPES } from './GameContext';
 import { hasAnyPlayableMove } from './gameLogic';
 import { playSound } from './audio';
+import blehMochiGif from './assets/bleh-mochi.gif';
 
 const DICE_FACES = [1, 3, 4, 6];
 
@@ -16,7 +17,7 @@ const DiceTray = ({ onGoToMenu }) => {
   const { state, dispatch } = useGame();
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
-  const [voidMessage, setVoidMessage] = useState(null);
+  const [showVoidGif, setShowVoidGif] = useState(false);
 
   const handleRoll = () => {
     if (isRolling) return;
@@ -40,11 +41,10 @@ const DiceTray = ({ onGoToMenu }) => {
 
       // CRITICAL: Check for Void Rule (1+3) before anything else
       if ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1)) {
-        setVoidMessage("Void Roll! Your turn is over.");
+        setShowVoidGif(true);
         dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
         dispatch({ type: ACTION_TYPES.END_TURN });
         setLastRoll({ d1: null, d2: null });
-        setTimeout(() => setVoidMessage(null), 2500); // Clear message after 2.5 seconds
       } else {
         // Dispatch the roll to the global state to be added to the queue
         dispatch({
@@ -90,67 +90,79 @@ const DiceTray = ({ onGoToMenu }) => {
     : 'md:right-4 md:left-auto md:translate-x-0'; // Move tray to the bottom-right
 
   return (
-    <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${mdPositionClass} lg:relative lg:left-auto lg:bottom-auto lg:right-auto lg:translate-x-0 w-full max-w-xs p-4 flex flex-col items-center gap-4 z-10 transition-all duration-500`}>
-      {voidMessage && (
-        <div className="absolute -top-12 bg-red-800 text-white px-4 py-2 rounded-lg shadow-lg text-center animate-pulse">
-          {voidMessage}
+    <>
+      {showVoidGif && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-neutral-800 p-6 rounded-xl shadow-2xl text-center border-2 border-red-700">
+            <img src={blehMochiGif} alt="Void Roll" className="mx-auto rounded-lg" />
+            <p className="text-white font-bold text-2xl mt-4">Void Roll!</p>
+            <p className="text-white/80">Your turn is forfeit.</p>
+            <button 
+              onClick={() => setShowVoidGif(false)} 
+              className="mt-6 px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Bleh.
+            </button>
+          </div>
         </div>
       )}
-      <div className="text-white font-bold text-xl drop-shadow-md">
-        {state.currentPlayer}'s Turn
-      </div>
-      <div className="flex gap-4">
-        <Die value={lastRoll.d1 || '—'} isRolling={isRolling} />
-        <Die value={lastRoll.d2 || '—'} isRolling={isRolling} />
-      </div>
+      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${mdPositionClass} lg:relative lg:left-auto lg:bottom-auto lg:right-auto lg:translate-x-0 w-full max-w-xs p-4 flex flex-col items-center gap-4 z-10 transition-all duration-500`}>
+        <div className="text-white font-bold text-xl drop-shadow-md">
+          {state.currentPlayer}'s Turn
+        </div>
+        <div className="flex gap-4">
+          <Die value={lastRoll.d1 || '—'} isRolling={isRolling} />
+          <Die value={lastRoll.d2 || '—'} isRolling={isRolling} />
+        </div>
 
-      <div className="flex gap-4">
-        <button
-          onClick={handleRoll}
-          disabled={!canRoll || isRolling}
-          className="px-6 py-2 bg-green-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {isRolling ? 'Rolling...' : 'Roll Dice'}
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={handleRoll}
+            disabled={!canRoll || isRolling}
+            className="px-6 py-2 bg-green-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isRolling ? 'Rolling...' : 'Roll Dice'}
+          </button>
+          
+          <button
+            onClick={handleEndTurn}
+            disabled={!canEndTurn}
+            className="px-6 py-2 bg-red-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            End Turn
+          </button>
+        </div>
         
-        <button
-          onClick={handleEndTurn}
-          disabled={!canEndTurn}
-          className="px-6 py-2 bg-red-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          End Turn
-        </button>
-      </div>
-      
-      <div className="mt-4 border-t border-white/10 pt-4 w-full flex justify-center gap-4">
-        <button
-          onClick={handleResetGame}
-          className="px-4 py-1 bg-red-800 text-white font-semibold text-sm rounded-md shadow-md hover:bg-red-700 transition-colors"
-        >
-          Reset Progress
-        </button>
-        <button
-          onClick={onGoToMenu}
-          className="px-4 py-1 bg-amber-600 text-white font-semibold text-sm rounded-md shadow-md hover:bg-amber-700 transition-colors"
-        >
-          New Game
-        </button>
-      </div>
+        <div className="mt-4 border-t border-white/10 pt-4 w-full flex justify-center gap-4">
+          <button
+            onClick={handleResetGame}
+            className="px-4 py-1 bg-red-800 text-white font-semibold text-sm rounded-md shadow-md hover:bg-red-700 transition-colors"
+          >
+            Reset Progress
+          </button>
+          <button
+            onClick={onGoToMenu}
+            className="px-4 py-1 bg-amber-600 text-white font-semibold text-sm rounded-md shadow-md hover:bg-amber-700 transition-colors"
+          >
+            New Game
+          </button>
+        </div>
 
-      <div className="text-white text-center text-sm min-h-[40px] p-2 bg-black/20 rounded-md flex items-center justify-center gap-2 flex-wrap">
-        <span>Queue:</span>
-        {state.turnQueue.length > 0 ? (
-          state.turnQueue.map((roll, i) => {
-            const rollText = roll.d2 === null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
-            return (
-              <span key={i} className={`font-bold px-2 py-1 rounded-md ${i === 0 ? 'bg-yellow-400 text-black' : 'bg-white/20'}`}>{rollText}</span>
-            );
-          })
-        ) : (
-          <span>Empty</span>
-        )}
+        <div className="text-white text-center text-sm min-h-[40px] p-2 bg-black/20 rounded-md flex items-center justify-center gap-2 flex-wrap">
+          <span>Queue:</span>
+          {state.turnQueue.length > 0 ? (
+            state.turnQueue.map((roll, i) => {
+              const rollText = roll.d2 === null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
+              return (
+                <span key={i} className={`font-bold px-2 py-1 rounded-md ${i === 0 ? 'bg-yellow-400 text-black' : 'bg-white/20'}`}>{rollText}</span>
+              );
+            })
+          ) : (
+            <span>Empty</span>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

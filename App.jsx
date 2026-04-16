@@ -1,13 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Board from './Board';
 import DiceTray from './DiceTray';
 import GameSetup from './GameSetup';
 import { GameProvider } from './GameContext';
 
+const PLAYER_COUNT_KEY = 'dyut_player_count';
+const GAME_STATE_KEY = 'dyut_game_state';
+
 function App() {
-  const [playerCount, setPlayerCount] = useState(null);
+  const [playerCount, setPlayerCount] = useState(() => {
+    const savedCount = localStorage.getItem(PLAYER_COUNT_KEY);
+    return savedCount ? parseInt(savedCount, 10) : null;
+  });
+
+  useEffect(() => {
+    if (playerCount) {
+      localStorage.setItem(PLAYER_COUNT_KEY, playerCount);
+    } else {
+      localStorage.removeItem(PLAYER_COUNT_KEY);
+    }
+  }, [playerCount]);
 
   const handleGoToMenu = () => {
+    // Clear all game-related storage to ensure a fresh start
+    localStorage.removeItem(PLAYER_COUNT_KEY);
+    localStorage.removeItem(GAME_STATE_KEY);
     setPlayerCount(null);
   };
 
