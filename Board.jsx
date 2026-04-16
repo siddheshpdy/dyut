@@ -8,7 +8,7 @@ import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
 // The individual Square component
-const Square = ({ cell, occupants, children }) => {
+const Square = ({ cell, occupants, children, isCapturing }) => {
   const isCenter = cell.id === 'CENTER';
   
   // Apply the calculated grid row and column to perfectly position the square
@@ -21,9 +21,10 @@ const Square = ({ cell, occupants, children }) => {
     <div
       style={style}
       className={`
-        relative flex items-center justify-center
+        relative flex items-center justify-center transition-colors
         border border-white/30 shadow-inner
         ${cell.isSafe ? 'bg-dyut-safe' : 'bg-dyut-board'}
+        ${isCapturing ? 'animate-capture-flash' : ''}
       `}
     >
       {/* Draw an 'X' if it's a safe zone, skipping the center goal */}
@@ -66,6 +67,8 @@ const Piece = ({ color, isMovable, isHomeStretch }) => {
     black: 'bg-piece-black',
     green: 'bg-piece-green',
     blue: 'bg-piece-blue',
+    red: 'bg-red-400',
+    purple: 'bg-purple-400',
   }[color];
 
   let ringClass = '';
@@ -76,7 +79,7 @@ const Piece = ({ color, isMovable, isHomeStretch }) => {
   }
 
   return (
-    <div className={`w-[80%] aspect-square rounded-full shadow-[0_4px_6px_rgba(0,0,0,0.6)] border-2 sm:border-[3px] border-piece-outline ${bgClass} ${ringClass}`} />
+    <div className={`w-[80%] aspect-square rounded-full shadow-[0_4px_6px_rgba(0,0,0,0.6)] border-2 sm:border-[3px] border-piece-outline ${bgClass} ${ringClass} animate-hop`} />
   );
 };
 
@@ -136,6 +139,7 @@ const Board = ({ onGoToMenu }) => {
   const prevState = usePrevious(state);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
   const [pairAttackState, setPairAttackState] = useState(null); // { firstPieceIndex, roll, rollIndex, targetCellId }
+  const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
 
@@ -167,6 +171,16 @@ const Board = ({ onGoToMenu }) => {
             const currentLockedCount = currentPlayer.pieces.filter(p => p === -1).length;
             if (currentLockedCount > prevLockedCount) {
                 playSound('/sounds/capture.mp3');
+                // Find which piece was captured to trigger the animation
+                const capturedPieceIndex = prevPlayer.pieces.findIndex((prevPos, i) => prevPos !== -1 && currentPlayer.pieces[i] === -1);
+                if (capturedPieceIndex !== -1) {
+                    const capturedPiecePos = prevPlayer.pieces[capturedPieceIndex];
+                    const capturedCellId = PLAYER_PATHS[playerId][capturedPiecePos]?.replace('_HOME', '');
+                    if (capturedCellId) {
+                        setCaptureAnimationCellId(capturedCellId);
+                        setTimeout(() => setCaptureAnimationCellId(null), 800); // Duration matches animation
+                    }
+                }
             }
 
             // Check for goals
@@ -323,7 +337,7 @@ const Board = ({ onGoToMenu }) => {
         )}
 
         {cells.map(cell => (
-          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)}>
+          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id}>
             {/* Render the MoveSelector inside the square of the selected piece */}
             {selectedPiece && activeRoll && PLAYER_PATHS[selectedPiece.playerId][state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex]]?.replace('_HOME', '') === cell.id && (
               <MoveSelector

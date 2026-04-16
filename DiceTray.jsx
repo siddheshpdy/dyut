@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGame, ACTION_TYPES } from './GameContext';
 import { hasAnyPlayableMove } from './gameLogic';
 import { playSound } from './audio';
@@ -40,7 +40,7 @@ const DiceTray = ({ onGoToMenu }) => {
       setLastRoll({ d1: final_d1, d2: final_d2 });
 
       // CRITICAL: Check for Void Rule (1+3) before anything else
-      if ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1)) {
+      if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
         setShowVoidGif(true);
         dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
         dispatch({ type: ACTION_TYPES.END_TURN });
@@ -60,28 +60,38 @@ const DiceTray = ({ onGoToMenu }) => {
     rollSound.addEventListener('ended', onSoundEnd, { once: true });
   };
   
-  const handleEndTurn = () => {
-    dispatch({ type: ACTION_TYPES.END_TURN });
-    setLastRoll({ d1: null, d2: null });
-  };
-
   const handleResetGame = () => {
     if (window.confirm("Are you sure you want to reset the game? All progress will be lost.")) {
       dispatch({ type: ACTION_TYPES.RESET_GAME });
     }
   };
 
-  const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state]);
+  const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
 
-  // Determine rolling and turn ending permissions
-  const hasRolled = lastRoll.d1 !== null;
-  const lastWasDouble = hasRolled && lastRoll.d1 === lastRoll.d2;
+  // --- New, Reload-Safe Turn Logic ---
+  const hasRollsInQueue = state.turnQueue.length > 0;
+  const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
+  const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
   
-  // Can roll if they haven't rolled yet, or if they are on a doubles streak
-  const canRoll = !hasRolled || lastWasDouble;
-  
-  // Can end turn if queue is empty (and not on a streak), or if queue has rolls but none are playable.
-  const canEndTurn = (state.turnQueue.length === 0 && hasRolled && !lastWasDouble) || (state.turnQueue.length > 0 && !hasPlayableMoves);
+  // A player can roll if they haven't rolled this turn OR they are on a doubles streak.
+  const canRoll = !state.hasRolledThisTurn || isDoublesStreak;
+
+  useEffect(() => {
+    // Don't auto-end if the player can still roll (e.g., on a doubles streak).
+    if (canRoll || isRolling) return;
+
+    const isStuck = hasRollsInQueue && !hasPlayableMoves;
+    const isDone = state.hasRolledThisTurn && !hasRollsInQueue;
+
+    if (isStuck || isDone) {
+      const timer = setTimeout(() => {
+        dispatch({ type: ACTION_TYPES.END_TURN });
+        setLastRoll({ d1: null, d2: null });
+      }, 1200); // 1.2-second delay for the player to see the result.
+
+      return () => clearTimeout(timer);
+    }
+  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, dispatch]);
 
   // Dynamically position the tray on tablet (md) screens to avoid the active player's base.
   // Player 1 (SW) & Player 4 (NW) are on the left. Player 2 (SE) & Player 3 (NE) are on the right.
@@ -122,14 +132,6 @@ const DiceTray = ({ onGoToMenu }) => {
             className="px-6 py-2 bg-green-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isRolling ? 'Rolling...' : 'Roll Dice'}
-          </button>
-          
-          <button
-            onClick={handleEndTurn}
-            disabled={!canEndTurn}
-            className="px-6 py-2 bg-red-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            End Turn
           </button>
         </div>
         
