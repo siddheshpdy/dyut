@@ -14,3 +14,19 @@
   backface-visibility: hidden;
   perspective: 1000px;
 }
+
+@keyframes hop {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-hop {
+  animation: hop 0.3s ease-out;
+}
+
+@keyframes capture-flash {
+  0%, 100% { background-color: inherit; }
+  50% { background-color: #ef4444; } /* red-500 */
+}
+.animate-capture-flash {
+  animation: capture-flash 0.8s ease-in-out;
+}

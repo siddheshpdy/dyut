@@ -1,12 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { generateBoardCells, PLAYER_PATHS } from './boardMapping';
 import { useGame, ACTION_TYPES } from './GameContext';
 import MoveSelector from './MoveSelector';
 import VictoryScreen from './VictoryScreen';
 import { getValidMoves, getPairShieldTarget } from './gameLogic';
+import { usePrevious } from './usePrevious';
+import { playSound } from './audio';
 
 // The individual Square component
-const Square = ({ cell, occupants, children }) => {
+const Square = ({ cell, occupants, children, isCapturing }) => {
   const isCenter = cell.id === 'CENTER';
   
   // Apply the calculated grid row and column to perfectly position the square
@@ -19,9 +21,10 @@ const Square = ({ cell, occupants, children }) => {
     <div
       style={style}
       className={`
-        relative flex items-center justify-center
+        relative flex items-center justify-center transition-colors
         border border-white/30 shadow-inner
         ${cell.isSafe ? 'bg-dyut-safe' : 'bg-dyut-board'}
+        ${isCapturing ? 'animate-capture-flash' : ''}
       `}
     >
       {/* Draw an 'X' if it's a safe zone, skipping the center goal */}
@@ -44,7 +47,7 @@ const Square = ({ cell, occupants, children }) => {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {occupants.map((occ, i) => (
             <div key={i} className={`absolute w-[80%] h-[80%] flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${i > 0 ? 'ml-2 mt-2 z-20' : 'z-10'}`} style={{ pointerEvents: 'auto' }} onClick={occ.onClick}>
-              <Piece color={occ.color} isMovable={occ.isMovable} />
+              <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} />
             </div>
           ))}
         </div>
@@ -57,19 +60,26 @@ const Square = ({ cell, occupants, children }) => {
 };
 
 // Visual Piece Token
-const Piece = ({ color, isMovable }) => {
+const Piece = ({ color, isMovable, isHomeStretch }) => {
   // Map the state color to our Tailwind classes
   const bgClass = {
     yellow: 'bg-piece-yellow',
     black: 'bg-piece-black',
     green: 'bg-piece-green',
     blue: 'bg-piece-blue',
+    red: 'bg-red-400',
+    purple: 'bg-purple-400',
   }[color];
 
-  const glowClass = isMovable ? 'animate-pulse ring-4 ring-yellow-300 ring-offset-2 ring-offset-black/50' : '';
+  let ringClass = '';
+  if (isMovable) {
+    ringClass = 'animate-pulse ring-4 ring-yellow-300 ring-offset-2 ring-offset-black/50';
+  } else if (isHomeStretch) {
+    ringClass = 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-black/50';
+  }
 
   return (
-    <div className={`w-[80%] aspect-square rounded-full shadow-[0_4px_6px_rgba(0,0,0,0.6)] border-2 sm:border-[3px] border-piece-outline ${bgClass} ${glowClass}`} />
+    <div className={`w-[80%] aspect-square rounded-full shadow-[0_4px_6px_rgba(0,0,0,0.6)] border-2 sm:border-[3px] border-piece-outline ${bgClass} ${ringClass} animate-hop`} />
   );
 };
 
@@ -126,8 +136,10 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
 // The main Board container
 const Board = ({ onGoToMenu }) => {
   const { state, dispatch } = useGame();
+  const prevState = usePrevious(state);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
   const [pairAttackState, setPairAttackState] = useState(null); // { firstPieceIndex, roll, rollIndex, targetCellId }
+  const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
 
@@ -145,6 +157,42 @@ const Board = ({ onGoToMenu }) => {
     const winnerEntry = Object.entries(state.players).find(([id, player]) => player.pieces.every(p => p === 999));
     return winnerEntry ? { id: winnerEntry[0], data: winnerEntry[1] } : null;
   }, [state.players]);
+
+  useEffect(() => {
+    if (!prevState || !state) return;
+
+    for (const playerId in state.players) {
+        const prevPlayer = prevState.players[playerId];
+        const currentPlayer = state.players[playerId];
+
+        if (prevPlayer && currentPlayer) {
+            // Check for captures
+            const prevLockedCount = prevPlayer.pieces.filter(p => p === -1).length;
+            const currentLockedCount = currentPlayer.pieces.filter(p => p === -1).length;
+            if (currentLockedCount > prevLockedCount) {
+                playSound('/sounds/capture.mp3');
+                // Find which piece was captured to trigger the animation
+                const capturedPieceIndex = prevPlayer.pieces.findIndex((prevPos, i) => prevPos !== -1 && currentPlayer.pieces[i] === -1);
+                if (capturedPieceIndex !== -1) {
+                    const capturedPiecePos = prevPlayer.pieces[capturedPieceIndex];
+                    const capturedCellId = PLAYER_PATHS[playerId][capturedPiecePos]?.replace('_HOME', '');
+                    if (capturedCellId) {
+                        setCaptureAnimationCellId(capturedCellId);
+                        setTimeout(() => setCaptureAnimationCellId(null), 800); // Duration matches animation
+                    }
+                }
+            }
+
+            // Check for goals
+            const prevFinishedCount = prevPlayer.pieces.filter(p => p === 999).length;
+            const currentFinishedCount = currentPlayer.pieces.filter(p => p === 999).length;
+            if (currentFinishedCount > prevFinishedCount) {
+                playSound('/sounds/goal.mp3');
+            }
+        }
+    }
+  }, [state.players, prevState]);
+
 
   const handlePieceClick = (playerId, pieceIndex) => {
     // If we are in the second step of a pair attack, this click is the selection of the second piece.
@@ -239,7 +287,10 @@ const Board = ({ onGoToMenu }) => {
       const isCurrentPlayer = state.currentPlayer === playerId;
       const hasRolls = state.turnQueue.length > 0;
       player.pieces.forEach((pos, pieceIndex) => {
-        if (pos !== -1 && pos < 999 && PLAYER_PATHS[playerId][pos] === cellId) {
+        const logicalId = PLAYER_PATHS[playerId][pos];
+        const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
+
+        if (pos !== -1 && pos < 999 && visualId === cellId) {
           let isMovable = isCurrentPlayer && hasRolls && !pairAttackState;
           // If in a pair attack, only highlight valid partners
           if (pairAttackState && isCurrentPlayer && pieceIndex !== pairAttackState.firstPieceIndex) {
@@ -257,6 +308,7 @@ const Board = ({ onGoToMenu }) => {
             color: player.color,
             pieceIndex,
             isMovable,
+            isHomeStretch: logicalId.includes('_HOME'),
             onClick: () => {
               handlePieceClick(playerId, pieceIndex);
             }
@@ -285,9 +337,9 @@ const Board = ({ onGoToMenu }) => {
         )}
 
         {cells.map(cell => (
-          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)}>
+          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id}>
             {/* Render the MoveSelector inside the square of the selected piece */}
-            {selectedPiece && activeRoll && PLAYER_PATHS[selectedPiece.playerId][state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex]] === cell.id && (
+            {selectedPiece && activeRoll && PLAYER_PATHS[selectedPiece.playerId][state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex]]?.replace('_HOME', '') === cell.id && (
               <MoveSelector
                 roll={activeRoll}
                 validMoves={validMoves}

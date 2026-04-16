@@ -151,7 +151,7 @@ export function hasAnyPlayableMove(playerId, state) {
 
         // 2. Check if any piece on the board can move
         for (const piecePos of player.pieces) {
-            if (piecePos !== -1) { // Piece is on the board
+            if (piecePos !== -1 && piecePos !== 999) { // Piece is on the board and not finished
                 const validMoves = getValidMoves(piecePos, roll, playerId, state);
                 if (validMoves.sum || validMoves.high || validMoves.low) {
                     return true; // Found a valid move

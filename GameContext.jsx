@@ -2,22 +2,26 @@ import React, { createContext, useReducer, useContext, useEffect } from 'react';
 import { PLAYER_PATHS } from './boardMapping';
 
 // Function to create the initial state based on player count
-const createInitialState = (playerCount) => {
-  const allPlayers = {
-    Player1: { color: 'yellow', hasKilled: false, pieces: [-1, -1, -1, -1] },
-    Player2: { color: 'black', hasKilled: false, pieces: [-1, -1, -1, -1] },
-    Player3: { color: 'green', hasKilled: false, pieces: [-1, -1, -1, -1] },
-    Player4: { color: 'blue', hasKilled: false, pieces: [-1, -1, -1, -1] }
-  };
+const createInitialState = (gameConfig) => {
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true } = gameConfig;
 
-  const activePlayers = Object.fromEntries(Object.entries(allPlayers).slice(0, playerCount));
+  const players = {};
+  for (let i = 0; i < playerCount; i++) {
+    players[`Player${i + 1}`] = {
+      color: playerColors[i],
+      hasKilled: false,
+      pieces: [-1, -1, -1, -1]
+    };
+  }
 
   return {
     currentPlayer: 'Player1',
     turnQueue: [],
     turnHistory: [],
-    players: activePlayers,
-    boardOccupancy: {}
+    players,
+    boardOccupancy: {},
+    isVoidRuleEnabled,
+    hasRolledThisTurn: false,
   };
 };
 
@@ -79,7 +83,8 @@ function gameReducer(state, action) {
       // Add the new roll object to the turnQueue array
       return {
         ...state,
-        turnQueue: [...state.turnQueue, action.payload]
+        turnQueue: [...state.turnQueue, action.payload],
+        hasRolledThisTurn: true,
       };
     case ACTION_TYPES.SPAWN_PIECE:
     {
@@ -203,7 +208,7 @@ function gameReducer(state, action) {
       const playerKeys = Object.keys(state.players);
       const currentIndex = playerKeys.indexOf(state.currentPlayer);
       const nextPlayer = playerKeys[(currentIndex + 1) % playerKeys.length];
-      return { ...state, currentPlayer: nextPlayer, turnQueue: [] };
+      return { ...state, currentPlayer: nextPlayer, turnQueue: [], hasRolledThisTurn: false };
     }
 
     case ACTION_TYPES.CLEAR_QUEUE:
@@ -235,8 +240,8 @@ const initGameState = (initialState) => {
   return initialState;
 };
 
-export function GameProvider({ playerCount, children }) {
-  const getInitialState = () => createInitialState(playerCount);
+export function GameProvider({ gameConfig, children }) {
+  const getInitialState = () => createInitialState(gameConfig);
 
   const enhancedReducer = (state, action) => {
     if (action.type === ACTION_TYPES.RESET_GAME) {
@@ -246,10 +251,13 @@ export function GameProvider({ playerCount, children }) {
     return gameReducer(state, action);
   };
 
-  const [state, dispatch] = useReducer(enhancedReducer, getInitialState(), initGameState);
+  const [state, dispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    // Only save state if the game is active (not on initial setup)
+    if (state.players) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    }
   }, [state]);
 
   return <GameContext.Provider value={{ state, dispatch }}>{children}</GameContext.Provider>;

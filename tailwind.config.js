@@ -15,6 +15,8 @@ export default {
         'piece-green': '#4ade80',  // Brightened for > 3:1 contrast
         'piece-blue': '#60a5fa',   // Brightened for > 3:1 contrast
         'piece-outline': '#ffffff', // Required for dark pieces like black
+        'red-400': '#f87171',
+        'purple-400': '#c084fc',
       }
     },
   },
