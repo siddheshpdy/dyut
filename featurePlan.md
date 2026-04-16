@@ -1,6 +1,7 @@
 # Dyut Game Feature Implementation Plan
 
 ## Phase 1: Project Scaffolding and Architecture
+**Status: Completed**
 **Objective:** Set up the foundational technologies and define the global state structure.
 1. **Initialize Application:** Scaffold a new React application using Vite and configure Tailwind CSS for styling.
 2. **State Management Setup:** Given the complexity of the game rules (queues, streaks, multiple piece states), initialize a global state using React's `useReducer` (or Redux Toolkit).
@@ -10,6 +11,7 @@
    * **Piece State:** ID, status (`LOCKED`, `ON_BOARD`, `HOME_STRETCH`, `FINISHED`), current position (path index or -1).
 
 ## Phase 2: Board Generation and Rendering
+**Status: Completed**
 **Objective:** Visually construct the 4-arm cross using CSS Grid and Tailwind, mapping out the coordinate system.
 1. **Data Structure for the Board:** Create a coordinate map or a linear path array (0 to N) that represents the universal track. Map the specific visual grid (3x8 arms) to these logical path indices.
 2. **Render the Grid:** Implement a `Board` component containing four `Arm` components and a `Center` component. Use CSS Grid to position them into a cross.
@@ -17,6 +19,7 @@
 4. **Render Pieces:** Create a `Piece` component that reads its position from the global state and overlays onto the corresponding board cell.
 
 ## Phase 3: The Dice Engine
+**Status: Completed**
 **Objective:** Build the custom dice roller and turn-queueing system.
 1. **Custom Roll Logic:** Implement a function that randomly generates numbers from the specific set `[1, 3, 4, 6]`.
 2. **Streak and Queue Management:**
@@ -25,6 +28,7 @@
 3. **The Void Rule:** Add logic that clears the `turnQueue` entirely and ends the turn immediately if EXACTLY a `1` and `3` (or `3` and `1`) combination is rolled.
 
 ## Phase 4: Movement and Pathing Logic
+**Status: Completed**
 **Objective:** Move pieces along the board using the queued dice rolls.
 1. **Deployment (Spawning):** Implement the logic allowing a piece to transition from locked (-1) to on-board. They require a double to spawn, landing directly on path indices mapping to 2, 6, 8, or 12.
 2. **Movement Priority Engine (CRITICAL):** When calculating `getValidMoves()`, you must enforce the "Max Value Rule" where a player cannot choose a smaller move if a larger valid move exists:
@@ -34,6 +38,7 @@
 3. **Path Calculation & Using Rolls:** Create a helper function that takes a piece's current index and a die value to calculate the target index. Update the piece's position and remove the used move from the `turnQueue`.
 
 ## Phase 5: Combat, Safe Zones, and Blockades
+**Status: In Progress**
 **Objective:** Implement the collision mechanics when pieces land on the same square.
 1. **Occupancy Limit & Safe Zones ('X'):** A square can hold a max of 2 pieces. Indices 6, 8, 12, and the 1st-column-cross on any arm are safe zones. First player to land on an 'X' blocks it.
 2. **The Pair Shield:** If a square has 2 pieces of the SAME color, they form a Pair. A Pair can ONLY be killed if the attacker uses a "Special Roll" (doubles) and splits movement to land exactly 2 attacking pieces on that square simultaneously.
@@ -41,6 +46,7 @@
 4. **The Assassin (Breach Rule):** Traveling pieces CANNOT kill an opponent on an 'X' safe zone. Exception: A newly spawning piece CAN kill an opponent on an 'X' zone (spots 8 or 12) if they spawn using a double 4s (8) or double 6s (12).
 
 ## Phase 6: End Game and Win Conditions
+**Status: Completed**
 **Objective:** Implement the final stretch rules and victory detection.
 1. **The Blood Debt Check:** Prevent a piece from turning into the `HOME_STRETCH` (middle column) unless its player's `hasKilled` flag is `true`.
 2. **Home Stretch Immunity:** Disable combat interactions for pieces currently in the `HOME_STRETCH` status.
