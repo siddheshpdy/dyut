@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { useGame, ACTION_TYPES } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove } from './gameLogic';
 import { playSound } from './audio';
@@ -79,7 +80,15 @@ const DiceTray = () => {
     // Automatically dispatch a move if the player only has exactly 1 valid option
     if (autoMoveAction) {
       const timer = setTimeout(() => {
-        dispatch(autoMoveAction);
+        if (document.startViewTransition) {
+          document.startViewTransition(() => {
+            flushSync(() => {
+              dispatch(autoMoveAction);
+            });
+          });
+        } else {
+          dispatch(autoMoveAction);
+        }
       }, 600); // 600ms delay to let the user visually track the move
       return () => clearTimeout(timer);
     }

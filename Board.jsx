@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { generateBoardCells, PLAYER_PATHS } from './boardMapping';
 import { useGame, ACTION_TYPES } from './GameContext';
 import MoveSelector from './MoveSelector';
@@ -21,10 +22,8 @@ const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
     <div
       style={style}
       className={`
-        relative flex items-center justify-center transition-colors
-        border border-black/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]
+        relative flex items-center justify-center transition-colors border border-black/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]
         ${cell.isSafe ? 'bg-dyut-safe' : 'bg-dyut-board'}
-        ${isCapturing ? 'animate-capture-flash' : ''}
       `}
     >
       {/* Geometric Glowing Safe Zone Symbol */}
@@ -54,12 +53,17 @@ const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
         </div>
       )}
 
+      {/* Capture Animation */}
+      {isCapturing && (
+        <div className="absolute inset-0 w-full h-full rounded-full border-4 border-ruby animate-shockwave pointer-events-none"></div>
+      )}
+
       {/* Render Occupying Pieces */}
       {occupants && occupants.length > 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {occupants.map((occ, i) => (
             <div key={i} className={`absolute w-[80%] h-[80%] flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${i > 0 ? 'ml-2 mt-2 z-20' : 'z-10'}`} style={{ pointerEvents: 'auto' }} onClick={occ.onClick}>
-              <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} />
+              <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
             </div>
           ))}
         </div>
@@ -72,7 +76,7 @@ const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
 };
 
 // Visual Piece Token
-const Piece = ({ color, isMovable, isHomeStretch }) => {
+const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
   // Map the state color to our Tailwind classes
   const bgClass = {
     yellow: 'bg-piece-yellow',
@@ -94,8 +98,12 @@ const Piece = ({ color, isMovable, isHomeStretch }) => {
     ringClass = 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-black/50';
   }
 
+  // Assign a unique view-transition-name to each piece so the browser can animate its movement
+  const transitionName = playerId != null && pieceIndex != null ? `piece-${playerId}-${pieceIndex}` : undefined;
+
   return (
-    <div className={`w-[80%] aspect-square rounded-full border border-white/40 jewel-shadow ${bgClass} ${ringClass} animate-hop`} />
+    <div style={transitionName ? { viewTransitionName: transitionName } : {}} 
+         className={`w-[80%] aspect-square rounded-full border border-white/40 jewel-shadow ${bgClass} ${ringClass}`} />
   );
 };
 
@@ -111,12 +119,24 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
   const canSpawn = state.currentPlayer === playerId && state.turnQueue.some(r => r.d1 === r.d2) && !pairAttackState && !isDoublesStreak;
 
+  const dispatchWithTransition = (action) => {
+    if (!document.startViewTransition) {
+      dispatch(action);
+      return;
+    }
+    document.startViewTransition(() => {
+      flushSync(() => {
+        dispatch(action);
+      });
+    });
+  };
+
   const handleSpawnClick = (pieceIndex) => {
     // Only current player can spawn, and only if they have a double in the queue
     if (state.currentPlayer !== playerId || isDoublesStreak) return;
     const doubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2);
     if (doubleIndex !== -1) {
-      dispatch({
+      dispatchWithTransition({
         type: ACTION_TYPES.SPAWN_PIECE,
         payload: { playerId, pieceIndex, rollIndex: doubleIndex }
       });
@@ -164,7 +184,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
       <div className="w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 bg-black/40 rounded-xl shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5">
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => handleSpawnClick(pieceIndex)}>
-            <Piece color={player.color} isMovable={canSpawn} />
+            <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
           </div>
         ))}
       </div>
@@ -232,7 +252,7 @@ const Board = ({ onGoToMenu }) => {
                     const capturedCellId = PLAYER_PATHS[playerId][capturedPiecePos]?.replace('_HOME', '');
                     if (capturedCellId) {
                         setCaptureAnimationCellId(capturedCellId);
-                        setTimeout(() => setCaptureAnimationCellId(null), 800); // Duration matches animation
+                        setTimeout(() => setCaptureAnimationCellId(null), 600); // Duration matches new animation
                     }
                 }
             }
@@ -247,6 +267,17 @@ const Board = ({ onGoToMenu }) => {
     }
   }, [state.players, prevState]);
 
+  const dispatchWithTransition = (action) => {
+    if (!document.startViewTransition) {
+      dispatch(action);
+      return;
+    }
+    document.startViewTransition(() => {
+      flushSync(() => {
+        dispatch(action);
+      });
+    });
+  };
 
   const handlePieceClick = (playerId, pieceIndex) => {
     // If we are in the second step of a pair attack, this click is the selection of the second piece.
@@ -258,7 +289,7 @@ const Board = ({ onGoToMenu }) => {
 
       // Check if this piece is a valid partner for the attack
       if (pieceIndex !== firstPieceIndex && (currentPos + moveDistance === targetPathIndex)) {
-        dispatch({
+        dispatchWithTransition({
           type: ACTION_TYPES.EXECUTE_PAIR_ATTACK,
           payload: { playerId, rollIndex, firstPieceIndex, secondPieceIndex: pieceIndex, targetCellId }
         });
@@ -288,7 +319,7 @@ const Board = ({ onGoToMenu }) => {
 
   const handleFullMove = (distance) => {
     if (!selectedPiece) return;
-    dispatch({
+    dispatchWithTransition({
       type: ACTION_TYPES.MOVE_WITH_FULL_ROLL,
       payload: { ...selectedPiece, distance }
     });
@@ -297,7 +328,7 @@ const Board = ({ onGoToMenu }) => {
 
   const handleSplitMove = (distanceUsed) => {
     if (!selectedPiece) return;
-    dispatch({
+    dispatchWithTransition({
       type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL,
       payload: { ...selectedPiece, distanceUsed }
     });
