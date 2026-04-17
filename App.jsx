@@ -4,6 +4,7 @@ import DiceTray from './DiceTray';
 import UnifiedLobby from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
 import { GameProvider } from './GameContext';
+import blehMochiGif from './assets/bleh-mochi.gif';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
@@ -13,6 +14,19 @@ function App() {
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
 
   const hasCachedGame = !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
+
+  // Preload heavy assets (sounds and gifs) in the background so they are instantly ready during gameplay
+  useEffect(() => {
+    const audioFiles = ['./sounds/dice-roll.mp3', './sounds/capture.mp3', './sounds/goal.mp3'];
+    audioFiles.forEach(src => {
+      const audio = new Audio();
+      audio.src = src;
+      audio.preload = 'auto';
+    });
+
+    const img = new Image();
+    img.src = blehMochiGif;
+  }, []);
 
   const handleStartNewGame = (config) => {
     if (hasCachedGame) {
@@ -94,7 +108,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-charcoal flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none">
+    <div className="min-h-screen w-full bg-[#3e3e3e] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">

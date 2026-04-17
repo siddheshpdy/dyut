@@ -22,6 +22,7 @@ const createInitialState = (gameConfig) => {
     boardOccupancy: {},
     isVoidRuleEnabled,
     hasRolledThisTurn: false,
+    rollingPhaseComplete: false,
   };
 };
 
@@ -95,13 +96,16 @@ function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
 // Central Game Reducer
 function gameReducer(state, action) {
   switch (action.type) {
-    case ACTION_TYPES.ROLL_DICE:
+    case ACTION_TYPES.ROLL_DICE: {
+      const isDouble = action.payload.d1 === action.payload.d2 && action.payload.d2 !== null;
       // Add the new roll object to the turnQueue array
       return {
         ...state,
         turnQueue: [...state.turnQueue, action.payload],
         hasRolledThisTurn: true,
+        rollingPhaseComplete: !isDouble,
       };
+    }
     case ACTION_TYPES.SPAWN_PIECE:
     {
       const { playerId, pieceIndex, rollIndex } = action.payload;
@@ -216,7 +220,7 @@ function gameReducer(state, action) {
       const playerKeys = Object.keys(state.players);
       const currentIndex = playerKeys.indexOf(state.currentPlayer);
       const nextPlayer = playerKeys[(currentIndex + 1) % playerKeys.length];
-      return { ...state, currentPlayer: nextPlayer, turnQueue: [], hasRolledThisTurn: false };
+      return { ...state, currentPlayer: nextPlayer, turnQueue: [], hasRolledThisTurn: false, rollingPhaseComplete: false };
     }
 
     case ACTION_TYPES.CLEAR_QUEUE:
@@ -239,7 +243,8 @@ const initGameState = (initialState) => {
       const parsedState = JSON.parse(savedState);
       // Validate that the saved state has the same number of players
       if (Object.keys(parsedState.players).length === Object.keys(initialState.players).length) {
-        return parsedState;
+        // Provide fallback for older saves to prevent crashes
+        return { rollingPhaseComplete: false, ...parsedState };
       }
     }
   } catch (error) {

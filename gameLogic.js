@@ -218,12 +218,8 @@ export function getAutoMove(playerId, state) {
     const player = state.players[playerId];
     if (!player || state.turnQueue.length === 0) return null;
 
-    const hasRollsInQueue = state.turnQueue.length > 0;
-    const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
-    const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
-    
     // Do not auto-move if they haven't finished rolling
-    if (!state.hasRolledThisTurn || isDoublesStreak) return null;
+    if (!state.hasRolledThisTurn || !state.rollingPhaseComplete) return null;
 
     // Scan entire queue to find a playable roll if the first one is blocked
     for (let rollIndex = 0; rollIndex < state.turnQueue.length; rollIndex++) {

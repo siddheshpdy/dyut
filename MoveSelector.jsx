@@ -10,22 +10,22 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
   // UI for a partial roll (only one move left)
   if (isPartialRoll) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-        <div className="bg-neutral-800 border-2 border-yellow-400 rounded-lg shadow-2xl p-6 flex flex-col gap-3 min-w-[250px] animate-hop" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-white font-bold text-center border-b border-white/20 pb-2">Move Remaining</h3>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="glass-panel border-[1.5px] border-white/20 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-6 flex flex-col gap-3 min-w-[260px] animate-hop" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-gold font-display font-bold text-xl text-center border-b border-white/10 pb-3 tracking-widest uppercase">Move Remaining</h3>
           <button
             onClick={() => onFullMove(roll.d1)}
             disabled={!validMoves.sum} // We use 'sum' to check validity for the single move
-            className="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-500 disabled:opacity-60"
+            className="w-full px-4 py-3 bg-gold/90 text-charcoal font-sans font-bold rounded-xl hover:bg-gold disabled:bg-white/5 disabled:text-white/30 disabled:border-transparent border border-transparent shadow-[0_0_10px_rgba(251,191,36,0.3)] disabled:shadow-none transition-all"
           >
             Move {roll.d1}
           </button>
           {hasMultipleRolls && (
-            <button onClick={onNextRoll} className="w-full px-4 py-2 bg-white/10 text-white font-semibold rounded-md hover:bg-white/20 transition-colors mt-1 border border-white/20">
+            <button onClick={onNextRoll} className="w-full px-4 py-2 bg-transparent text-white/60 font-sans font-medium rounded-xl hover:text-white hover:bg-white/10 transition-colors mt-1 border border-white/10">
               Use Another Roll
             </button>
           )}
-          <button onClick={onClose} className="mt-2 text-yellow-400 text-sm hover:underline">Cancel</button>
+          <button onClick={onClose} className="mt-3 text-white/40 text-sm font-sans hover:text-white transition-colors uppercase tracking-wider font-semibold">Cancel</button>
         </div>
       </div>
     );
@@ -33,27 +33,27 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
 
   // UI for a full roll
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-neutral-800 border-2 border-yellow-400 rounded-lg shadow-2xl p-6 flex flex-col gap-3 min-w-[250px] animate-hop" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-white font-bold text-center border-b border-white/20 pb-2">Select Move</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="glass-panel border-[1.5px] border-white/20 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-6 flex flex-col gap-3 min-w-[260px] animate-hop" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-gold font-display font-bold text-xl text-center border-b border-white/10 pb-3 tracking-widest uppercase">Select Move</h3>
         <button
           onClick={() => onFullMove(roll.sum)}
           disabled={!validMoves.sum}
-          className="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-500 disabled:opacity-60"
+          className="w-full px-4 py-3 bg-gold/90 text-charcoal font-sans font-bold rounded-xl hover:bg-gold disabled:bg-white/5 disabled:text-white/30 disabled:border-transparent border border-transparent shadow-[0_0_10px_rgba(251,191,36,0.3)] disabled:shadow-none transition-all"
         >
           Move {roll.sum} (Sum)
         </button>
         <button
           onClick={() => onSplitMove(high)}
           disabled={!validMoves.high}
-          className="w-full px-4 py-2 bg-sky-600 text-white font-semibold rounded-md hover:bg-sky-700 disabled:bg-gray-500 disabled:opacity-60"
+          className="w-full px-4 py-3 bg-white/10 text-white font-sans font-semibold rounded-xl hover:bg-white/20 disabled:bg-white/5 disabled:text-white/30 border border-white/10 disabled:border-transparent transition-all"
         >
           Move {high} (High)
         </button>
         <button
           onClick={() => onSplitMove(low)}
           disabled={!validMoves.low}
-          className="w-full px-4 py-2 bg-cyan-600 text-white font-semibold rounded-md hover:bg-cyan-700 disabled:bg-gray-500 disabled:opacity-60"
+          className="w-full px-4 py-3 bg-white/10 text-white font-sans font-semibold rounded-xl hover:bg-white/20 disabled:bg-white/5 disabled:text-white/30 border border-white/10 disabled:border-transparent transition-all"
         >
           Move {low} (Low)
         </button>
@@ -62,17 +62,17 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
           <button
             key={attack.targetCellId}
             onClick={() => onInitiatePairAttack(attack.targetCellId)}
-            className="w-full mt-2 px-4 py-2 bg-red-700 text-white font-bold rounded-md hover:bg-red-800 border-2 border-yellow-400 animate-pulse"
+            className="w-full mt-2 px-4 py-3 bg-ruby/90 text-white font-bold rounded-xl hover:bg-ruby shadow-[0_0_15px_rgba(220,38,38,0.5)] border border-ruby/50 animate-pulse transition-all"
           >
             Attack Pair!
           </button>
         ))}
         {hasMultipleRolls && (
-          <button onClick={onNextRoll} className="w-full px-4 py-2 bg-white/10 text-white font-semibold rounded-md hover:bg-white/20 transition-colors mt-1 border border-white/20">
+          <button onClick={onNextRoll} className="w-full px-4 py-2 bg-transparent text-white/60 font-sans font-medium rounded-xl hover:text-white hover:bg-white/10 transition-colors mt-2 border border-white/10">
             Use Another Roll
           </button>
         )}
-        <button onClick={onClose} className="mt-2 text-yellow-400 text-sm hover:underline">Cancel</button>
+        <button onClick={onClose} className="mt-3 text-white/40 text-sm font-sans hover:text-white transition-colors uppercase tracking-wider font-semibold">Cancel</button>
       </div>
     </div>
   );
