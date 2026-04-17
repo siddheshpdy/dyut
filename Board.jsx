@@ -22,23 +22,23 @@ const Square = ({ cell, occupants, children, isCapturing }) => {
       style={style}
       className={`
         relative flex items-center justify-center transition-colors
-        border border-white/30 shadow-inner
+        border border-black/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]
         ${cell.isSafe ? 'bg-dyut-safe' : 'bg-dyut-board'}
         ${isCapturing ? 'animate-capture-flash' : ''}
       `}
     >
-      {/* Draw an 'X' if it's a safe zone, skipping the center goal */}
+      {/* Geometric Glowing Safe Zone Symbol */}
       {cell.isSafe && !isCenter && (
-        <svg className="absolute w-3/4 h-3/4 text-white/40 pointer-events-none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        <svg className="absolute w-3/5 h-3/5 text-gold/60 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)] pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1.5L14.5 9.5L22.5 12L14.5 14.5L12 22.5L9.5 14.5L1.5 12L9.5 9.5L12 1.5Z" />
         </svg>
       )}
       
       {/* Center Goal UI */}
       {isCenter && (
-        <div className="text-white text-center flex flex-col items-center justify-center pointer-events-none w-full h-full">
-          <span className="font-bold text-xs sm:text-xl md:text-3xl tracking-widest drop-shadow-md">DYUT</span>
-          <span className="text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-75 hidden sm:block md:mt-1">Goal</span>
+        <div className="text-gold text-center flex flex-col items-center justify-center pointer-events-none w-full h-full">
+          <span className="font-display font-bold text-sm sm:text-2xl md:text-4xl tracking-widest text-glow-gold">DYUT</span>
+          <span className="text-[6px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-80 hidden sm:block md:mt-1 font-sans">Goal</span>
         </div>
       )}
 
@@ -107,21 +107,45 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
     }
   };
 
+  const baseColorClass = {
+    yellow: 'bg-piece-yellow',
+    black: 'bg-piece-black',
+    green: 'bg-piece-green',
+    blue: 'bg-piece-blue',
+    red: 'bg-red-400',
+    purple: 'bg-purple-400',
+    ruby: 'bg-ruby',
+    sapphire: 'bg-sapphire',
+    emerald: 'bg-emerald',
+    amber: 'bg-amber',
+  }[player.color];
+
   return (
     <div
       style={{ gridRow, gridColumn: gridCol }}
       className="flex flex-col items-center justify-center p-2 sm:p-4"
     >
-      <div className="mb-2 text-white font-bold text-xs sm:text-sm drop-shadow-md flex flex-col items-center text-center">
-        <span>{playerId}</span>
-        {player.hasKilled ? (
-          <span className="text-red-400 text-[8px] sm:text-[10px] uppercase tracking-wider">Blood Debt Paid</span>
-        ) : (
-          <span className="text-white/50 text-[8px] sm:text-[10px] uppercase tracking-wider">No Kills</span>
-        )}
+      <div className="mb-2 sm:mb-3 flex flex-col items-center">
+        <div className="flex items-center gap-2">
+          {/* Avatar/Color Indicator */}
+          <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
+          <span className="font-display tracking-widest text-gold text-xs sm:text-sm font-bold">{playerId}</span>
+        </div>
+        <div className="flex gap-2 mt-1 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'text-ruby drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
+            <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
+            <path d="M13 19l6-6"></path>
+            <path d="M16 16l4 4"></path>
+            <path d="M19 21l2-2"></path>
+            <path d="M9.5 17.5L21 6V3h-3L6.5 11.5"></path>
+            <path d="M11 19l-6-6"></path>
+            <path d="M8 16l-4 4"></path>
+            <path d="M5 21l-2-2"></path>
+          </svg>
+        </div>
       </div>
       {/* Base Container - A 2x2 grid for the locked pieces */}
-      <div className="w-full h-full max-w-[120px] max-h-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-2 bg-black/15 rounded-xl shadow-inner border border-white/10">
+      <div className="w-full h-full max-w-[120px] max-h-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-2 sm:p-3 bg-black/40 rounded-xl shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5">
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => handleSpawnClick(pieceIndex)}>
             <Piece color={player.color} isMovable={canSpawn} />
@@ -326,7 +350,7 @@ const Board = ({ onGoToMenu }) => {
   return (
     <div className="w-[98vmin] max-w-3xl aspect-square mx-auto p-1 sm:p-4">
       <div 
-        className="w-full h-full grid drop-shadow-2xl bg-amber-50/5 rounded-sm p-1"
+        className="w-full h-full grid shadow-[0_20px_50px_rgba(0,0,0,0.7)] bg-[#3a0303] border-4 sm:border-8 border-[#1a0101] rounded-xl sm:rounded-2xl p-1 sm:p-2"
         style={{ 
           gridTemplateColumns: 'repeat(19, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'

@@ -8,12 +8,12 @@ const DICE_FACES = [1, 3, 4, 6];
 
 // A single die face component, styled to look like a long die (pasa)
 const Die = ({ value, isRolling }) => (
-  <div className={`w-16 h-20 bg-amber-100 rounded-lg shadow-lg flex items-center justify-center border-2 border-amber-300 transition-transform ${isRolling ? 'animate-shake' : ''}`}>
-    <span className="text-4xl font-bold text-white">{value}</span>
+  <div className={`w-16 h-24 glass-panel rounded-xl shadow-2xl flex items-center justify-center border-t border-white/30 transition-transform ${isRolling ? 'animate-shake' : ''}`}>
+    <span className="text-5xl font-display font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">{value}</span>
   </div>
 );
 
-const DiceTray = ({ onGoToMenu }) => {
+const DiceTray = () => {
   const { state, dispatch } = useGame();
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
@@ -59,12 +59,6 @@ const DiceTray = ({ onGoToMenu }) => {
     // Listen for the 'ended' event on the audio object to sync animation and sound
     rollSound.addEventListener('ended', onSoundEnd, { once: true });
     rollSound.addEventListener('error', onSoundEnd, { once: true }); // Fallback if audio fails to load/play
-  };
-  
-  const handleResetGame = () => {
-    if (window.confirm("Are you sure you want to reset the game? All progress will be lost.")) {
-      dispatch({ type: ACTION_TYPES.RESET_GAME });
-    }
   };
 
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
@@ -117,52 +111,43 @@ const DiceTray = ({ onGoToMenu }) => {
           </div>
         </div>
       )}
-      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${mdPositionClass} lg:relative lg:left-auto lg:bottom-auto lg:right-auto lg:translate-x-0 w-full max-w-xs p-4 flex flex-col items-center gap-4 z-10 transition-all duration-500`}>
-        <div className="text-white font-bold text-xl drop-shadow-md">
-          {state.currentPlayer}'s Turn
+      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${mdPositionClass} lg:relative lg:left-auto lg:bottom-auto lg:right-auto lg:translate-x-0 w-full max-w-xs p-6 flex flex-col items-center gap-6 z-10 glass-panel rounded-3xl transition-all duration-500`}>
+        <div className="flex flex-col items-center">
+          <span className="text-white/60 text-xs font-sans uppercase tracking-[0.3em] mb-1">Active Player</span>
+          <div className="text-gold font-display font-bold text-3xl drop-shadow-md uppercase text-glow-gold">
+            {state.currentPlayer}
+          </div>
         </div>
+
         <div className="flex gap-4">
           <Die value={lastRoll.d1 || '—'} isRolling={isRolling} />
           <Die value={lastRoll.d2 || '—'} isRolling={isRolling} />
         </div>
 
-        <div className="flex gap-4">
+        <div className="w-full mt-2">
           <button
             onClick={handleRoll}
             disabled={!canRoll || isRolling}
-            className="px-6 py-2 bg-green-600 text-white font-bold text-lg rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-4 bg-gold text-charcoal font-display font-bold text-xl rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.5)] hover:bg-yellow-400 hover:scale-105 disabled:bg-gray-600 disabled:text-gray-400 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
-            {isRolling ? 'Rolling...' : 'Roll Dice'}
+            {isRolling ? 'ROLLING...' : 'ROLL DICE'}
           </button>
         </div>
         
-        <div className="mt-4 border-t border-white/10 pt-4 w-full flex justify-center gap-4">
-          <button
-            onClick={handleResetGame}
-            className="px-4 py-1 bg-red-800 text-white font-semibold text-sm rounded-md shadow-md hover:bg-red-700 transition-colors"
-          >
-            Reset Progress
-          </button>
-          <button
-            onClick={onGoToMenu}
-            className="px-4 py-1 bg-amber-600 text-white font-semibold text-sm rounded-md shadow-md hover:bg-amber-700 transition-colors"
-          >
-            New Game
-          </button>
-        </div>
-
-        <div className="text-white text-center text-sm min-h-[40px] p-2 bg-black/20 rounded-md flex items-center justify-center gap-2 flex-wrap">
-          <span>Queue:</span>
-          {state.turnQueue.length > 0 ? (
-            state.turnQueue.map((roll, i) => {
-              const rollText = roll.d2 === null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
-              return (
-                <span key={i} className={`font-bold px-2 py-1 rounded-md ${i === 0 ? 'bg-yellow-400 text-black' : 'bg-white/20'}`}>{rollText}</span>
-              );
-            })
-          ) : (
-            <span>Empty</span>
-          )}
+        <div className="w-full flex flex-col items-center bg-black/40 rounded-xl p-3 border border-white/5">
+          <span className="text-white/50 text-[10px] uppercase tracking-widest mb-2">Queue</span>
+          <div className="flex items-center justify-center gap-2 flex-wrap min-h-[32px]">
+            {state.turnQueue.length > 0 ? (
+              state.turnQueue.map((roll, i) => {
+                const rollText = roll.d2 === null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
+                return (
+                  <span key={i} className={`font-bold px-3 py-1 rounded-lg text-sm ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
+                );
+              })
+            ) : (
+              <span className="text-white/30 text-xs italic">Empty</span>
+            )}
+          </div>
         </div>
       </div>
     </>
