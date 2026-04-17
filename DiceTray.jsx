@@ -22,7 +22,7 @@ const DiceTray = ({ onGoToMenu }) => {
   const handleRoll = () => {
     if (isRolling) return;
     
-    const rollSound = playSound('/sounds/dice-roll.mp3'); // Assuming sound is in public/sounds/
+    const rollSound = playSound('./sounds/dice-roll.mp3');
     setIsRolling(true);
 
     const animationInterval = setInterval(() => {
@@ -58,6 +58,7 @@ const DiceTray = ({ onGoToMenu }) => {
 
     // Listen for the 'ended' event on the audio object to sync animation and sound
     rollSound.addEventListener('ended', onSoundEnd, { once: true });
+    rollSound.addEventListener('error', onSoundEnd, { once: true }); // Fallback if audio fails to load/play
   };
   
   const handleResetGame = () => {
