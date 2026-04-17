@@ -9,7 +9,7 @@ const DICE_FACES = [1, 3, 4, 6];
 // A single die face component, styled to look like a long die (pasa)
 const Die = ({ value, isRolling }) => (
   <div className={`w-16 h-20 bg-amber-100 rounded-lg shadow-lg flex items-center justify-center border-2 border-amber-300 transition-transform ${isRolling ? 'animate-shake' : ''}`}>
-    <span className="text-4xl font-bold text-neutral-800">{value}</span>
+    <span className="text-4xl font-bold text-white">{value}</span>
   </div>
 );
 

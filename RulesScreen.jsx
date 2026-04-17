@@ -4,12 +4,12 @@ import React from 'react';
 // In a real app, you might fetch and parse the markdown file.
 const RulesScreen = ({ onBack }) => {
   return (
-    <div className="bg-neutral-800 p-6 rounded-xl shadow-2xl text-white max-w-2xl h-[80vh] overflow-y-auto">
-      <h1 className="text-3xl font-bold mb-4 text-center">Game Rules</h1>
+    <div className="glass-panel p-8 rounded-2xl text-white w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+      <h1 className="font-display text-glow-gold text-gold text-4xl font-bold mb-6 text-center">Game Rules</h1>
       
-      <div className="space-y-4 text-left text-sm">
+      <div className="space-y-6 text-left text-sm font-sans text-white/90">
         <section>
-          <h2 className="text-xl font-semibold text-yellow-400 mb-2">Dicing & Turn Logic</h2>
+          <h2 className="text-xl font-semibold text-gold mb-2 border-b border-white/10 pb-1">Dicing & Turn Logic</h2>
           <ul className="list-disc list-inside space-y-1">
             <li>Dice have faces: 1, 3, 4, 6.</li>
             <li><strong>Doubles Streak:</strong> Roll doubles (e.g., 4+4) to get another roll. All rolls are queued for your turn.</li>
@@ -18,7 +18,7 @@ const RulesScreen = ({ onBack }) => {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold text-yellow-400 mb-2">Combat & Safety</h2>
+          <h2 className="text-xl font-semibold text-gold mb-2 border-b border-white/10 pb-1">Combat & Safety</h2>
           <ul className="list-disc list-inside space-y-1">
             <li>Landing on a square with a single opponent piece captures it, sending it back to base.</li>
             <li>Squares marked with 'X' are Safe Zones. Pieces here cannot be captured by normal moves.</li>
@@ -29,7 +29,7 @@ const RulesScreen = ({ onBack }) => {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-yellow-400 mb-2">Winning the Game</h2>
+          <h2 className="text-xl font-semibold text-gold mb-2 border-b border-white/10 pb-1">Winning the Game</h2>
           <ul className="list-disc list-inside space-y-1">
             <li><strong>Blood Debt:</strong> You must capture at least one opponent piece to unlock your "Home Stretch" (the final column leading to the center).</li>
             <li>Pieces in their Home Stretch are immune to capture.</li>
@@ -40,8 +40,8 @@ const RulesScreen = ({ onBack }) => {
       </div>
 
       <div className="text-center mt-6">
-        <button onClick={onBack} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors">
-          Back to Menu
+        <button onClick={onBack} className="px-8 py-3 bg-white/10 border border-white/20 text-white font-bold rounded-xl hover:bg-white/20 transition-colors">
+          Return
         </button>
       </div>
     </div>

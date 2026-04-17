@@ -69,6 +69,10 @@ const Piece = ({ color, isMovable, isHomeStretch }) => {
     blue: 'bg-piece-blue',
     red: 'bg-red-400',
     purple: 'bg-purple-400',
+    ruby: 'bg-ruby',
+    sapphire: 'bg-sapphire',
+    emerald: 'bg-emerald',
+    amber: 'bg-amber',
   }[color];
 
   let ringClass = '';
@@ -79,7 +83,7 @@ const Piece = ({ color, isMovable, isHomeStretch }) => {
   }
 
   return (
-    <div className={`w-[80%] aspect-square rounded-full shadow-[0_4px_6px_rgba(0,0,0,0.6)] border-2 sm:border-[3px] border-piece-outline ${bgClass} ${ringClass} animate-hop`} />
+    <div className={`w-[80%] aspect-square rounded-full border border-white/40 jewel-shadow ${bgClass} ${ringClass} animate-hop`} />
   );
 };
 
