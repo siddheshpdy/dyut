@@ -106,12 +106,12 @@ const DiceTray = () => {
   return (
     <>
       {showVoidGif && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 p-6 rounded-xl shadow-2xl text-center border-2 border-red-700">
-            <img src={blehMochiGif} alt="Void Roll" className="mx-auto rounded-lg" />
-            <p className="text-white font-bold text-2xl mt-4">Void Roll!</p>
-            <p className="text-white/80 mt-2 text-sm max-w-[250px] mx-auto">
-              Rolling exactly a 1 and 3 triggers the <strong className="text-red-400">Void Rule</strong>. All your queued moves are wiped, and your turn ends immediately!
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass-panel p-8 rounded-3xl shadow-[0_0_50px_rgba(220,38,38,0.3)] border border-ruby/30 text-center max-w-sm w-[90%]">
+            <img src={blehMochiGif} alt="Void Roll" className="mx-auto rounded-2xl shadow-lg border border-white/10" />
+            <p className="font-display text-gold text-3xl font-bold tracking-widest mt-6 drop-shadow-md">VOID ROLL</p>
+            <p className="font-sans text-white/70 mt-3 text-sm leading-relaxed">
+              Rolling a 1 and 3 triggers the <strong className="text-ruby drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]">Void Rule</strong>. All queued moves are wiped, and your turn ends immediately!
             </p>
             <button 
               onClick={() => {
@@ -119,9 +119,9 @@ const DiceTray = () => {
                 dispatch({ type: ACTION_TYPES.END_TURN });
                 setLastRoll({ d1: null, d2: null });
               }} 
-              className="mt-6 px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
+              className="mt-8 w-full py-3 bg-ruby/90 text-white font-sans font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.4)] hover:bg-ruby hover:scale-[1.03] transition-all"
             >
-              Accept Fate
+              ACCEPT FATE
             </button>
           </div>
         </div>
@@ -144,7 +144,7 @@ const DiceTray = () => {
           <button
             onClick={handleRoll}
             disabled={!canRoll || isRolling}
-            className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-gray-600 disabled:text-gray-400 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
+            className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             {isRolling ? 'ROLLING...' : 'ROLL DICE'}
           </button>

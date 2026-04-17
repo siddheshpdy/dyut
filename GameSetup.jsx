@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
 const ALL_COLORS = [
-  { name: 'yellow', hex: '#fde047', tw: 'bg-piece-yellow' },
-  { name: 'black', hex: '#171717', tw: 'bg-piece-black' },
+  { name: 'yellow', hex: '#facc15', tw: 'bg-piece-yellow' },
+  { name: 'black', hex: '#9ca3af', tw: 'bg-piece-black' },
   { name: 'green', hex: '#4ade80', tw: 'bg-piece-green' },
-  { name: 'blue', hex: '#60a5fa', tw: 'bg-piece-blue' },
-  { name: 'red', hex: '#f87171', tw: 'bg-red-400' },
-  { name: 'purple', hex: '#c084fc', tw: 'bg-purple-400' },
+  { name: 'blue', hex: '#38bdf8', tw: 'bg-piece-blue' },
+  { name: 'ruby', hex: '#f43f5e', tw: 'bg-ruby' },
+  { name: 'purple', hex: '#c084fc', tw: 'bg-purple-400' }, // Purple is unused but kept for consistency
 ];
 
 const ColorPicker = ({ selectedColor, availableColors, onSelect }) => (

@@ -93,8 +93,34 @@
 1. ~~overshoot not to be allowed when finishing, for finish value should be exact value of 1 of the dice.~~ (Completed)
 2. ~~till all tolls are not complete user should not be able to move any piece. its currently happening and it can break game. eg what happening is if user rolls special roll he can directly enter piece even tho roll dice button is active. and if user moves piece then queue gets empty and next players chance begins.~~ (Completed)
 
+---
 
+# Future Roadmap & Enhancements
 
+## Phase 13: Single Player vs. Computer (Rule-Based Bot)
+**Status: Pending**
+**Objective:** Allow users to play against computer opponents without any server costs.
+* Implement a local, heuristic algorithm (no paid machine learning APIs). The bot will use your existing `gameLogic.js` to evaluate the board, prioritize kills/safe zones, and automatically dispatch moves with realistic human-like delays.
+
+## Phase 14: Internationalization (i18n)
+**Status: Pending**
+**Objective:** Support multiple languages (English, Marathi, Hindi).
+* Integrate `react-i18next`. Extract all hardcoded UI strings, rules, and notifications into language-specific JSON dictionaries.
+
+## Phase 15: Android App Packaging
+**Status: Pending**
+**Objective:** Convert the web app into a native Android application.
+* Integrate Capacitor to wrap the Vite/React build into an Android Studio project, optimizing for native mobile performance and fullscreen immersive modes.
+
+## Phase 16: Offline Local Multiplayer (Bluetooth / Wi-Fi Direct)
+**Status: Pending**
+**Objective:** Enable peer-to-peer gameplay without internet, maintaining zero server costs.
+* Utilize native Bluetooth or Wi-Fi Direct APIs (via Capacitor plugins once packaged as an Android app) to sync game state locally between devices in the same room.
+
+## Phase 17: Online Multiplayer (Requires Backend)
+**Status: Pending**
+**Objective:** Enable internet-based multiplayer with room codes.
+* Implement a backend (Firebase or Socket.io) to sync `GameContext` state across multiple clients in real-time. *(Note: This is prioritized last as it requires managing and potentially paying for cloud infrastructure).*
 
 ## Suggested State Architecture Example
 ```javascript

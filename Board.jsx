@@ -55,7 +55,7 @@ const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
 
       {/* Capture Animation */}
       {isCapturing && (
-        <div className="absolute inset-0 w-full h-full rounded-full border-4 border-ruby animate-shockwave pointer-events-none"></div>
+        <div className="absolute inset-0 w-[90%] h-[90%] m-auto rounded-full border-4 border-white/90 shadow-[0_0_20px_rgba(220,38,38,0.8)] animate-shockwave pointer-events-none"></div>
       )}
 
       {/* Render Occupying Pieces */}
@@ -93,7 +93,7 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 
   let ringClass = '';
   if (isMovable) {
-    ringClass = 'animate-pulse ring-4 ring-yellow-300 ring-offset-2 ring-offset-black/50';
+    ringClass = 'animate-pulse ring-[3px] ring-white/90 ring-offset-2 ring-offset-black/50';
   } else if (isHomeStretch) {
     ringClass = 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-black/50';
   }
@@ -103,7 +103,9 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 
   return (
     <div style={transitionName ? { viewTransitionName: transitionName } : {}} 
-         className={`w-[80%] aspect-square rounded-full border border-white/40 jewel-shadow ${bgClass} ${ringClass}`} />
+         className={`flex items-center justify-center w-[80%] aspect-square rounded-full border-[1.5px] border-white/60 shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)] ${bgClass} ${ringClass}`}>
+      <div className="w-[35%] h-[35%] bg-white/80 rounded-full shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)] pointer-events-none"></div>
+    </div>
   );
 };
 
@@ -112,6 +114,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
   const { state, dispatch } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
+  const isActive = state.currentPlayer === playerId;
 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
@@ -164,7 +167,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
           <div className={`w-2 h-2 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
-          <span className="font-display tracking-wider sm:tracking-widest text-gold text-[7px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none">{playerId}</span>
+          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-gold'}`}>{playerId}</span>
         </div>
         <div className="flex gap-1 sm:gap-2 mt-0.5 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'text-ruby drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
@@ -180,7 +183,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
         </div>
       </div>
       {/* Base Container - A 2x2 grid for the locked pieces */}
-      <div className="w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 bg-black/40 rounded-xl shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5">
+      <div className={`w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 rounded-xl transition-all duration-500 ${isActive ? 'bg-black/60 shadow-[0_0_20px_rgba(251,191,36,0.3),inset_0_4px_12px_rgba(0,0,0,0.6)] border border-gold/70 scale-105' : 'bg-black/40 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5'}`}>
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => handleSpawnClick(pieceIndex)}>
             <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
@@ -421,7 +424,7 @@ const Board = ({ onGoToMenu }) => {
   return (
     <div className="w-full max-w-[98vw] lg:max-w-none lg:w-auto lg:h-[80vh] aspect-square mx-auto sm:p-2">
       <div 
-        className="w-full h-full grid shadow-[0_20px_50px_rgba(0,0,0,0.7)] bg-[#5A3300] border-[3px] sm:border-8 border-[#1a0101] rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
+        className="w-full h-full grid shadow-[0_20px_50px_rgba(0,0,0,0.7)] bg-[#373737] border-[3px] sm:border-8 border-[#1a0101] rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
         style={{ 
           gridTemplateColumns: 'repeat(19, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'
