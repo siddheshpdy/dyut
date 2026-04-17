@@ -1,6 +1,6 @@
 import React from 'react';
 
-const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onInitiatePairAttack, possiblePairAttacks }) => {
+const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onInitiatePairAttack, possiblePairAttacks, onNextRoll, hasMultipleRolls }) => {
   if (!roll) return null;
 
   const isPartialRoll = roll.d2 === null;
@@ -20,6 +20,11 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
           >
             Move {roll.d1}
           </button>
+          {hasMultipleRolls && (
+            <button onClick={onNextRoll} className="w-full px-4 py-2 bg-white/10 text-white font-semibold rounded-md hover:bg-white/20 transition-colors mt-1 border border-white/20">
+              Use Another Roll
+            </button>
+          )}
           <button onClick={onClose} className="mt-2 text-yellow-400 text-sm hover:underline">Cancel</button>
         </div>
       </div>
@@ -62,6 +67,11 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
             Attack Pair!
           </button>
         ))}
+        {hasMultipleRolls && (
+          <button onClick={onNextRoll} className="w-full px-4 py-2 bg-white/10 text-white font-semibold rounded-md hover:bg-white/20 transition-colors mt-1 border border-white/20">
+            Use Another Roll
+          </button>
+        )}
         <button onClick={onClose} className="mt-2 text-yellow-400 text-sm hover:underline">Cancel</button>
       </div>
     </div>

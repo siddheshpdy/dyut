@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { useGame, ACTION_TYPES } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove } from './gameLogic';
 import { playSound } from './audio';
@@ -43,8 +44,6 @@ const DiceTray = () => {
       if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
         setShowVoidGif(true);
         dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
-        dispatch({ type: ACTION_TYPES.END_TURN });
-        setLastRoll({ d1: null, d2: null });
       } else {
         // Dispatch the roll to the global state to be added to the queue
         dispatch({
@@ -73,13 +72,21 @@ const DiceTray = () => {
   const canRoll = !state.hasRolledThisTurn || isDoublesStreak;
 
   useEffect(() => {
-    // Don't auto-end if the player can still roll (e.g., on a doubles streak).
-    if (canRoll || isRolling) return;
+    // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
+    if (canRoll || isRolling || showVoidGif) return;
 
     // Automatically dispatch a move if the player only has exactly 1 valid option
     if (autoMoveAction) {
       const timer = setTimeout(() => {
-        dispatch(autoMoveAction);
+        if (document.startViewTransition) {
+          document.startViewTransition(() => {
+            flushSync(() => {
+              dispatch(autoMoveAction);
+            });
+          });
+        } else {
+          dispatch(autoMoveAction);
+        }
       }, 600); // 600ms delay to let the user visually track the move
       return () => clearTimeout(timer);
     }
@@ -95,7 +102,7 @@ const DiceTray = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, dispatch, autoMoveAction]);
+  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, showVoidGif, dispatch, autoMoveAction]);
 
 
   return (
@@ -105,12 +112,18 @@ const DiceTray = () => {
           <div className="bg-neutral-800 p-6 rounded-xl shadow-2xl text-center border-2 border-red-700">
             <img src={blehMochiGif} alt="Void Roll" className="mx-auto rounded-lg" />
             <p className="text-white font-bold text-2xl mt-4">Void Roll!</p>
-            <p className="text-white/80">Your turn is forfeit.</p>
+            <p className="text-white/80 mt-2 text-sm max-w-[250px] mx-auto">
+              Rolling exactly a 1 and 3 triggers the <strong className="text-red-400">Void Rule</strong>. All your queued moves are wiped, and your turn ends immediately!
+            </p>
             <button 
-              onClick={() => setShowVoidGif(false)} 
+              onClick={() => {
+                setShowVoidGif(false);
+                dispatch({ type: ACTION_TYPES.END_TURN });
+                setLastRoll({ d1: null, d2: null });
+              }} 
               className="mt-6 px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
             >
-              Bleh.
+              Accept Fate
             </button>
           </div>
         </div>

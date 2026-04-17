@@ -38,7 +38,7 @@
 3. **Path Calculation & Using Rolls:** Create a helper function that takes a piece's current index and a die value to calculate the target index. Update the piece's position and remove the used move from the `turnQueue`.
 
 ## Phase 5: Combat, Safe Zones, and Blockades
-**Status: In Progress**
+**Status: Completed**
 **Objective:** Implement the collision mechanics when pieces land on the same square.
 1. **Occupancy Limit & Safe Zones ('X'):** A square can hold a max of 2 pieces. Indices 6, 8, 12, and the 1st-column-cross on any arm are safe zones. First player to land on an 'X' blocks it.
 2. **The Pair Shield:** If a square has 2 pieces of the SAME color, they form a Pair. A Pair can ONLY be killed if the attacker uses a "Special Roll" (doubles) and splits movement to land exactly 2 attacking pieces on that square simultaneously.

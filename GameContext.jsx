@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useContext, useEffect } from 'react';
-import { PLAYER_PATHS } from './boardMapping';
+import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
@@ -39,7 +39,7 @@ export const ACTION_TYPES = {
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
 
-function applyCombat(playerId, pieceIndex, playersState) {
+function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
   const newPlayers = { ...playersState };
   const targetPos = newPlayers[playerId].pieces[pieceIndex];
   if (targetPos === -1) return newPlayers;
@@ -50,22 +50,38 @@ function applyCombat(playerId, pieceIndex, playersState) {
     return newPlayers;
   }
 
+  let isTargetSafe = false;
+  const parts = targetCellId.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
+  if (parts) {
+    const [, , col, row] = parts.map(Number);
+    if (isSafeZone(col, row)) {
+      isTargetSafe = true;
+    }
+  }
+
   let killed = false;
 
   for (const [otherPlayerId, player] of Object.entries(newPlayers)) {
     if (otherPlayerId === playerId) continue;
 
-    const opponentPiecesOnSquare = player.pieces.filter(p => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId).length;
+    const opponentPieceIndices = player.pieces.map((p, i) => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId ? i : -1).filter(i => i !== -1);
+    const opponentPiecesOnSquare = opponentPieceIndices.length;
     
-    // Only kill if it's a single piece (not a Pair Shield)
-    if (opponentPiecesOnSquare === 1) {
+    if (opponentPiecesOnSquare > 0) {
+      // Safe Zone check: Only a piece spawning on 8 or 12 can kill here
+      if (isTargetSafe && (!isSpawning || (targetPos !== 8 && targetPos !== 12))) {
+        continue;
+      }
+
+      // Pair Shield check: Only a spawning piece can break a pair in normal combat flow
+      if (opponentPiecesOnSquare === 2 && !isSpawning) {
+        continue;
+      }
+
       const newPieces = [...player.pieces];
-      const indexToKill = newPieces.findIndex(p => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId);
-      if (indexToKill !== -1) {
-        newPieces[indexToKill] = -1; // Send back to locked
+      opponentPieceIndices.forEach(idx => newPieces[idx] = -1);
         newPlayers[otherPlayerId] = { ...player, pieces: newPieces };
         killed = true;
-      }
     }
   }
 
@@ -100,7 +116,7 @@ function gameReducer(state, action) {
       newPieces[pieceIndex] = spawnPosition;
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: newPieces };
 
-      newPlayers = applyCombat(playerId, pieceIndex, newPlayers);
+      newPlayers = applyCombat(playerId, pieceIndex, newPlayers, true); // isSpawning = true
 
       const newQueue = [...state.turnQueue];
       newQueue.splice(rollIndex, 1); // Remove the used roll
