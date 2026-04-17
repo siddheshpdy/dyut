@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useGame, ACTION_TYPES } from './GameContext';
-import { hasAnyPlayableMove } from './gameLogic';
+import { hasAnyPlayableMove, getAutoMove } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
 
@@ -62,6 +62,7 @@ const DiceTray = () => {
   };
 
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
+  const autoMoveAction = useMemo(() => getAutoMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue, state.hasRolledThisTurn]);
 
   // --- New, Reload-Safe Turn Logic ---
   const hasRollsInQueue = state.turnQueue.length > 0;
@@ -75,6 +76,14 @@ const DiceTray = () => {
     // Don't auto-end if the player can still roll (e.g., on a doubles streak).
     if (canRoll || isRolling) return;
 
+    // Automatically dispatch a move if the player only has exactly 1 valid option
+    if (autoMoveAction) {
+      const timer = setTimeout(() => {
+        dispatch(autoMoveAction);
+      }, 600); // 600ms delay to let the user visually track the move
+      return () => clearTimeout(timer);
+    }
+
     const isStuck = hasRollsInQueue && !hasPlayableMoves;
     const isDone = state.hasRolledThisTurn && !hasRollsInQueue;
 
@@ -86,7 +95,7 @@ const DiceTray = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, dispatch]);
+  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, dispatch, autoMoveAction]);
 
 
   return (
