@@ -56,36 +56,45 @@
 4. **Victory Screen:** When a player's 4 pieces reach `FINISHED`, halt the game and display the winning UI.
 
 ## Phase 7: Redesign Foundation & Theming
-**Status: Pending**
+**Status: Completed**
 **Objective:** Establish the new aesthetic base, updating colors, textures, and core visual utilities.
 1. **Tailwind Configuration:** Update the color palette with rich charcoal backgrounds, crimson velvet board paths, polished gold, and jewel tones (Ruby, Sapphire, Emerald, Amber).
 2. **Typography & Effects:** Implement modern typography and add global CSS utilities for glassmorphism (backdrop blurs, subtle borders) and glowing effects.
 
 ## Phase 8: Unified Pre-Game Lobby
-**Status: Pending**
+**Status: Completed**
 **Objective:** Consolidate the fragmented setup screens into a single elegant flow.
 1. **Unified Overlay:** Create a single translucent glassmorphic panel that sits over a deeply blurred game board.
 2. **Streamlined Setup:** Combine the player count selector (horizontal list) with the color picker (showing 3D jewel tokens) and the Void Roll toggle into one seamless interaction.
 3. **Action Consolidation:** Place the "Start New Game" and "Resume Last Session" buttons prominently at the bottom of this unified panel.
 
 ## Phase 9: Board & Piece Aesthetic Upgrade
-**Status: Pending**
+**Status: Completed**
 **Objective:** Elevate the board and game pieces to high-fidelity 3D/textured assets.
 1. **The Board:** Apply crimson velvet textures and polished gold text to the board. Redesign the Safe Zone ('X') markers into glowing golden-orange geometric symbols.
 2. **The Pieces:** Upgrade the `Piece` component from flat circles to rich, 3D jewel-like tokens with soft directional shadows to mimic physical depth.
 
 ## Phase 10: In-Game UI & Player Console Consolidation
-**Status: Pending**
+**Status: Completed**
 **Objective:** Replace utilitarian menus with a sleek, thematic control interface.
 1. **Player Control Console:** Remove the detached side menus. Create a minimalist console adjacent to the board featuring glassmorphic dice and a large, pulsing, glowing "ROLL" button.
 2. **Thematic Indicators:** Replace text-based kill counts and player names with elegant avatars and icon-based stats (e.g., crossed swords for kills).
 3. **Top-Right Action Menu:** Move secondary actions (Rules, Reset, New Game) into a subtle, stylized "Scroll and Gear" icon menu in the top right corner to maximize board visibility.
 
 ## Phase 11: Mobile & Tablet Responsive Layouts
-**Status: Pending**
+**Status: Completed**
 **Objective:** Tailor the consolidated UI specifically for smaller screens.
 1. **Mobile Layout (Vertical):** Implement a "Contextual Bottom Dashboard" that stacks the active player's info directly next to the dice and roll button within the thumb zone.
 2. **Tablet Layout (Landscape):** Utilize the extra width by placing all 4 player dashboards vertically on the left, keeping the main Player Control Console on the right.
+
+## Phase 12: Game play issue fix
+**Status: Completed**
+**Objective:** fixing particular issues.
+1. ~~overshoot not to be allowed when finishing, for finish value should be exact value of 1 of the dice.~~ (Completed)
+2. ~~till all tolls are not complete user should not be able to move any piece. its currently happening and it can break game. eg what happening is if user rolls special roll he can directly enter piece even tho roll dice button is active. and if user moves piece then queue gets empty and next players chance begins.~~ (Completed)
+
+
+
 
 ## Suggested State Architecture Example
 ```javascript

@@ -8,7 +8,7 @@ import { PLAYER_PATHS, isSafeZone as isCellVisuallySafe } from './boardMapping';
  * @param {object} allPlayersState - The entire `state.players` object.
  * @returns {Array} - An array of occupant objects { playerId, pieceIndex }.
  */
-function getOccupantsOfPathIndex(targetPathIndex, checkingPlayerId, allPlayersState) {
+export function getOccupantsOfPathIndex(targetPathIndex, checkingPlayerId, allPlayersState) {
     const occupants = [];
     if (targetPathIndex < 0) return occupants;
 
@@ -54,10 +54,16 @@ export function getPairShieldTarget(targetPathIndex, movingPlayerId, allPlayersS
  */
 function isSquareBlocked(targetPathIndex, movingPlayerId, state) {
     const path = PLAYER_PATHS[movingPlayerId];
+    
+    // 1. Exact Finish Rule: Block any move that overshoots the final square
+    if (targetPathIndex >= path.length) {
+        return true;
+    }
+
     const targetCellId = path[targetPathIndex];
 
-    // 1. Check for Blood Debt (Cannot enter HOME or FINISHED without a kill)
-    if (targetPathIndex >= path.length || (targetCellId && (targetCellId.includes('_HOME') || targetCellId.includes('CENTER_FINISHED')))) {
+    // 2. Check for Blood Debt (Cannot enter HOME or FINISHED without a kill)
+    if (targetCellId && (targetCellId.includes('_HOME') || targetCellId.includes('CENTER_FINISHED'))) {
         if (!state.players[movingPlayerId].hasKilled) {
             return true; // Blocked due to Blood Debt
         }
@@ -161,4 +167,103 @@ export function hasAnyPlayableMove(playerId, state) {
     }
 
     return false; // No moves found for any piece with any roll
+}
+
+/**
+ * Checks if landing on a specific square will result in a capture.
+ */
+export function willMoveKill(targetPathIndex, movingPlayerId, state) {
+    const path = PLAYER_PATHS[movingPlayerId];
+    if (targetPathIndex >= path.length) return false;
+    
+    const targetCellId = path[targetPathIndex];
+    if (!targetCellId || targetCellId.startsWith('CENTER') || targetCellId.includes('_HOME')) {
+        return false;
+    }
+
+    const occupants = getOccupantsOfPathIndex(targetPathIndex, movingPlayerId, state.players);
+    return occupants.length === 1 && occupants[0].playerId !== movingPlayerId;
+}
+
+/**
+ * Determines if an automatic move should be made.
+ * Triggers only if exactly one piece has any valid moves. Prioritizes splitting a roll to capture.
+ */
+export function getAutoMove(playerId, state) {
+    const player = state.players[playerId];
+    if (!player || state.turnQueue.length === 0) return null;
+
+    const hasRollsInQueue = state.turnQueue.length > 0;
+    const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
+    const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
+    
+    // Do not auto-move if they haven't finished rolling
+    if (!state.hasRolledThisTurn || isDoublesStreak) return null;
+
+    const activeRoll = state.turnQueue[0];
+    const isDouble = activeRoll.d1 === activeRoll.d2 && activeRoll.d2 !== null;
+    
+    let movablePieces = [];
+    let lockedPieceAdded = false;
+
+    player.pieces.forEach((pos, pieceIndex) => {
+        if (pos === -1) {
+            if (isDouble && !lockedPieceAdded) {
+                movablePieces.push({ pieceIndex, type: 'SPAWN' });
+                lockedPieceAdded = true; // Group identical locked pieces as 1 choice
+            }
+        } else if (pos !== 999) {
+            const validMoves = getValidMoves(pos, activeRoll, playerId, state);
+            if (validMoves.sum || validMoves.high || validMoves.low) {
+                movablePieces.push({ pieceIndex, type: 'MOVE', pos, validMoves });
+            }
+        }
+    });
+
+    if (movablePieces.length === 1) {
+        const move = movablePieces[0];
+        if (move.type === 'SPAWN') {
+            return { type: 'SPAWN_PIECE', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0 } };
+        } else {
+            const { pos, validMoves } = move;
+            
+            if (activeRoll.d2 === null) { // Partial roll
+                if (validMoves.sum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distance: activeRoll.d1 } };
+                return null;
+            }
+
+            const high = Math.max(activeRoll.d1, activeRoll.d2);
+            const low = Math.min(activeRoll.d1, activeRoll.d2);
+            
+            // Strategic Priority: Check kills before resorting to the required Sum move
+            const killsWithLow = validMoves.low && willMoveKill(pos + low, playerId, state);
+            const killsWithHigh = validMoves.high && willMoveKill(pos + high, playerId, state);
+            const killsWithSum = validMoves.sum && willMoveKill(pos + activeRoll.sum, playerId, state);
+
+            // Strategic Priority 1: Captures take absolute precedence
+            if (killsWithSum) {
+                return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distance: activeRoll.sum } };
+            }
+            if (killsWithHigh) {
+                return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distanceUsed: high } };
+            }
+            if (killsWithLow) {
+                return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distanceUsed: low } };
+            }
+            
+            // Strict Priority Resolution (No Captures Available):
+            // Priority 1: Move full sum if possible
+            if (validMoves.sum) { 
+                return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distance: activeRoll.sum } };
+            }
+            // Priority 2: Max possible split value
+            if (validMoves.high) {
+                return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distanceUsed: high } };
+            }
+            if (validMoves.low) {
+                return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex: 0, distanceUsed: low } };
+            }
+        }
+    }
+    return null;
 }

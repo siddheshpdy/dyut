@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,4 +31,25 @@
 }
 .animate-capture-flash {
   animation: capture-flash 0.8s ease-in-out;
+}
+
+@layer components {
+  /* Glassmorphism utility for panels */
+  .glass-panel {
+    @apply bg-neutral-900/60 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)];
+  }
+  
+  /* Text glow for goal and safe zones */
+  .text-glow-gold {
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.6), 0 0 20px rgba(251, 191, 36, 0.4);
+  }
+  
+  .bg-glow-gold {
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.3), inset 0 0 10px rgba(251, 191, 36, 0.2);
+  }
+
+  /* 3D Depth effect for jewel pieces */
+  .jewel-shadow {
+    box-shadow: inset -3px -6px 8px rgba(0,0,0,0.5), inset 3px 6px 8px rgba(255,255,255,0.4), 0 6px 12px rgba(0,0,0,0.8);
+  }
 }
