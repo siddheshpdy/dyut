@@ -1,10 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { generateBoardCells, PLAYER_PATHS } from './boardMapping';
+import { generateBoardCells, PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { useGame, ACTION_TYPES } from './GameContext';
 import MoveSelector from './MoveSelector';
 import VictoryScreen from './VictoryScreen';
-import { getValidMoves, getPairShieldTarget } from './gameLogic';
+import { getValidMoves, getPairShieldTarget, canSpawnPiece } from './gameLogic';
 import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
@@ -117,7 +117,8 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
-  const canSpawn = state.currentPlayer === playerId && state.turnQueue.some(r => r.d1 === r.d2) && !pairAttackState && !isDoublesStreak;
+  const doubleRoll = state.turnQueue.find(r => r.d1 === r.d2);
+  const canSpawn = state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isDoublesStreak && canSpawnPiece(playerId, doubleRoll.sum, state);
 
   const dispatchWithTransition = (action) => {
     if (!document.startViewTransition) {
@@ -306,6 +307,13 @@ const Board = ({ onGoToMenu }) => {
     setSelectedPiece({ playerId, pieceIndex, rollIndex: 0 }); // Select the piece and target the first roll
   };
 
+  const handleNextRoll = () => {
+    setSelectedPiece(prev => {
+      if (!prev) return null;
+      return { ...prev, rollIndex: (prev.rollIndex + 1) % state.turnQueue.length };
+    });
+  };
+
   const handleInitiatePairAttack = (targetCellId) => {
     if (!selectedPiece) return;
     setPairAttackState({
@@ -353,13 +361,23 @@ const Board = ({ onGoToMenu }) => {
     const targetPos = pieceCurrentPos + moveDistance;
 
     if (getPairShieldTarget(targetPos, playerId, state.players)) {
-      // Now check if there's another piece that can make the same move
-      const hasPartner = state.players[playerId].pieces.some((pos, i) => {
-        return i !== pieceIndex && pos !== -1 && (pos + moveDistance === targetPos);
-      });
-      if (hasPartner) {
-        const targetCellId = PLAYER_PATHS[playerId][targetPos];
-        return [{ targetCellId, roll: activeRoll }];
+      const targetCellId = PLAYER_PATHS[playerId][targetPos];
+      const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
+      let isTargetSafe = false;
+      if (parts) {
+        const [, , col, row] = parts.map(Number);
+        isTargetSafe = isSafeZone(col, row);
+      }
+      
+      // A Pair Shield safely resting on an 'X' zone cannot be targeted by a split-pair attack
+      if (!isTargetSafe) {
+        // Now check if there's another piece that can make the same move
+        const hasPartner = state.players[playerId].pieces.some((pos, i) => {
+          return i !== pieceIndex && pos !== -1 && (pos + moveDistance === targetPos);
+        });
+        if (hasPartner) {
+          return [{ targetCellId, roll: activeRoll }];
+        }
       }
     }
     return [];
@@ -433,6 +451,8 @@ const Board = ({ onGoToMenu }) => {
                 onSplitMove={handleSplitMove}
                 onInitiatePairAttack={handleInitiatePairAttack}
                 onClose={() => setSelectedPiece(null)}
+                onNextRoll={handleNextRoll}
+                hasMultipleRolls={state.turnQueue.length > 1}
               />
             )}
           </Square>
