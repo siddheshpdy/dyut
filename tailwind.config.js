@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        'dyut-board': '#d10000', // Deep crimson velvet
+        'dyut-board': '#b37c35', // Deep crimson velvet
         'dyut-safe': '#b45309',  // Deeper golden-orange for better contrast
         'charcoal': '#121212',
         'gold': '#fbbf24',

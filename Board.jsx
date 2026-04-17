@@ -8,7 +8,7 @@ import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
 // The individual Square component
-const Square = ({ cell, occupants, children, isCapturing }) => {
+const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
   const isCenter = cell.id === 'CENTER';
   
   // Apply the calculated grid row and column to perfectly position the square
@@ -36,9 +36,21 @@ const Square = ({ cell, occupants, children, isCapturing }) => {
       
       {/* Center Goal UI */}
       {isCenter && (
-        <div className="text-gold text-center flex flex-col items-center justify-center pointer-events-none w-full h-full">
-          <span className="font-display font-bold text-sm sm:text-2xl md:text-4xl tracking-widest text-glow-gold">DYUT</span>
-          <span className="text-[6px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-80 hidden sm:block md:mt-1 font-sans">Goal</span>
+        <div className="text-gold text-center flex items-center justify-center pointer-events-none w-full h-full p-0.5 sm:p-2">
+          {finishedPieces && finishedPieces.length > 0 ? (
+            <div className="grid grid-cols-2 place-items-center gap-0.5 sm:gap-1 md:gap-2">
+              {finishedPieces.map((fp) => (
+                <div key={fp.playerId} className="flex flex-col items-center">
+                  <div className="flex items-center justify-center w-3.5 h-3.5 sm:w-6 sm:h-6 md:w-8 md:h-8">
+                    <Piece color={fp.color} />
+                  </div>
+                  <span className="text-[5px] sm:text-[8px] md:text-[10px] text-white font-bold leading-none mt-px sm:mt-0.5">{fp.count}/4</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[6px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-80 font-sans">Goal</span>
+          )}
         </div>
       )}
 
@@ -90,14 +102,18 @@ const Piece = ({ color, isMovable, isHomeStretch }) => {
 // The Player's Yard/Base for locked pieces
 const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => {
   const { state, dispatch } = useGame();
+  
+  const hasRollsInQueue = state.turnQueue.length > 0;
+  const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
+  const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
+
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
-  const canSpawn = state.currentPlayer === playerId && state.turnQueue.some(r => r.d1 === r.d2) && !pairAttackState;
-  const finishedCount = player.pieces.filter(p => p === 999).length;
+  const canSpawn = state.currentPlayer === playerId && state.turnQueue.some(r => r.d1 === r.d2) && !pairAttackState && !isDoublesStreak;
 
   const handleSpawnClick = (pieceIndex) => {
     // Only current player can spawn, and only if they have a double in the queue
-    if (state.currentPlayer !== playerId) return;
+    if (state.currentPlayer !== playerId || isDoublesStreak) return;
     const doubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2);
     if (doubleIndex !== -1) {
       dispatch({
@@ -123,16 +139,16 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
   return (
     <div
       style={{ gridRow, gridColumn: gridCol }}
-      className="flex flex-col items-center justify-center p-2 sm:p-4"
+      className="flex flex-col items-center justify-center p-0 sm:p-2 lg:p-4 relative"
     >
-      <div className="mb-2 sm:mb-3 flex flex-col items-center">
-        <div className="flex items-center gap-2">
+      <div className="mb-1 sm:mb-2 flex flex-col items-center">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
-          <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
-          <span className="font-display tracking-widest text-gold text-xs sm:text-sm font-bold">{playerId}</span>
+          <div className={`w-2 h-2 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
+          <span className="font-display tracking-wider sm:tracking-widest text-gold text-[7px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none">{playerId}</span>
         </div>
-        <div className="flex gap-2 mt-1 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'text-ruby drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
+        <div className="flex gap-1 sm:gap-2 mt-0.5 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'text-ruby drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
             <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
             <path d="M13 19l6-6"></path>
             <path d="M16 16l4 4"></path>
@@ -145,18 +161,13 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
         </div>
       </div>
       {/* Base Container - A 2x2 grid for the locked pieces */}
-      <div className="w-full h-full max-w-[120px] max-h-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-2 sm:p-3 bg-black/40 rounded-xl shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5">
+      <div className="w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 bg-black/40 rounded-xl shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5">
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => handleSpawnClick(pieceIndex)}>
             <Piece color={player.color} isMovable={canSpawn} />
           </div>
         ))}
       </div>
-      {finishedCount > 0 && (
-        <div className="mt-1 text-xs text-yellow-300 font-semibold">
-          {finishedCount} / 4 Finished
-        </div>
-      )}
     </div>
   );
 };
@@ -170,6 +181,10 @@ const Board = ({ onGoToMenu }) => {
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
+  
+  const hasRollsInQueue = state.turnQueue.length > 0;
+  const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
+  const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
 
   // Map the 4 players to the 4 empty corners of the 19x19 grid
   const allBases = [
@@ -184,6 +199,17 @@ const Board = ({ onGoToMenu }) => {
   const winnerInfo = useMemo(() => {
     const winnerEntry = Object.entries(state.players).find(([id, player]) => player.pieces.every(p => p === 999));
     return winnerEntry ? { id: winnerEntry[0], data: winnerEntry[1] } : null;
+  }, [state.players]);
+
+  const finishedPieces = useMemo(() => {
+    const counts = [];
+    Object.entries(state.players).forEach(([playerId, player]) => {
+      const count = player.pieces.filter(p => p === 999).length;
+      if (count > 0) {
+        counts.push({ playerId, count, color: player.color });
+      }
+    });
+    return counts;
   }, [state.players]);
 
   useEffect(() => {
@@ -242,7 +268,7 @@ const Board = ({ onGoToMenu }) => {
     }
 
     // Can only select pieces if it's your turn and you have rolls in the queue
-    if (state.currentPlayer !== playerId || state.turnQueue.length === 0) {
+    if (state.currentPlayer !== playerId || state.turnQueue.length === 0 || isDoublesStreak) {
       setSelectedPiece(null);
       return;
     }
@@ -319,7 +345,7 @@ const Board = ({ onGoToMenu }) => {
         const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
 
         if (pos !== -1 && pos < 999 && visualId === cellId) {
-          let isMovable = isCurrentPlayer && hasRolls && !pairAttackState;
+          let isMovable = isCurrentPlayer && hasRolls && !pairAttackState && !isDoublesStreak;
           // If in a pair attack, only highlight valid partners
           if (pairAttackState && isCurrentPlayer && pieceIndex !== pairAttackState.firstPieceIndex) {
             const moveDistance = pairAttackState.roll.d1;
@@ -348,9 +374,9 @@ const Board = ({ onGoToMenu }) => {
   };
 
   return (
-    <div className="w-[98vmin] max-w-3xl aspect-square mx-auto p-1 sm:p-4">
+    <div className="w-full max-w-[98vw] lg:max-w-none lg:w-auto lg:h-[80vh] aspect-square mx-auto sm:p-2">
       <div 
-        className="w-full h-full grid shadow-[0_20px_50px_rgba(0,0,0,0.7)] bg-[#3a0303] border-4 sm:border-8 border-[#1a0101] rounded-xl sm:rounded-2xl p-1 sm:p-2"
+        className="w-full h-full grid shadow-[0_20px_50px_rgba(0,0,0,0.7)] bg-[#5A3300] border-[3px] sm:border-8 border-[#1a0101] rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
         style={{ 
           gridTemplateColumns: 'repeat(19, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'
@@ -365,7 +391,7 @@ const Board = ({ onGoToMenu }) => {
         )}
 
         {cells.map(cell => (
-          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id}>
+          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces}>
             {/* Render the MoveSelector inside the square of the selected piece */}
             {selectedPiece && activeRoll && PLAYER_PATHS[selectedPiece.playerId][state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex]]?.replace('_HOME', '') === cell.id && (
               <MoveSelector

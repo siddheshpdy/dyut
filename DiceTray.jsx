@@ -8,8 +8,8 @@ const DICE_FACES = [1, 3, 4, 6];
 
 // A single die face component, styled to look like a long die (pasa)
 const Die = ({ value, isRolling }) => (
-  <div className={`w-16 h-24 glass-panel rounded-xl shadow-2xl flex items-center justify-center border-t border-white/30 transition-transform ${isRolling ? 'animate-shake' : ''}`}>
-    <span className="text-5xl font-display font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">{value}</span>
+  <div className={`w-12 h-16 sm:w-16 sm:h-24 glass-panel rounded-lg sm:rounded-xl shadow-2xl flex items-center justify-center border-t border-white/30 transition-transform ${isRolling ? 'animate-shake' : ''}`}>
+    <span className="text-3xl sm:text-5xl font-display font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">{value}</span>
   </div>
 );
 
@@ -88,11 +88,6 @@ const DiceTray = () => {
     }
   }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, dispatch]);
 
-  // Dynamically position the tray on tablet (md) screens to avoid the active player's base.
-  // Player 1 (SW) & Player 4 (NW) are on the left. Player 2 (SE) & Player 3 (NE) are on the right.
-  const mdPositionClass = (state.currentPlayer === 'Player2' || state.currentPlayer === 'Player3')
-    ? 'md:left-4 md:right-auto md:translate-x-0' // Move tray to the bottom-left
-    : 'md:right-4 md:left-auto md:translate-x-0'; // Move tray to the bottom-right
 
   return (
     <>
@@ -111,42 +106,43 @@ const DiceTray = () => {
           </div>
         </div>
       )}
-      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${mdPositionClass} lg:relative lg:left-auto lg:bottom-auto lg:right-auto lg:translate-x-0 w-full max-w-xs p-6 flex flex-col items-center gap-6 z-10 glass-panel rounded-3xl transition-all duration-500`}>
-        <div className="flex flex-col items-center">
-          <span className="text-white/60 text-xs font-sans uppercase tracking-[0.3em] mb-1">Active Player</span>
-          <div className="text-gold font-display font-bold text-3xl drop-shadow-md uppercase text-glow-gold">
-            {state.currentPlayer}
+      <div className="w-full max-w-[98vw] sm:max-w-sm lg:max-w-xs p-2 sm:p-6 flex flex-col items-center gap-3 sm:gap-6 z-10 glass-panel rounded-2xl sm:rounded-3xl transition-all duration-500">
+        <div className="flex flex-row lg:flex-col items-center justify-between lg:justify-center w-full gap-4">
+          <div className="flex flex-col items-start lg:items-center">
+            <span className="text-white/60 text-[10px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1">Active</span>
+            <div className="text-gold font-display font-bold text-2xl sm:text-3xl drop-shadow-md uppercase text-glow-gold leading-none">
+              {state.currentPlayer}
+            </div>
+          </div>
+          <div className="flex gap-2 sm:gap-4">
+            <Die value={lastRoll.d1 || '—'} isRolling={isRolling} />
+            <Die value={lastRoll.d2 || '—'} isRolling={isRolling} />
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <Die value={lastRoll.d1 || '—'} isRolling={isRolling} />
-          <Die value={lastRoll.d2 || '—'} isRolling={isRolling} />
-        </div>
-
-        <div className="w-full mt-2">
+        <div className="w-full flex flex-row lg:flex-col gap-3 sm:gap-4 items-stretch lg:items-center">
           <button
             onClick={handleRoll}
             disabled={!canRoll || isRolling}
-            className="w-full py-4 bg-gold text-charcoal font-display font-bold text-xl rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.5)] hover:bg-yellow-400 hover:scale-105 disabled:bg-gray-600 disabled:text-gray-400 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
+            className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-gray-600 disabled:text-gray-400 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             {isRolling ? 'ROLLING...' : 'ROLL DICE'}
           </button>
-        </div>
         
-        <div className="w-full flex flex-col items-center bg-black/40 rounded-xl p-3 border border-white/5">
-          <span className="text-white/50 text-[10px] uppercase tracking-widest mb-2">Queue</span>
-          <div className="flex items-center justify-center gap-2 flex-wrap min-h-[32px]">
+          <div className="flex-1 lg:w-full flex flex-col items-center justify-center bg-black/40 rounded-xl p-2 sm:p-3 border border-white/5 min-h-[48px] sm:min-h-[64px]">
+            <span className="text-white/50 text-[8px] sm:text-[10px] uppercase tracking-widest mb-1 sm:mb-2 hidden sm:block lg:block">Queue</span>
+            <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {
                 const rollText = roll.d2 === null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
                 return (
-                  <span key={i} className={`font-bold px-3 py-1 rounded-lg text-sm ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
+                  <span key={i} className={`font-bold px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
                 );
               })
             ) : (
-              <span className="text-white/30 text-xs italic">Empty</span>
+              <span className="text-white/30 text-[10px] sm:text-xs italic">Empty</span>
             )}
+            </div>
           </div>
         </div>
       </div>

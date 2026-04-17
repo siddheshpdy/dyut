@@ -54,10 +54,16 @@ export function getPairShieldTarget(targetPathIndex, movingPlayerId, allPlayersS
  */
 function isSquareBlocked(targetPathIndex, movingPlayerId, state) {
     const path = PLAYER_PATHS[movingPlayerId];
+    
+    // 1. Exact Finish Rule: Block any move that overshoots the final square
+    if (targetPathIndex >= path.length) {
+        return true;
+    }
+
     const targetCellId = path[targetPathIndex];
 
-    // 1. Check for Blood Debt (Cannot enter HOME or FINISHED without a kill)
-    if (targetPathIndex >= path.length || (targetCellId && (targetCellId.includes('_HOME') || targetCellId.includes('CENTER_FINISHED')))) {
+    // 2. Check for Blood Debt (Cannot enter HOME or FINISHED without a kill)
+    if (targetCellId && (targetCellId.includes('_HOME') || targetCellId.includes('CENTER_FINISHED'))) {
         if (!state.players[movingPlayerId].hasKilled) {
             return true; // Blocked due to Blood Debt
         }

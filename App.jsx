@@ -63,6 +63,10 @@ function App() {
       case 'game':
         return (
           <GameProvider gameConfig={gameConfig}>
+            {/* Game Header */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-widest text-glow-gold text-gold">DYUT</h1>
+            </div>
             {/* Minimalist Top-Right Action Menu */}
             <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-3 z-50">
               <button onClick={() => setView('rules')} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors" title="Rules">
@@ -77,7 +81,7 @@ function App() {
                 </svg>
               </button>
             </div>
-            <div className="flex flex-col lg:flex-row items-center justify-center gap-8 w-full z-10 relative">
+            <div className="flex flex-col lg:flex-row items-center justify-center gap-6 sm:gap-8 w-full z-10 relative pt-16 lg:pt-0 pb-8 lg:pb-0">
               <Board onGoToMenu={handleWipeAndGoToMenu} />
               <DiceTray />
             </div>
@@ -90,7 +94,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-charcoal flex items-center justify-center gap-8 overflow-hidden p-4 relative">
+    <div className="min-h-screen w-full bg-charcoal flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">

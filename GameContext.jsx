@@ -119,12 +119,8 @@ function gameReducer(state, action) {
       const newQueue = [...state.turnQueue];
       newQueue.splice(rollIndex, 1); // Remove the entire roll
       
-      if (newPosition >= finalIndex) { // It's a winning move
+      if (newPosition === finalIndex) { // It's an exact winning move
         newPieces[pieceIndex] = FINISHED_STATE;
-        const remainder = newPosition - finalIndex;
-        if (remainder > 0) {
-          newQueue.push({ d1: remainder, d2: null, sum: remainder });
-        }
       } else {
         newPieces[pieceIndex] = newPosition;
         newPlayers = applyCombat(playerId, pieceIndex, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
@@ -149,13 +145,9 @@ function gameReducer(state, action) {
       // Replace the old roll with the new partial one
       const newQueue = [...state.turnQueue];
 
-      if (newPosition >= finalIndex) { // It's a winning move
+      if (newPosition === finalIndex) { // It's an exact winning move
         newPieces[pieceIndex] = FINISHED_STATE;
-        const overshootRemainder = newPosition - finalIndex;
         newQueue[rollIndex] = { d1: distanceRemaining, d2: null, sum: distanceRemaining };
-        if (overshootRemainder > 0) {
-          newQueue.push({ d1: overshootRemainder, d2: null, sum: overshootRemainder });
-        }
       } else {
         newPieces[pieceIndex] = newPosition;
         newPlayers = applyCombat(playerId, pieceIndex, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });

@@ -82,10 +82,19 @@
 3. **Top-Right Action Menu:** Move secondary actions (Rules, Reset, New Game) into a subtle, stylized "Scroll and Gear" icon menu in the top right corner to maximize board visibility.
 
 ## Phase 11: Mobile & Tablet Responsive Layouts
-**Status: Pending**
+**Status: Completed**
 **Objective:** Tailor the consolidated UI specifically for smaller screens.
 1. **Mobile Layout (Vertical):** Implement a "Contextual Bottom Dashboard" that stacks the active player's info directly next to the dice and roll button within the thumb zone.
 2. **Tablet Layout (Landscape):** Utilize the extra width by placing all 4 player dashboards vertically on the left, keeping the main Player Control Console on the right.
+
+## Phase 12: Game play issue fix
+**Status: Completed**
+**Objective:** fixing particular issues.
+1. ~~overshoot not to be allowed when finishing, for finish value should be exact value of 1 of the dice.~~ (Completed)
+2. ~~till all tolls are not complete user should not be able to move any piece. its currently happening and it can break game. eg what happening is if user rolls special roll he can directly enter piece even tho roll dice button is active. and if user moves piece then queue gets empty and next players chance begins.~~ (Completed)
+
+
+
 
 ## Suggested State Architecture Example
 ```javascript
