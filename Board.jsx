@@ -111,14 +111,12 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => {
   const { state, dispatch } = useGame();
   
-  const hasRollsInQueue = state.turnQueue.length > 0;
-  const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
-  const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
+  const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
   const doubleRoll = state.turnQueue.find(r => r.d1 === r.d2);
-  const canSpawn = state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isDoublesStreak && canSpawnPiece(playerId, doubleRoll.sum, state);
+  const canSpawn = state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isRollingPhaseActive && canSpawnPiece(playerId, doubleRoll.sum, state);
 
   const dispatchWithTransition = (action) => {
     if (!document.startViewTransition) {
@@ -134,7 +132,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
 
   const handleSpawnClick = (pieceIndex) => {
     // Only current player can spawn, and only if they have a double in the queue
-    if (state.currentPlayer !== playerId || isDoublesStreak) return;
+    if (state.currentPlayer !== playerId || isRollingPhaseActive) return;
     const doubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2);
     if (doubleIndex !== -1) {
       dispatchWithTransition({
@@ -203,9 +201,7 @@ const Board = ({ onGoToMenu }) => {
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
   
-  const hasRollsInQueue = state.turnQueue.length > 0;
-  const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
-  const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
+  const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
 
   // Map the 4 players to the 4 empty corners of the 19x19 grid
   const allBases = [
@@ -300,7 +296,7 @@ const Board = ({ onGoToMenu }) => {
     }
 
     // Can only select pieces if it's your turn and you have rolls in the queue
-    if (state.currentPlayer !== playerId || state.turnQueue.length === 0 || isDoublesStreak) {
+    if (state.currentPlayer !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
       setSelectedPiece(null);
       return;
     }
@@ -394,7 +390,7 @@ const Board = ({ onGoToMenu }) => {
         const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
 
         if (pos !== -1 && pos < 999 && visualId === cellId) {
-          let isMovable = isCurrentPlayer && hasRolls && !pairAttackState && !isDoublesStreak;
+          let isMovable = isCurrentPlayer && hasRolls && !pairAttackState && !isRollingPhaseActive;
           // If in a pair attack, only highlight valid partners
           if (pairAttackState && isCurrentPlayer && pieceIndex !== pairAttackState.firstPieceIndex) {
             const moveDistance = pairAttackState.roll.d1;

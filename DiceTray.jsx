@@ -61,15 +61,13 @@ const DiceTray = () => {
   };
 
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
-  const autoMoveAction = useMemo(() => getAutoMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue, state.hasRolledThisTurn]);
+  const autoMoveAction = useMemo(() => getAutoMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue, state.hasRolledThisTurn, state.rollingPhaseComplete]);
 
   // --- New, Reload-Safe Turn Logic ---
   const hasRollsInQueue = state.turnQueue.length > 0;
-  const lastQueuedRoll = hasRollsInQueue ? state.turnQueue[state.turnQueue.length - 1] : null;
-  const isDoublesStreak = lastQueuedRoll ? lastQueuedRoll.d1 === lastQueuedRoll.d2 && lastQueuedRoll.d2 !== null : false;
   
-  // A player can roll if they haven't rolled this turn OR they are on a doubles streak.
-  const canRoll = !state.hasRolledThisTurn || isDoublesStreak;
+  // A player can roll if they haven't rolled this turn OR they are still in their rolling phase (doubles streak).
+  const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
 
   useEffect(() => {
     // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
