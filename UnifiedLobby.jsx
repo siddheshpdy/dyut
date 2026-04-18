@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -13,6 +15,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
   const [botCount, setBotCount] = useState(1);
   const [botDifficulty, setBotDifficulty] = useState('hard');
   const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(true);
+
+  const { t } = useTranslation();
 
   const handleColorChange = (playerIndex, colorName) => {
     const newColors = [...playerColors];
@@ -37,6 +41,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
 
   return (
     <div className="glass-panel p-8 rounded-3xl w-full max-w-lg flex flex-col items-center relative z-10">
+      <LanguageSwitcher />
+      
       <button onClick={onShowRules} className="absolute top-6 right-6 text-white/60 hover:text-gold transition-colors" title="Rules">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -48,7 +54,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
       <div className="w-full space-y-8">
         {/* Player Count */}
         <div>
-          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">Number of Players</h2>
+          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('numberOfPlayers')}</h2>
           <div className="flex justify-center gap-4">
             {[2, 3, 4].map(num => (
               <button
@@ -67,7 +73,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
 
         {/* Bot Count */}
         <div>
-          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">AI Bots</h2>
+          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('aiBots')}</h2>
           <div className="flex justify-center gap-4">
             {Array.from({ length: playerCount }).map((_, i) => (
               <button
@@ -84,13 +90,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
         {/* Bot Difficulty (Only show if bots are enabled) */}
         {botCount > 0 && (
           <div className="animate-fade-in">
-            <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">Bot Difficulty</h2>
+            <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('botDifficulty')}</h2>
             <div className="flex justify-center gap-4">
               <button onClick={() => setBotDifficulty('easy')} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
-                EASY
+                {t('easy')}
               </button>
               <button onClick={() => setBotDifficulty('hard')} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
-                HARD
+                {t('hard')}
               </button>
             </div>
           </div>
@@ -98,13 +104,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
 
         {/* Colors */}
         <div>
-          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">Player Colors</h2>
+          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('playerColors')}</h2>
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: playerCount }).map((_, i) => {
               const availableForPlayer = ALL_COLORS.filter(c => !playerColors.slice(0, playerCount).includes(c.name) || playerColors[i] === c.name);
               return (
                 <div key={i} className="flex flex-col items-center bg-black/40 p-3 rounded-xl border border-white/5">
-                  <span className="text-white/90 font-sans text-sm font-semibold mb-3">Player {i + 1}</span>
+                  <span className="text-white/90 font-sans text-sm font-semibold mb-3">{t('player')} {i + 1}</span>
                   <div className="flex gap-2">
                     {availableForPlayer.map(color => (
                       <button
@@ -124,13 +130,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
         {/* Rules Toggle */}
         <div className="flex items-center justify-center gap-3">
           <input type="checkbox" id="void-rule" checked={isVoidRuleEnabled} onChange={(e) => setIsVoidRuleEnabled(e.target.checked)} className="w-5 h-5 accent-gold cursor-pointer" />
-          <label htmlFor="void-rule" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">Enable Void Roll (1+3)</label>
+          <label htmlFor="void-rule" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('enableVoidRule')}</label>
         </div>
       </div>
 
       <div className="mt-10 w-full flex flex-col gap-3">
-        <button onClick={handleStartClick} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">START NEW GAME</button>
-        {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">RESUME LAST SESSION</button>}
+        <button onClick={handleStartClick} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('startNewGame')}</button>
+        {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeSession')}</button>}
       </div>
     </div>
   );

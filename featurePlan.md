@@ -67,7 +67,7 @@
 
 ---
 
-## Phase 13: Rule-Based AI Bot (Single-Player Mode) (Pending)
+## Phase 13: Rule-Based AI Bot (Single-Player Mode) (Completed)
 * Objective: Build a heuristic algorithm that uses the existing logic to play against humans without server costs.
 * Evaluation Function: Create a utility to score board states, prioritizing kills, safe zones, and the "Home Stretch".
 * Evaluation Modifiers: Apply medium priority for forming pair shields and negative priority for leaving safe zones.
