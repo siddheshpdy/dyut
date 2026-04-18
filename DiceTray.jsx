@@ -69,6 +69,8 @@ const DiceTray = () => {
   // A player can roll if they haven't rolled this turn OR they are still in their rolling phase (doubles streak).
   const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
 
+  const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !showVoidGif;
+
   useEffect(() => {
     // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
     if (canRoll || isRolling || showVoidGif) return;
@@ -126,7 +128,15 @@ const DiceTray = () => {
           </div>
         </div>
       )}
-      <div className="w-full max-w-[98vw] sm:max-w-sm lg:max-w-xs p-2 sm:p-6 flex flex-col items-center gap-3 sm:gap-6 z-10 glass-panel rounded-2xl sm:rounded-3xl transition-all duration-500">
+      <div className="relative w-full max-w-[98vw] sm:max-w-sm lg:max-w-xs p-2 sm:p-6 flex flex-col items-center gap-3 sm:gap-6 z-10 glass-panel rounded-2xl sm:rounded-3xl transition-all duration-500">
+        {isStuckUI && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl sm:rounded-3xl">
+            <div className="bg-ruby text-white px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(244,63,94,0.6)] flex flex-col items-center border border-white/20 animate-pulse">
+              <span className="font-display text-lg sm:text-xl font-bold uppercase tracking-widest text-center">No Valid Moves</span>
+              <span className="font-sans text-xs sm:text-sm font-semibold opacity-80 mt-1 uppercase tracking-wider">Skipping turn...</span>
+            </div>
+          </div>
+        )}
         <div className="flex flex-row lg:flex-col items-center justify-between lg:justify-center w-full gap-4">
           <div className="flex flex-col items-start lg:items-center">
             <span className="text-white/60 text-[10px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1">Active</span>
