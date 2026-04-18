@@ -226,7 +226,7 @@ function gameReducer(state, action) {
     }
 
     case ACTION_TYPES.CLEAR_QUEUE:
-      return { ...state, turnQueue: [] };
+      return { ...state, turnQueue: [], hasRolledThisTurn: true, rollingPhaseComplete: true };
 
     default:
       return state;

@@ -24,6 +24,21 @@ const DiceTray = () => {
   // Activate AI hook (it safely idles if the current player is not in state.bots)
   useAIBot(state.bots || [], state.botDifficulty || 'hard');
 
+  const isBotPlaying = state.bots?.includes(state.currentPlayer);
+
+  // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
+  useEffect(() => {
+    if (showVoidGif) {
+      const delay = isBotPlaying ? 1500 : 3000;
+      const timer = setTimeout(() => {
+        setShowVoidGif(false);
+        dispatch({ type: ACTION_TYPES.END_TURN });
+        setLastRoll({ d1: null, d2: null });
+      }, delay);
+      return () => clearTimeout(timer);
+    }
+  }, [showVoidGif, isBotPlaying, dispatch]);
+
   const handleRoll = () => {
     if (isRolling) return;
     
@@ -119,16 +134,22 @@ const DiceTray = () => {
             <p className="font-sans text-white/70 mt-3 text-sm leading-relaxed">
               Rolling a 1 and 3 triggers the <strong className="text-ruby drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]">Void Rule</strong>. All queued moves are wiped, and your turn ends immediately!
             </p>
-            <button 
-              onClick={() => {
-                setShowVoidGif(false);
-                dispatch({ type: ACTION_TYPES.END_TURN });
-                setLastRoll({ d1: null, d2: null });
-              }} 
-              className="mt-8 w-full py-3 bg-ruby/90 text-white font-sans font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.4)] hover:bg-ruby hover:scale-[1.03] transition-all"
-            >
-              ACCEPT FATE
-            </button>
+            {isBotPlaying ? (
+              <div className="mt-8 w-full py-3 bg-ruby/30 text-white/80 font-sans font-bold text-lg rounded-xl border border-ruby/50 animate-pulse">
+                AUTO-SKIPPING...
+              </div>
+            ) : (
+              <button 
+                onClick={() => {
+                  setShowVoidGif(false);
+                  dispatch({ type: ACTION_TYPES.END_TURN });
+                  setLastRoll({ d1: null, d2: null });
+                }} 
+                className="mt-8 w-full py-3 bg-ruby/90 text-white font-sans font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.4)] hover:bg-ruby hover:scale-[1.03] transition-all"
+              >
+                ACCEPT FATE
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -158,7 +179,7 @@ const DiceTray = () => {
           <button
             onClick={handleRoll}
             id="dice-roll-btn"
-            disabled={!canRoll || isRolling}
+            disabled={!canRoll || isRolling || showVoidGif}
             className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             {isRolling ? 'ROLLING...' : 'ROLL DICE'}
