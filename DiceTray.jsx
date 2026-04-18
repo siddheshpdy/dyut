@@ -4,6 +4,7 @@ import { useGame, ACTION_TYPES } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
+import { useAIBot } from './useAIBot';
 
 const DICE_FACES = [1, 3, 4, 6];
 
@@ -19,6 +20,9 @@ const DiceTray = () => {
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
   const [showVoidGif, setShowVoidGif] = useState(false);
+
+  // Activate AI hook (it safely idles if the current player is not in state.bots)
+  useAIBot(state.bots || [], state.botDifficulty || 'hard');
 
   const handleRoll = () => {
     if (isRolling) return;
@@ -153,6 +157,7 @@ const DiceTray = () => {
         <div className="w-full flex flex-row lg:flex-col gap-3 sm:gap-4 items-stretch lg:items-center">
           <button
             onClick={handleRoll}
+            id="dice-roll-btn"
             disabled={!canRoll || isRolling}
             className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >

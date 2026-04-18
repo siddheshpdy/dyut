@@ -10,6 +10,8 @@ const ALL_COLORS = [
 const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame }) => {
   const [playerCount, setPlayerCount] = useState(2);
   const [playerColors, setPlayerColors] = useState(['ruby', 'sapphire', 'emerald', 'amber']);
+  const [botCount, setBotCount] = useState(1);
+  const [botDifficulty, setBotDifficulty] = useState('hard');
   const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(true);
 
   const handleColorChange = (playerIndex, colorName) => {
@@ -25,7 +27,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
       alert("Each player must have a unique color.");
       return;
     }
-    onStartGame({ playerCount, playerColors: selected, isVoidRuleEnabled });
+
+    // Generate bot assignments starting from the last player index backwards
+    const bots = [];
+    for (let i = playerCount - botCount; i < playerCount; i++) bots.push(`Player${i + 1}`);
+
+    onStartGame({ playerCount, playerColors: selected, isVoidRuleEnabled, bots, botDifficulty });
   };
 
   return (
@@ -46,7 +53,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
             {[2, 3, 4].map(num => (
               <button
                 key={num}
-                onClick={() => setPlayerCount(num)}
+                onClick={() => {
+                  setPlayerCount(num);
+                  if (botCount >= num) setBotCount(num - 1); // Cap bots to avoid 0 humans
+                }}
                 className={`w-14 h-14 rounded-xl font-display text-2xl font-bold transition-all duration-300 ${playerCount === num ? 'bg-glow-gold bg-gold text-charcoal scale-110' : 'bg-white/10 text-white hover:bg-white/20'}`}
               >
                 {num}
@@ -54,6 +64,37 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
             ))}
           </div>
         </div>
+
+        {/* Bot Count */}
+        <div>
+          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">AI Bots</h2>
+          <div className="flex justify-center gap-4">
+            {Array.from({ length: playerCount }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setBotCount(i)}
+                className={`w-12 h-12 rounded-xl font-display text-xl font-bold transition-all duration-300 ${botCount === i ? 'bg-sapphire text-charcoal scale-110 shadow-[0_0_15px_rgba(56,189,248,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}
+              >
+                {i}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Bot Difficulty (Only show if bots are enabled) */}
+        {botCount > 0 && (
+          <div className="animate-fade-in">
+            <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">Bot Difficulty</h2>
+            <div className="flex justify-center gap-4">
+              <button onClick={() => setBotDifficulty('easy')} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                EASY
+              </button>
+              <button onClick={() => setBotDifficulty('hard')} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                HARD
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Colors */}
         <div>

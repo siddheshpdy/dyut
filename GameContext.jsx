@@ -3,7 +3,7 @@ import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard' } = gameConfig;
 
   const players = {};
   for (let i = 0; i < playerCount; i++) {
@@ -20,6 +20,8 @@ const createInitialState = (gameConfig) => {
     turnHistory: [],
     players,
     boardOccupancy: {},
+    bots,
+    botDifficulty,
     isVoidRuleEnabled,
     hasRolledThisTurn: false,
     rollingPhaseComplete: false,
