@@ -1,126 +1,112 @@
-# Dyut Game Feature Implementation Plan
+# Dyut Board Game: Detailed Feature Implementation Plan
 
-## Phase 1: Project Scaffolding and Architecture
-**Status: Completed**
-**Objective:** Set up the foundational technologies and define the global state structure.
-1. **Initialize Application:** Scaffold a new React application using Vite and configure Tailwind CSS for styling.
-2. **State Management Setup:** Given the complexity of the game rules (queues, streaks, multiple piece states), initialize a global state using React's `useReducer` (or Redux Toolkit).
-3. **Define Core State Types:**
-   * **Game State:** Current turn, `turnQueue` (array of roll objects e.g., `[{d1: 4, d2: 4, sum: 8}]`), turn history.
-   * **Player State:** Object tracking 4 players. Each needs: `pieces` (array of 4 positions, starting at -1), `color`, and a global `hasKilled` (boolean for the whole team).
-   * **Piece State:** ID, status (`LOCKED`, `ON_BOARD`, `HOME_STRETCH`, `FINISHED`), current position (path index or -1).
+## Phase 1: Project Scaffolding and Architecture (Completed)
+* Initialize Application: Scaffold a new React application using Vite and configure Tailwind CSS for styling.
+* State Management Setup: Initialize a global state using React's useReducer (or Redux Toolkit) to handle the complexity of the game rules.
+* Define Core State Types: Set up state objects for the Game (current turn, turn queue), Players (pieces, color, kill flag), and Pieces (status and position).
 
-## Phase 2: Board Generation and Rendering
-**Status: Completed**
-**Objective:** Visually construct the 4-arm cross using CSS Grid and Tailwind, mapping out the coordinate system.
-1. **Data Structure for the Board:** Create a coordinate map or a linear path array (0 to N) that represents the universal track. Map the specific visual grid (3x8 arms) to these logical path indices.
-2. **Render the Grid:** Implement a `Board` component containing four `Arm` components and a `Center` component. Use CSS Grid to position them into a cross.
-3. **Highlight Special Zones:** Implement visual markers (like an 'X') for safe zones (indices 6, 8, 12) and the center goal (`char-koni`).
-4. **Render Pieces:** Create a `Piece` component that reads its position from the global state and overlays onto the corresponding board cell.
+## Phase 2: Board Generation and Rendering (Completed)
+* Data Structure for the Board: Create a linear path array or coordinate map mapping the logical path indices to a 3x8 visual arm grid.
+* Render the Grid: Use CSS Grid to position four Arm components and a Center component into a cross.
+* Highlight Special Zones & Render Pieces: Implement visual markers for safe zones and the center goal, and map Piece components to the corresponding board cells based on global state.
 
-## Phase 3: The Dice Engine
-**Status: Completed**
-**Objective:** Build the custom dice roller and turn-queueing system.
-1. **Custom Roll Logic:** Implement a function that randomly generates numbers from the specific set `[1, 3, 4, 6]`.
-2. **Streak and Queue Management:**
-   * Create a state array for `turnQueue` containing the roll details (e.g., `[{d1: 4, d2: 6, sum: 10}]`).
-   * **Doubles Streak:** If `die1 === die2`, queue the roll and the player MUST roll again until `die1 !== die2`. All queued moves are played in one turn.
-3. **The Void Rule:** Add logic that clears the `turnQueue` entirely and ends the turn immediately if EXACTLY a `1` and `3` (or `3` and `1`) combination is rolled.
+## Phase 3: The Dice Engine (Completed)
+* Custom Roll Logic: Implement logic to randomly generate numbers restricted to 1, 3, 4, and 6.
+* Streak and Queue Management: Create a turn queue array and require players to roll again if they roll doubles.
+* The Void Rule: Add logic that wipes the queue and ends the turn instantly if exactly a 1 and a 3 combination is rolled.
 
-## Phase 4: Movement and Pathing Logic
-**Status: Completed**
-**Objective:** Move pieces along the board using the queued dice rolls.
-1. **Deployment (Spawning):** Implement the logic allowing a piece to transition from locked (-1) to on-board. They require a double to spawn, landing directly on path indices mapping to 2, 6, 8, or 12.
-2. **Movement Priority Engine (CRITICAL):** When calculating `getValidMoves()`, you must enforce the "Max Value Rule" where a player cannot choose a smaller move if a larger valid move exists:
-   * **Priority 1:** Move the `Sum` of the dice.
-   * **Priority 2:** If the Sum is blocked, move the `Higher Die`.
-   * **Priority 3:** If the Higher Die is blocked, move the `Lower Die`.
-3. **Path Calculation & Using Rolls:** Create a helper function that takes a piece's current index and a die value to calculate the target index. Update the piece's position and remove the used move from the `turnQueue`.
+## Phase 4: Movement and Pathing Logic (Completed)
+* Deployment: Allow a piece to spawn from the locked state to indices 2, 6, 8, or 12 using a double roll.
+* Movement Priority Engine: Enforce the "Max Value Rule" where players prioritize moving the sum, then the higher die, and finally the lower die.
+* Path Calculation: Use helper functions to calculate target indices, update positions, and remove used moves from the queue.
 
-## Phase 5: Combat, Safe Zones, and Blockades
-**Status: Completed**
-**Objective:** Implement the collision mechanics when pieces land on the same square.
-1. **Occupancy Limit & Safe Zones ('X'):** A square can hold a max of 2 pieces. Indices 6, 8, 12, and the 1st-column-cross on any arm are safe zones. First player to land on an 'X' blocks it.
-2. **The Pair Shield:** If a square has 2 pieces of the SAME color, they form a Pair. A Pair can ONLY be killed if the attacker uses a "Special Roll" (doubles) and splits movement to land exactly 2 attacking pieces on that square simultaneously.
-3. **Standard Kill:** If a piece lands on an occupied standard square (not a pair), send the opponent's piece back to locked (-1) status and toggle the attacking player's `hasKilled` flag to `true`.
-4. **The Assassin (Breach Rule):** Traveling pieces CANNOT kill an opponent on an 'X' safe zone. Exception: A newly spawning piece CAN kill an opponent on an 'X' zone (spots 8 or 12) if they spawn using a double 4s (8) or double 6s (12).
+## Phase 5: Combat, Safe Zones, and Blockades (Completed)
+* Occupancy Limit & Safe Zones: Limit squares to 2 pieces and establish safe zones where the first occupant blocks it.
+* The Pair Shield: Require an attacker to use a special double split-roll to capture two pieces of the same color occupying a single square.
+* Capture Logic: Implement standard captures sending opponent pieces to the locked state, and apply the Assassin Rule allowing newly spawning pieces to capture opponents on specific safe zones.
 
-## Phase 6: End Game and Win Conditions
-**Status: Completed**
-**Objective:** Implement the final stretch rules and victory detection.
-1. **The Blood Debt Check:** Prevent a piece from turning into the `HOME_STRETCH` (middle column) unless its player's `hasKilled` flag is `true`.
-2. **Home Stretch Immunity:** Disable combat interactions for pieces currently in the `HOME_STRETCH` status.
-3. **Victory Pathing (Overshoot & Remainder):** All 4 pieces must reach the center. 
-   * *Overshoot:* A piece 2 squares away can use a 3 or 4 to win. 
-   * *Mandatory Remainder:* If partial dice value is used to win, the remaining dice value MUST be applied to another piece on the board if a valid move exists.
-4. **Victory Screen:** When a player's 4 pieces reach `FINISHED`, halt the game and display the winning UI.
+## Phase 6: End Game and Win Conditions (Completed)
+* The Blood Debt Check: Prevent players from entering the center path unless they have captured at least one opponent.
+* Home Stretch: Disable combat interactions for pieces in the final stretch.
+* Victory Pathing: Require all 4 pieces to reach the exact center (index 999), forcing remainder dice values to be used elsewhere.
+* Victory Screen: Halt the game and display winning UI when a player finishes.
 
-## Phase 7: Redesign Foundation & Theming
-**Status: Completed**
-**Objective:** Establish the new aesthetic base, updating colors, textures, and core visual utilities.
-1. **Tailwind Configuration:** Update the color palette with rich charcoal backgrounds, crimson velvet board paths, polished gold, and jewel tones (Ruby, Sapphire, Emerald, Amber).
-2. **Typography & Effects:** Implement modern typography and add global CSS utilities for glassmorphism (backdrop blurs, subtle borders) and glowing effects.
+## Phase 7: Redesign Foundation & Theming (Completed)
+* Tailwind Configuration: Update the palette with charcoal backgrounds, velvet red paths, and polished gold.
+* Typography & Effects: Add modern typography and custom glassmorphism utilities.
 
-## Phase 8: Unified Pre-Game Lobby
-**Status: Completed**
-**Objective:** Consolidate the fragmented setup screens into a single elegant flow.
-1. **Unified Overlay:** Create a single translucent glassmorphic panel that sits over a deeply blurred game board.
-2. **Streamlined Setup:** Combine the player count selector (horizontal list) with the color picker (showing 3D jewel tokens) and the Void Roll toggle into one seamless interaction.
-3. **Action Consolidation:** Place the "Start New Game" and "Resume Last Session" buttons prominently at the bottom of this unified panel.
+## Phase 8: Unified Pre-Game Lobby (Completed)
+* Unified Overlay: Create a single translucent panel over a blurred board.
+* Streamlined Setup: Consolidate the player count selector, color picker, and Void Roll toggle into one interaction.
+* Action Consolidation: Place "Start" and "Resume" buttons prominently at the bottom.
 
-## Phase 9: Board & Piece Aesthetic Upgrade
-**Status: Completed**
-**Objective:** Elevate the board and game pieces to high-fidelity 3D/textured assets.
-1. **The Board:** Apply crimson velvet textures and polished gold text to the board. Redesign the Safe Zone ('X') markers into glowing golden-orange geometric symbols.
-2. **The Pieces:** Upgrade the `Piece` component from flat circles to rich, 3D jewel-like tokens with soft directional shadows to mimic physical depth.
+## Phase 9: Board & Piece Aesthetic Upgrade (Completed)
+* The Board: Apply velvet textures and glowing golden-orange safe zone markers.
+* The Pieces: Upgrade flat pieces to rich, 3D jewel-like tokens.
 
-## Phase 10: In-Game UI & Player Console Consolidation
-**Status: Completed**
-**Objective:** Replace utilitarian menus with a sleek, thematic control interface.
-1. **Player Control Console:** Remove the detached side menus. Create a minimalist console adjacent to the board featuring glassmorphic dice and a large, pulsing, glowing "ROLL" button.
-2. **Thematic Indicators:** Replace text-based kill counts and player names with elegant avatars and icon-based stats (e.g., crossed swords for kills).
-3. **Top-Right Action Menu:** Move secondary actions (Rules, Reset, New Game) into a subtle, stylized "Scroll and Gear" icon menu in the top right corner to maximize board visibility.
+## Phase 10: In-Game UI & Player Console Consolidation (Completed)
+* Player Control Console: Replace side menus with a minimalist console containing glassmorphic dice and a glowing roll button.
+* Thematic Indicators: Use avatars and icon-based stats instead of text.
+* Action Menu: Move secondary options to a stylized top-right menu.
 
-## Phase 11: Mobile & Tablet Responsive Layouts
-**Status: Completed**
-**Objective:** Tailor the consolidated UI specifically for smaller screens.
-1. **Mobile Layout (Vertical):** Implement a "Contextual Bottom Dashboard" that stacks the active player's info directly next to the dice and roll button within the thumb zone.
-2. **Tablet Layout (Landscape):** Utilize the extra width by placing all 4 player dashboards vertically on the left, keeping the main Player Control Console on the right.
+## Phase 11: Mobile & Tablet Responsive Layouts (Completed)
+* Mobile Layout: Stack the active player's info next to the roll button in a bottom dashboard.
+* Tablet Layout: Place all 4 player dashboards vertically on the left.
 
-## Phase 12: Game play issue fix
-**Status: Completed**
-**Objective:** fixing particular issues.
-1. ~~overshoot not to be allowed when finishing, for finish value should be exact value of 1 of the dice.~~ (Completed)
-2. ~~till all tolls are not complete user should not be able to move any piece. its currently happening and it can break game. eg what happening is if user rolls special roll he can directly enter piece even tho roll dice button is active. and if user moves piece then queue gets empty and next players chance begins.~~ (Completed)
+## Phase 12: Game Play Issue Fix (Completed)
+* Movement Fix: Ensure overshoot is not allowed when finishing.
+* Queue Fix: Enforce that all rolls must be completed before a piece can be moved.
+
+## Phase 12.5: UI/UX Polish & Accessibility (Completed)
+* Color Contrast: Upgraded piece colors to luminous jewel tones (`ruby`, `sapphire`, `emerald`, `amber`) for clear visibility against the velvet board and copper safe zones.
+* Visual Anchors: Added internal white circles to pieces for immediate visual recognition.
+* Turn Indicators: Highlighted the active player's base with a golden glow, scaling effect, and bright white typography.
+* Stuck State Feedback: Implemented a transient, glassmorphic toast notification over the dice tray when a player is skipped due to no valid moves.
+* Stale State Fix: Forced `selectedPiece` and `pairAttackState` to clear automatically upon turn transitions to prevent cross-turn UI bleed.
+* Theme Cohesion: Unified all remaining modals (Move Selector, Void Roll, Victory) to use the core `charcoal`, `gold`, and `ruby` glassmorphic design system.
 
 ---
 
-# Future Roadmap & Enhancements
+## Phase 13: Rule-Based AI Bot (Single-Player Mode) (Pending)
+* Objective: Build a heuristic algorithm that uses the existing logic to play against humans without server costs.
+* Evaluation Function: Create a utility to score board states, prioritizing kills, safe zones, and the "Home Stretch".
+* Evaluation Modifiers: Apply medium priority for forming pair shields and negative priority for leaving safe zones.
+* Difficulty Levels: Implement an easy mode that picks random valid moves, and a hard mode that uses optimal heuristic scoring.
+* Architecture: Create an `aiLogic.js` layer that listens to the `GameContext`.
+* Execution: Automatically trigger dice rolls for the AI, pass values to the logic layer, and add a 1-2 second timeout to simulate thinking.
 
-## Phase 13: Single Player vs. Computer (Rule-Based Bot)
-**Status: Pending**
-**Objective:** Allow users to play against computer opponents without any server costs.
-* Implement a local, heuristic algorithm (no paid machine learning APIs). The bot will use your existing `gameLogic.js` to evaluate the board, prioritize kills/safe zones, and automatically dispatch moves with realistic human-like delays.
+## Phase 14: Multi-Language Support (i18n) (Pending)
+* Technology Stack: Install the `i18next` and `react-i18next` libraries.
+* Configuration: Set up an `i18n.js` config file alongside the Vite entry point.
+* Translation Files: Create `en.json`, `hi.json`, and `mr.json` dictionaries storing key-value pairs for UI elements.
+* Implementation: Wrap main UI strings in the `useTranslation` hook.
+* User Controls: Add a glassmorphic dropdown menu to trigger language changes.
 
-## Phase 14: Internationalization (i18n)
-**Status: Pending**
-**Objective:** Support multiple languages (English, Marathi, Hindi).
-* Integrate `react-i18next`. Extract all hardcoded UI strings, rules, and notifications into language-specific JSON dictionaries.
+## Phase 15: Android App Packaging (Pending)
+* Preparation: Install the Capacitor core, Android packages, and CLI locally.
+* Initialization: Run `npx cap init` to define the app name and ID.
+* Configuration: Map the `webDir` to Vite's build output folder (`dist`) inside `capacitor.config.json`.
+* Build & Sync: Build the React application and sync the assets to the Android folder.
+* Deployment: Configure app icons and splash screens in Android Studio for emulator testing.
 
-## Phase 15: Android App Packaging
-**Status: Pending**
-**Objective:** Convert the web app into a native Android application.
-* Integrate Capacitor to wrap the Vite/React build into an Android Studio project, optimizing for native mobile performance and fullscreen immersive modes.
+## Phase 16: Offline Local Multiplayer (Pending)
+* Technology Stack: Utilize WebRTC and the Capacitor Community Bluetooth LE Plugin.
+* Device Discovery: Use the Bluetooth plugin to advertise a host and scan for guests.
+* Signaling: Transmit WebRTC SDP tokens over Bluetooth to open a Data Channel.
+* State Syncing: Dispatch all `GameContext` actions as stringified JSON payloads across WebRTC to synchronize both screens perfectly.
 
-## Phase 16: Offline Local Multiplayer (Bluetooth / Wi-Fi Direct)
-**Status: Pending**
-**Objective:** Enable peer-to-peer gameplay without internet, maintaining zero server costs.
-* Utilize native Bluetooth or Wi-Fi Direct APIs (via Capacitor plugins once packaged as an Android app) to sync game state locally between devices in the same room.
+## Phase 17: Online Multiplayer (Serverless NoSQL Architecture) (Pending)
+* Technology Stack: Utilize Firebase Firestore for NoSQL document storage and Firebase Anonymous Authentication to handle persistent reconnects.
+* State Architecture: Sync React `Context` with Firestore `onSnapshot` listeners.
+* Data Schema: Store the game session as one JSON-like document in a `games` collection.
+* Project Configuration: Set up a free Firebase project, install the SDK, and initialize it inside a `services/firebase.js` file.
+* Authentication Logic: Assign users a persistent silent `uid` so they are recognized upon returning.
+* Lobby Routing: Generate a new document on creation and redirect Player 1 to a unique URL.
+* Joining Logic: When Player 2 opens the URL, append their `uid` to the player object and mark the status as "active".
+* Real-Time Synchronization: Set up a `useEffect` hook in `GameContext.jsx` to listen for document updates and instantly dispatch the new JSON payload to the UI.
+* Move Execution: Calculate moves via `gameLogic.js` on the client and push the updated state to Firestore using `updateDoc()`.
 
-## Phase 17: Online Multiplayer (Requires Backend)
-**Status: Pending**
-**Objective:** Enable internet-based multiplayer with room codes.
-* Implement a backend (Firebase or Socket.io) to sync `GameContext` state across multiple clients in real-time. *(Note: This is prioritized last as it requires managing and potentially paying for cloud infrastructure).*
+
 
 ## Suggested State Architecture Example
 ```javascript

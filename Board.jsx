@@ -267,6 +267,12 @@ const Board = ({ onGoToMenu }) => {
     }
   }, [state.players, prevState]);
 
+  // Clear selected piece and attack state when the turn changes to prevent stale UI
+  useEffect(() => {
+    setSelectedPiece(null);
+    setPairAttackState(null);
+  }, [state.currentPlayer]);
+
   const dispatchWithTransition = (action) => {
     if (!document.startViewTransition) {
       dispatch(action);

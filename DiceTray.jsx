@@ -4,6 +4,7 @@ import { useGame, ACTION_TYPES } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
+import { useAIBot } from './useAIBot';
 
 const DICE_FACES = [1, 3, 4, 6];
 
@@ -19,6 +20,9 @@ const DiceTray = () => {
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
   const [showVoidGif, setShowVoidGif] = useState(false);
+
+  // Activate AI hook (it safely idles if the current player is not in state.bots)
+  useAIBot(state.bots || [], state.botDifficulty || 'hard');
 
   const handleRoll = () => {
     if (isRolling) return;
@@ -68,6 +72,8 @@ const DiceTray = () => {
   
   // A player can roll if they haven't rolled this turn OR they are still in their rolling phase (doubles streak).
   const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
+
+  const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !showVoidGif;
 
   useEffect(() => {
     // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
@@ -126,7 +132,15 @@ const DiceTray = () => {
           </div>
         </div>
       )}
-      <div className="w-full max-w-[98vw] sm:max-w-sm lg:max-w-xs p-2 sm:p-6 flex flex-col items-center gap-3 sm:gap-6 z-10 glass-panel rounded-2xl sm:rounded-3xl transition-all duration-500">
+      <div className="relative w-full max-w-[98vw] sm:max-w-sm lg:max-w-xs p-2 sm:p-6 flex flex-col items-center gap-3 sm:gap-6 z-10 glass-panel rounded-2xl sm:rounded-3xl transition-all duration-500">
+        {isStuckUI && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl sm:rounded-3xl">
+            <div className="bg-ruby text-white px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(244,63,94,0.6)] flex flex-col items-center border border-white/20 animate-pulse">
+              <span className="font-display text-lg sm:text-xl font-bold uppercase tracking-widest text-center">No Valid Moves</span>
+              <span className="font-sans text-xs sm:text-sm font-semibold opacity-80 mt-1 uppercase tracking-wider">Skipping turn...</span>
+            </div>
+          </div>
+        )}
         <div className="flex flex-row lg:flex-col items-center justify-between lg:justify-center w-full gap-4">
           <div className="flex flex-col items-start lg:items-center">
             <span className="text-white/60 text-[10px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1">Active</span>
@@ -143,6 +157,7 @@ const DiceTray = () => {
         <div className="w-full flex flex-row lg:flex-col gap-3 sm:gap-4 items-stretch lg:items-center">
           <button
             onClick={handleRoll}
+            id="dice-roll-btn"
             disabled={!canRoll || isRolling}
             className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
