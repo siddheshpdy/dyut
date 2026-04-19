@@ -67,5 +67,11 @@
   "topRight": "वर उजवीकडे",
   "bottomLeft": "खाली डावीकडे",
   "bottomRight": "खाली उजवीकडे",
-  "playerNamePlaceholder": "नाव प्रविष्ट करा"
+  "playerNamePlaceholder": "नाव प्रविष्ट करा",
+  "hostOnlineMatch": "ऑनलाइन सामना होस्ट करा",
+  "onlineLobby": "ऑनलाइन लॉबी",
+  "shareLinkInstruction": "तुमच्या मित्रांना तुमच्या सामन्यात सामील होण्यासाठी ही लिंक शेअर करा.",
+  "copy": "कॉपी करा",
+  "copied": "कॉपी केले!",
+  "enterMatch": "सामन्यात प्रवेश करा"
 }

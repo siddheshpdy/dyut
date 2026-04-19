@@ -1,9 +1,11 @@
 import React, { createContext, useReducer, useContext, useEffect } from 'react';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
+import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {} } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, isOnline = false, gameId = null, hostUid = null, localUid = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
@@ -33,6 +35,10 @@ const createInitialState = (gameConfig) => {
     isTeamMode,
     hasRolledThisTurn: false,
     rollingPhaseComplete: false,
+    isOnline,
+    gameId,
+    hostUid,
+    localUid,
   };
 };
 
@@ -46,6 +52,7 @@ export const ACTION_TYPES = {
   MOVE_AND_SPLIT_ROLL: 'MOVE_AND_SPLIT_ROLL',
   RESET_GAME: 'RESET_GAME',
   EXECUTE_PAIR_ATTACK: 'EXECUTE_PAIR_ATTACK',
+  SYNC_FROM_CLOUD: 'SYNC_FROM_CLOUD',
 };
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
@@ -117,6 +124,10 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
 // Central Game Reducer
 function gameReducer(state, action) {
   switch (action.type) {
+    case ACTION_TYPES.SYNC_FROM_CLOUD:
+      // Only accept syncs if the local game knows it's online
+      if (!state.isOnline) return state;
+      return { ...state, ...action.payload };
     case ACTION_TYPES.ROLL_DICE: {
       const isDouble = action.payload.d1 === action.payload.d2 && action.payload.d2 !== null;
       // Add the new roll object to the turnQueue array
@@ -294,11 +305,56 @@ export function GameProvider({ gameConfig, children }) {
     return gameReducer(state, action);
   };
 
-  const [state, dispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
+  const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
+
+  // --- Phase 17.3: The Action Interceptor ---
+  const dispatch = (action) => {
+    // 1. Always apply the action locally for instant UI response and View Transitions
+    baseDispatch(action);
+
+    // 2. If online, sync the resulting state to the cloud (respecting skipSync for cost batching)
+    if (state.isOnline && state.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
+      // Calculate what the state becomes after this action
+      const nextState = gameReducer(state, action);
+      const gameRef = doc(db, 'games', state.gameId);
+      
+      // Only push the mutable gameplay fields to minimize payload
+      updateDoc(gameRef, {
+        currentPlayer: nextState.currentPlayer,
+        turnQueue: nextState.turnQueue,
+        players: nextState.players,
+        hasRolledThisTurn: nextState.hasRolledThisTurn,
+        rollingPhaseComplete: nextState.rollingPhaseComplete
+      }).catch(e => console.error("Firestore sync failed:", e));
+    }
+  };
 
   useEffect(() => {
-    // Only save state if the game is active (not on initial setup)
-    if (state.players) {
+    // If playing an online game, listen to Firestore in real-time
+    if (state.isOnline && state.gameId) {
+      const gameRef = doc(db, 'games', state.gameId);
+      const unsubscribe = onSnapshot(gameRef, (docSnap) => {
+        if (docSnap.exists()) {
+          baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: docSnap.data() });
+        } else {
+          // First time initialization (Host creates the document)
+          setDoc(gameRef, {
+            currentPlayer: state.currentPlayer,
+            turnQueue: state.turnQueue,
+            players: state.players,
+            hasRolledThisTurn: state.hasRolledThisTurn,
+            rollingPhaseComplete: state.rollingPhaseComplete
+          }).catch(console.error);
+        }
+      });
+      // Cleanup listener when component unmounts or gameId changes
+      return () => unsubscribe();
+    }
+  }, [state.isOnline, state.gameId]);
+
+  useEffect(() => {
+    // Only save state for active, local offline games
+    if (state.players && !state.isOnline) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
     }
   }, [state]);

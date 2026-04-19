@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
+import { doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { db } from './firebase';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -61,7 +63,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, joinGameId, user }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '' },
     Player3: { type: 'closed', color: 'emerald', name: '' },
@@ -72,61 +74,125 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
   const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(true);
   const [isQuickGame, setIsQuickGame] = useState(false);
   const [isTeamMode, setIsTeamMode] = useState(false);
+  const [pendingGameId, setPendingGameId] = useState(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const { t } = useTranslation();
+
+  const activeLobbyId = joinGameId || pendingGameId;
+  const isHost = activeLobbyId && pendingGameId !== null;
 
   const activeSeats = Object.entries(seats).filter(([_, s]) => s.type !== 'closed');
   const playerCount = activeSeats.length;
   const botCount = activeSeats.filter(([_, s]) => s.type === 'bot').length;
   const activeColors = activeSeats.map(([_, s]) => s.color);
 
+  useEffect(() => {
+    if (!activeLobbyId) return;
+    const unsub = onSnapshot(doc(db, 'lobbies', activeLobbyId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.seats) setSeats(data.seats);
+        if (data.botDifficulty !== undefined) setBotDifficulty(data.botDifficulty);
+        if (data.isVoidRuleEnabled !== undefined) setIsVoidRuleEnabled(data.isVoidRuleEnabled);
+        if (data.isQuickGame !== undefined) setIsQuickGame(data.isQuickGame);
+        if (data.isTeamMode !== undefined) setIsTeamMode(data.isTeamMode);
+
+        // If the host starts the game, instantly pull joiners into the match
+        if (data.gameStarted && joinGameId) {
+          executeStart(true, activeLobbyId, data);
+        }
+      }
+    });
+    return () => unsub();
+  }, [activeLobbyId, joinGameId]);
+
+  const pushUpdate = async (field, value) => {
+    if (activeLobbyId) {
+      try { await updateDoc(doc(db, 'lobbies', activeLobbyId), { [field]: value }); } 
+      catch (e) { console.error("Sync error:", e); }
+    }
+  };
+
   const handleSeatTypeChange = (playerId, newType) => {
-    setSeats(prev => ({ ...prev, [playerId]: { ...prev[playerId], type: newType } }));
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], type: newType } };
+    setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
   const handleSeatColorChange = (playerId, colorName) => {
-    setSeats(prev => ({ ...prev, [playerId]: { ...prev[playerId], color: colorName } }));
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], color: colorName } };
+    setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
   const handleSeatNameChange = (playerId, newName) => {
-    setSeats(prev => ({ ...prev, [playerId]: { ...prev[playerId], name: newName } }));
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], name: newName } };
+    setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
   useEffect(() => {
     if (playerCount !== 4) setIsTeamMode(false); // Team mode strictly 2v2
   }, [playerCount]);
 
-  const handleStartClick = () => {
-    if (playerCount < 2) {
-      alert("Need at least 2 players.");
-      return;
-    }
-    if (activeSeats.filter(([_, s]) => s.type === 'human').length === 0) {
-      alert("Need at least 1 human player.");
-      return;
-    }
-
-    const hasDuplicates = new Set(activeColors).size !== activeColors.length;
-    if (hasDuplicates) {
-      alert("Each active player must have a unique color.");
-      return;
+  const executeStart = (isOnline = false, targetGameId = null, overrideData = null) => {
+    const currentSeats = overrideData?.seats || seats;
+    const currentActiveSeats = Object.entries(currentSeats).filter(([_, s]) => s.type !== 'closed');
+    const currentActiveColors = currentActiveSeats.map(([_, s]) => s.color);
+    
+    if (!overrideData) { // Only validate if we are initiating the start locally
+      if (currentActiveSeats.length < 2) return alert("Need at least 2 players.");
+      if (currentActiveSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert("Need at least 1 human player.");
+      if (new Set(currentActiveColors).size !== currentActiveColors.length) return alert("Each active player must have a unique color.");
     }
 
-    const activeSeatIds = activeSeats.map(([id]) => id).sort();
-    const bots = activeSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
-    const playerColors = activeSeatIds.map(id => seats[id].color);
+    const activeSeatIds = currentActiveSeats.map(([id]) => id).sort();
+    const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
+    const playerColors = activeSeatIds.map(id => currentSeats[id].color);
     
     const playerAliases = {};
     activeSeatIds.forEach(id => {
-      playerAliases[id] = seats[id].name.trim() || (seats[id].type === 'bot' ? `${t('bot', 'Bot')} ${id.replace('Player', '')}` : `${t('player', 'Player')} ${id.replace('Player', '')}`);
+      playerAliases[id] = currentSeats[id].name.trim() || (currentSeats[id].type === 'bot' ? `${t('bot', 'Bot')} ${id.replace('Player', '')}` : `${t('player', 'Player')} ${id.replace('Player', '')}`);
     });
 
-    onStartGame({ playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, isVoidRuleEnabled, bots, botDifficulty, isQuickGame, isTeamMode });
+    onStartGame({ 
+      playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, 
+      isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
+      isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
+      hostUid: overrideData?.hostUid || user?.uid, localUid: user?.uid
+    });
+  };
+
+  const handleHostOnlineClick = async () => {
+    if (playerCount < 2) return alert("Need at least 2 players.");
+    if (activeSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert("Need at least 1 human player.");
+    if (new Set(activeColors).size !== activeColors.length) return alert("Each active player must have a unique color.");
+
+    const newGameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    await setDoc(doc(db, 'lobbies', newGameId), {
+      seats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid, gameStarted: false
+    });
+
+    setPendingGameId(newGameId);
+  };
+
+  const handleStartOnlineMatch = async () => {
+    await pushUpdate('gameStarted', true);
+    executeStart(true, activeLobbyId);
   };
 
   return (
     <div className="glass-panel p-8 rounded-3xl w-full max-w-lg flex flex-col items-center relative z-10">
       <LanguageSwitcher />
+
+      {activeLobbyId && (
+        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
+          <span className="text-gold font-bold text-sm tracking-widest uppercase mb-3">{t('onlineLobby', 'Online Lobby')} - ID: {activeLobbyId}</span>
+          <div className="flex w-full gap-2">
+            <input type="text" readOnly value={`${window.location.origin}?join=${activeLobbyId}`} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
+            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?join=${activeLobbyId}`); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
+          </div>
+        </div>
+      )}
       
       <button onClick={onShowRules} className="absolute top-6 right-6 text-white/60 hover:text-gold transition-colors" title="Rules">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -158,10 +224,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
           <div className="animate-fade-in">
             <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('botDifficulty')}</h2>
             <div className="flex justify-center gap-4">
-              <button onClick={() => setBotDifficulty('easy')} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+              <button onClick={() => {
+                setBotDifficulty('easy'); pushUpdate('botDifficulty', 'easy');
+              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
                 {t('easy')}
               </button>
-              <button onClick={() => setBotDifficulty('hard')} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+              <button onClick={() => {
+                setBotDifficulty('hard'); pushUpdate('botDifficulty', 'hard');
+              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
                 {t('hard')}
               </button>
             </div>
@@ -194,8 +264,22 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame })
       </div>
 
       <div className="mt-10 w-full flex flex-col gap-3">
-        <button onClick={handleStartClick} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('startNewGame')}</button>
-        {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeSession')}</button>}
+        {!activeLobbyId ? (
+          <>
+            <button onClick={() => executeStart(false)} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('startNewGame')}</button>
+            <button onClick={handleHostOnlineClick} className="w-full py-3 bg-sapphire text-white font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] transition-all">{t('hostOnlineMatch', 'HOST ONLINE MATCH')}</button>
+            {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeSession')}</button>}
+          </>
+        ) : (
+          <>
+            {isHost ? (
+              <button onClick={handleStartOnlineMatch} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('enterMatch', 'Start Match')}</button>
+            ) : (
+              <div className="w-full py-3 bg-white/10 text-white/60 text-center font-sans font-bold text-sm tracking-widest uppercase rounded-xl border border-white/5">Waiting for Host...</div>
+            )}
+            <button onClick={() => window.location.href = '/'} className="w-full py-3 bg-transparent text-white/50 hover:text-white font-sans text-sm font-semibold rounded-xl transition-colors">Leave Lobby</button>
+          </>
+        )}
       </div>
     </div>
   );

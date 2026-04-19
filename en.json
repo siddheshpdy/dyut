@@ -67,5 +67,11 @@
   "topRight": "Top Right",
   "bottomLeft": "Bottom Left",
   "bottomRight": "Bottom Right",
-  "playerNamePlaceholder": "Enter Name"
+  "playerNamePlaceholder": "Enter Name",
+  "hostOnlineMatch": "HOST ONLINE MATCH",
+  "onlineLobby": "Online Lobby",
+  "shareLinkInstruction": "Share this link with your friends to let them join your match.",
+  "copy": "Copy",
+  "copied": "Copied!",
+  "enterMatch": "Enter Match"
 }

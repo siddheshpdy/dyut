@@ -279,7 +279,7 @@ const Board = ({ onGoToMenu }) => {
             const prevLockedCount = prevPlayer.pieces.filter(p => p === -1).length;
             const currentLockedCount = currentPlayer.pieces.filter(p => p === -1).length;
             if (currentLockedCount > prevLockedCount) {
-                playSound('./sounds/capture.mp3');
+                playSound('/sounds/capture.mp3');
                 // Find which piece was captured to trigger the animation
                 const capturedPieceIndex = prevPlayer.pieces.findIndex((prevPos, i) => prevPos !== -1 && currentPlayer.pieces[i] === -1);
                 if (capturedPieceIndex !== -1) {
@@ -296,7 +296,7 @@ const Board = ({ onGoToMenu }) => {
             const prevFinishedCount = prevPlayer.pieces.filter(p => p === 999).length;
             const currentFinishedCount = currentPlayer.pieces.filter(p => p === 999).length;
             if (currentFinishedCount > prevFinishedCount) {
-                playSound('./sounds/goal.mp3');
+                playSound('/sounds/goal.mp3');
             }
         }
     }
