@@ -157,7 +157,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
       playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, 
       isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
-      hostUid: overrideData?.hostUid || user?.uid, localUid: user?.uid
+      hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null
     });
   };
 
@@ -169,7 +169,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     const newGameId = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     await setDoc(doc(db, 'lobbies', newGameId), {
-      seats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid, gameStarted: false
+      seats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid || null, gameStarted: false
     });
 
     setPendingGameId(newGameId);
