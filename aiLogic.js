@@ -1,4 +1,4 @@
-import { getValidMoves, canSpawnPiece, willMoveKill, getOccupantsOfPathIndex, getPairShieldTarget } from './gameLogic';
+import { getValidMoves, canSpawnPiece, willMoveKill, getOccupantsOfPathIndex, getPairShieldTarget, getProxyPlayerId } from './gameLogic';
 import { PLAYER_PATHS, isSafeZone as isCellVisuallySafe } from './boardMapping';
 import { ACTION_TYPES } from './GameContext';
 
@@ -41,7 +41,8 @@ function evaluateMove(playerId, currentPos, targetPos, state) {
     return score;
 }
 
-export function getBestAIMove(playerId, state, difficulty = 'hard') {
+export function getBestAIMove(originalPlayerId, state, difficulty = 'hard') {
+    const playerId = getProxyPlayerId(originalPlayerId, state);
     const player = state.players[playerId];
     if (!player || state.turnQueue.length === 0) return null;
 
@@ -64,7 +65,7 @@ export function getBestAIMove(playerId, state, difficulty = 'hard') {
             const pos1 = player.pieces[i];
             if (pos1 !== -1 && pos1 !== 999) {
                 const targetPos = pos1 + moveDistance;
-                const defenderId = getPairShieldTarget(targetPos, playerId, state.players);
+                const defenderId = getPairShieldTarget(targetPos, playerId, state);
                 
                 if (defenderId) {
                     const targetCellId = PLAYER_PATHS[playerId][targetPos];

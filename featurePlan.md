@@ -75,7 +75,7 @@
 * Architecture: Create an `aiLogic.js` layer that listens to the `GameContext`.
 * Execution: Automatically trigger dice rolls for the AI, pass values to the logic layer, and add a 1-2 second timeout to simulate thinking.
 
-## Phase 14: Multi-Language Support (i18n) (Pending)
+## Phase 14: Multi-Language Support (i18n) (Completed)
 * Technology Stack: Install the `i18next` and `react-i18next` libraries.
 * Configuration: Set up an `i18n.js` config file alongside the Vite entry point.
 * Translation Files: Create `en.json`, `hi.json`, and `mr.json` dictionaries storing key-value pairs for UI elements.

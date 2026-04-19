@@ -31,16 +31,37 @@ export function getOccupantsOfPathIndex(targetPathIndex, checkingPlayerId, allPl
 }
 
 /**
+ * Returns the ID of the teammate if the current player is entirely finished.
+ */
+export function getProxyPlayerId(playerId, state) {
+    if (!state?.isTeamMode) return playerId;
+    const player = state.players[playerId];
+    if (!player) return playerId;
+    
+    const isFinished = player.pieces.every(p => p === 999);
+    if (!isFinished) return playerId;
+    
+    // Find teammate
+    const teammateId = Object.keys(state.players).find(id => id !== playerId && state.players[id].team === player.team);
+    if (teammateId && !state.players[teammateId].pieces.every(p => p === 999)) {
+        return teammateId;
+    }
+    return playerId; // Both are finished
+}
+
+/**
  * Checks if a target path index is a pair shield.
  * @param {number} targetPathIndex - The destination index on the player's path.
  * @param {string} movingPlayerId - The ID of the player attempting to move.
- * @param {object} allPlayersState - The entire `state.players` object.
+ * @param {object} state - The entire global game state.
  * @returns {string|null} - The ID of the defending player if it's a pair shield, otherwise null.
  */
-export function getPairShieldTarget(targetPathIndex, movingPlayerId, allPlayersState) {
-    const occupants = getOccupantsOfPathIndex(targetPathIndex, movingPlayerId, allPlayersState);
-    if (occupants.length === 2 && occupants[0].playerId === occupants[1].playerId && occupants[0].playerId !== movingPlayerId) {
-        return occupants[0].playerId;
+export function getPairShieldTarget(targetPathIndex, movingPlayerId, state) {
+    const occupants = getOccupantsOfPathIndex(targetPathIndex, movingPlayerId, state.players);
+    if (occupants.length === 2) {
+        const sameTeam = state.isTeamMode ? state.players[occupants[0].playerId].team === state.players[occupants[1].playerId].team : occupants[0].playerId === occupants[1].playerId;
+        const isEnemy = state.isTeamMode ? state.players[occupants[0].playerId].team !== state.players[movingPlayerId].team : occupants[0].playerId !== movingPlayerId;
+        if (sameTeam && isEnemy) return occupants[0].playerId;
     }
     return null;
 }
@@ -71,8 +92,11 @@ function isSquareBlocked(targetPathIndex, movingPlayerId, state) {
 
     const occupants = getOccupantsOfPathIndex(targetPathIndex, movingPlayerId, state.players);
 
-    // 2. Check for Pair Shield (2 pieces of the same opponent color)
-    if (occupants.length === 2 && occupants[0].playerId === occupants[1].playerId && occupants[0].playerId !== movingPlayerId) {
+    const isEnemy = (id) => state.isTeamMode ? state.players[id].team !== state.players[movingPlayerId].team : id !== movingPlayerId;
+    const isSameTeam = (id1, id2) => state.isTeamMode ? state.players[id1].team === state.players[id2].team : id1 === id2;
+
+    // 2. Check for Enemy Pair Shield
+    if (occupants.length === 2 && isSameTeam(occupants[0].playerId, occupants[1].playerId) && isEnemy(occupants[0].playerId)) {
         return true; // Blocked by a pair shield
     }
 
@@ -82,8 +106,7 @@ function isSquareBlocked(targetPathIndex, movingPlayerId, state) {
     }
 
     // 4. Check for Safe Zone blocking
-    if (occupants.length === 1 && occupants[0].playerId !== movingPlayerId) {
-        // This is a bit tricky. We need the visual col/row from the cell ID.
+    if (occupants.length === 1 && isEnemy(occupants[0].playerId)) {
         const parts = targetCellId.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
         if (parts) {
             const [, , col, row] = parts.map(Number);
@@ -139,12 +162,14 @@ export function canSpawnPiece(playerId, spawnPos, state) {
     const targetCellId = PLAYER_PATHS[playerId][spawnPos];
     const occupants = getOccupantsOfPathIndex(spawnPos, playerId, state.players);
     
-    // Cannot spawn if blocked by 2 of your own pieces
-    const ownPieces = occupants.filter(o => o.playerId === playerId);
-    if (ownPieces.length >= 2) return false;
+    const isFriendly = (id) => state.isTeamMode ? state.players[id].team === state.players[playerId].team : id === playerId;
+    
+    // Cannot spawn if blocked by 2 friendly pieces
+    const friendlyPieces = occupants.filter(o => isFriendly(o.playerId));
+    if (friendlyPieces.length >= 2) return false;
 
-    const opponentPieces = occupants.filter(o => o.playerId !== playerId);
-    if (opponentPieces.length > 0) {
+    const enemyPieces = occupants.filter(o => !isFriendly(o.playerId));
+    if (enemyPieces.length > 0) {
         let isTargetSafe = false;
         const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
         if (parts) {
@@ -165,8 +190,9 @@ export function canSpawnPiece(playerId, spawnPos, state) {
  * @param {object} state - The entire global game state.
  * @returns {boolean} - True if at least one move is possible.
  */
-export function hasAnyPlayableMove(playerId, state) {
-    const player = state.players[playerId];
+export function hasAnyPlayableMove(originalPlayerId, state) {
+    const proxyId = getProxyPlayerId(originalPlayerId, state);
+    const player = state.players[proxyId];
     if (!player || state.turnQueue.length === 0) {
         return false;
     }
@@ -175,7 +201,7 @@ export function hasAnyPlayableMove(playerId, state) {
         // 1. Check if a locked piece can be spawned
         if (roll.d1 === roll.d2 && roll.d2 !== null) { // It's a double, not a partial roll
             const hasLockedPiece = player.pieces.some(p => p === -1);
-            if (hasLockedPiece && canSpawnPiece(playerId, roll.sum, state)) {
+            if (hasLockedPiece && canSpawnPiece(proxyId, roll.sum, state)) {
                 return true;
             }
         }
@@ -183,7 +209,7 @@ export function hasAnyPlayableMove(playerId, state) {
         // 2. Check if any piece on the board can move
         for (const piecePos of player.pieces) {
             if (piecePos !== -1 && piecePos !== 999) { // Piece is on the board and not finished
-                const validMoves = getValidMoves(piecePos, roll, playerId, state);
+                const validMoves = getValidMoves(piecePos, roll, proxyId, state);
                 if (validMoves.sum || validMoves.high || validMoves.low) {
                     return true; // Found a valid move
                 }
@@ -207,15 +233,17 @@ export function willMoveKill(targetPathIndex, movingPlayerId, state) {
     }
 
     const occupants = getOccupantsOfPathIndex(targetPathIndex, movingPlayerId, state.players);
-    return occupants.length === 1 && occupants[0].playerId !== movingPlayerId;
+    const isEnemy = (id) => state.isTeamMode ? state.players[id].team !== state.players[movingPlayerId].team : id !== movingPlayerId;
+    return occupants.length === 1 && isEnemy(occupants[0].playerId);
 }
 
 /**
  * Determines if an automatic move should be made.
  * Triggers only if exactly one piece has any valid moves. Prioritizes splitting a roll to capture.
  */
-export function getAutoMove(playerId, state) {
-    const player = state.players[playerId];
+export function getAutoMove(originalPlayerId, state) {
+    const proxyId = getProxyPlayerId(originalPlayerId, state);
+    const player = state.players[proxyId];
     if (!player || state.turnQueue.length === 0) return null;
 
     // Do not auto-move if they haven't finished rolling
@@ -231,12 +259,12 @@ export function getAutoMove(playerId, state) {
 
         player.pieces.forEach((pos, pieceIndex) => {
             if (pos === -1) {
-                if (isDouble && !lockedPieceAdded && canSpawnPiece(playerId, activeRoll.sum, state)) {
+                if (isDouble && !lockedPieceAdded && canSpawnPiece(proxyId, activeRoll.sum, state)) {
                     movablePieces.push({ pieceIndex, type: 'SPAWN' });
                     lockedPieceAdded = true; // Group identical locked pieces as 1 choice
                 }
             } else if (pos !== 999) {
-                const validMoves = getValidMoves(pos, activeRoll, playerId, state);
+                const validMoves = getValidMoves(pos, activeRoll, proxyId, state);
                 if (validMoves.sum || validMoves.high || validMoves.low) {
                     movablePieces.push({ pieceIndex, type: 'MOVE', pos, validMoves });
                 }
@@ -246,12 +274,12 @@ export function getAutoMove(playerId, state) {
         if (movablePieces.length === 1) {
             const move = movablePieces[0];
             if (move.type === 'SPAWN') {
-                return { type: 'SPAWN_PIECE', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex } };
+                return { type: 'SPAWN_PIECE', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex } };
             } else {
                 const { pos, validMoves } = move;
                 
                 if (activeRoll.d2 === null) { // Partial roll
-                    if (validMoves.sum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.d1 } };
+                    if (validMoves.sum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.d1 } };
                     continue; // This partial roll is blocked, check next roll
                 }
 
@@ -259,19 +287,19 @@ export function getAutoMove(playerId, state) {
                 const low = Math.min(activeRoll.d1, activeRoll.d2);
                 
                 // Strategic Priority: Check kills before resorting to the required Sum move
-                const killsWithLow = validMoves.low && willMoveKill(pos + low, playerId, state);
-                const killsWithHigh = validMoves.high && willMoveKill(pos + high, playerId, state);
-                const killsWithSum = validMoves.sum && willMoveKill(pos + activeRoll.sum, playerId, state);
+                const killsWithLow = validMoves.low && willMoveKill(pos + low, proxyId, state);
+                const killsWithHigh = validMoves.high && willMoveKill(pos + high, proxyId, state);
+                const killsWithSum = validMoves.sum && willMoveKill(pos + activeRoll.sum, proxyId, state);
 
                 // Strategic Priority 1: Captures take absolute precedence
-                if (killsWithSum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.sum } };
-                if (killsWithHigh) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: high } };
-                if (killsWithLow) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: low } };
+                if (killsWithSum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.sum } };
+                if (killsWithHigh) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: high } };
+                if (killsWithLow) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: low } };
                 
                 // Strict Priority Resolution (No Captures Available)
-                if (validMoves.sum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.sum } };
-                if (validMoves.high) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: high } };
-                if (validMoves.low) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: low } };
+                if (validMoves.sum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.sum } };
+                if (validMoves.high) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: high } };
+                if (validMoves.low) return { type: 'MOVE_AND_SPLIT_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distanceUsed: low } };
             }
         } else if (movablePieces.length > 1) {
             return null; // Player has multiple choices across pieces, abort auto-move
