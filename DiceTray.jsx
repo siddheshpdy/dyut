@@ -53,8 +53,8 @@ const DiceTray = () => {
       setLastRoll({ d1, d2 });
     }, 80);
 
-    // This function will execute once the dice roll sound has finished playing
-    const onSoundEnd = () => {
+    // Use a strict timeout instead of audio events to prevent stranded listeners and multiple dispatches
+    setTimeout(() => {
       clearInterval(animationInterval);
 
       const final_d1 = DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
@@ -77,11 +77,7 @@ const DiceTray = () => {
       }
       
       setIsRolling(false);
-    };
-
-    // Listen for the 'ended' event on the audio object to sync animation and sound
-    rollSound.addEventListener('ended', onSoundEnd, { once: true });
-    rollSound.addEventListener('error', onSoundEnd, { once: true }); // Fallback if audio fails to load/play
+    }, 800);
   };
 
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
