@@ -44,7 +44,7 @@ const DiceTray = () => {
   const handleRoll = () => {
     if (isRolling) return;
     
-    const rollSound = playSound('./sounds/dice-roll.mp3');
+    const rollSound = playSound('/sounds/dice-roll.mp3');
     setIsRolling(true);
 
     const animationInterval = setInterval(() => {
@@ -67,12 +67,23 @@ const DiceTray = () => {
         if (Math.random() < 0.25) {
           setShowVoidGif(true);
         }
-        dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
+        dispatch({ type: ACTION_TYPES.CLEAR_QUEUE, skipSync: true });
       } else {
+        // Projected state for cost optimization (Batching Roll + AutoMove)
+        const projectedQueue = [...state.turnQueue, { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }];
+        const projectedState = { ...state, turnQueue: projectedQueue, hasRolledThisTurn: true, rollingPhaseComplete: final_d1 !== final_d2 };
+        
+        const autoMoveNext = getAutoMove(state.currentPlayer, projectedState);
+        const hasMovesNext = hasAnyPlayableMove(state.currentPlayer, projectedState);
+        const isStuckNext = projectedState.turnQueue.length > 0 && !hasMovesNext && projectedState.rollingPhaseComplete;
+
+        const shouldSkipSync = isBotPlaying || !!autoMoveNext || isStuckNext;
+
         // Dispatch the roll to the global state to be added to the queue
         dispatch({
           type: ACTION_TYPES.ROLL_DICE,
-          payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }
+          payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 },
+          skipSync: shouldSkipSync
         });
       }
       

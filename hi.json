@@ -67,5 +67,11 @@
   "topRight": "ऊपर दाएँ",
   "bottomLeft": "नीचे बाएँ",
   "bottomRight": "नीचे दाएँ",
-  "playerNamePlaceholder": "नाम दर्ज करें"
+  "playerNamePlaceholder": "नाम दर्ज करें",
+  "hostOnlineMatch": "ऑनलाइन मैच होस्ट करें",
+  "onlineLobby": "ऑनलाइन लॉबी",
+  "shareLinkInstruction": "अपने दोस्तों को अपने मैच में शामिल होने देने के लिए यह लिंक साझा करें।",
+  "copy": "कॉपी करें",
+  "copied": "कॉपी किया गया!",
+  "enterMatch": "मैच में प्रवेश करें"
 }

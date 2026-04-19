@@ -9,6 +9,9 @@ export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
     useEffect(() => {
         if (!state.players) return;
 
+        // Phase 17.4: Only the Host should execute Bot logic to prevent multiple overlapping writes
+        if (state.isOnline && state.hostUid !== state.localUid) return;
+
         const isBotTurn = botPlayerIds.includes(state.currentPlayer);
         if (!isBotTurn) return;
 
