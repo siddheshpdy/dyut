@@ -56,5 +56,16 @@
   "rulesWinning2": "Pieces in their Home Stretch are immune to capture.",
   "rulesWinning3": "The first player to get all 4 pieces to the center goal wins.",
   "rulesWinning4": "You can overshoot the goal. Any remaining dice value must be used by another piece if possible.",
-  "returnBtn": "Return"
+  "returnBtn": "Return",
+  "quickGame": "Quick Game (1 Piece Win)",
+  "teamMode": "Team Mode (2v2)",
+  "seatArrangement": "Seat Arrangement",
+  "human": "Human",
+  "bot": "Bot",
+  "closed": "Closed",
+  "topLeft": "Top Left",
+  "topRight": "Top Right",
+  "bottomLeft": "Bottom Left",
+  "bottomRight": "Bottom Right",
+  "playerNamePlaceholder": "Enter Name"
 }

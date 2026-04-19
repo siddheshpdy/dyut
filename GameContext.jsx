@@ -3,19 +3,25 @@ import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard' } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {} } = gameConfig;
+
+  const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
   const players = {};
-  for (let i = 0; i < playerCount; i++) {
-    players[`Player${i + 1}`] = {
-      color: playerColors[i],
+  seatsToUse.forEach((playerId, index) => {
+    const playerNum = parseInt(playerId.replace('Player', ''));
+    const team = isTeamMode ? (playerNum % 2 !== 0 ? 1 : 2) : 0; // P1 & P3 = Team 1, P2 & P4 = Team 2
+    players[playerId] = {
+      color: playerColors[index],
+      name: playerAliases[playerId] || playerId,
       hasKilled: false,
-      pieces: [-1, -1, -1, -1]
+      pieces: [-1, -1, -1, -1],
+      team
     };
-  }
+  });
 
   return {
-    currentPlayer: 'Player1',
+    currentPlayer: seatsToUse[0],
     turnQueue: [],
     turnHistory: [],
     players,
@@ -23,6 +29,8 @@ const createInitialState = (gameConfig) => {
     bots,
     botDifficulty,
     isVoidRuleEnabled,
+    isQuickGame,
+    isTeamMode,
     hasRolledThisTurn: false,
     rollingPhaseComplete: false,
   };
@@ -42,8 +50,8 @@ export const ACTION_TYPES = {
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
 
-function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
-  const newPlayers = { ...playersState };
+function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
+  const newPlayers = { ...currentPlayersState };
   const targetPos = newPlayers[playerId].pieces[pieceIndex];
   if (targetPos === -1) return newPlayers;
 
@@ -66,6 +74,8 @@ function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
 
   for (const [otherPlayerId, player] of Object.entries(newPlayers)) {
     if (otherPlayerId === playerId) continue;
+    
+    if (state.isTeamMode && player.team === newPlayers[playerId].team) continue; // No friendly fire
 
     const opponentPieceIndices = player.pieces.map((p, i) => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId ? i : -1).filter(i => i !== -1);
     const opponentPiecesOnSquare = opponentPieceIndices.length;
@@ -90,6 +100,15 @@ function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
 
   if (killed) {
     newPlayers[playerId] = { ...newPlayers[playerId], hasKilled: true };
+    
+    // In Team Mode, blood debt is shared between teammates
+    if (state.isTeamMode) {
+      for (const pId in newPlayers) {
+        if (newPlayers[pId].team === newPlayers[playerId].team) {
+          newPlayers[pId] = { ...newPlayers[pId], hasKilled: true };
+        }
+      }
+    }
   }
 
   return newPlayers;
@@ -122,7 +141,7 @@ function gameReducer(state, action) {
       newPieces[pieceIndex] = spawnPosition;
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: newPieces };
 
-      newPlayers = applyCombat(playerId, pieceIndex, newPlayers, true); // isSpawning = true
+      newPlayers = applyCombat(playerId, pieceIndex, state, newPlayers, true); // isSpawning = true
 
       const newQueue = [...state.turnQueue];
       newQueue.splice(rollIndex, 1); // Remove the used roll
@@ -145,7 +164,7 @@ function gameReducer(state, action) {
         newPieces[pieceIndex] = FINISHED_STATE;
       } else {
         newPieces[pieceIndex] = newPosition;
-        newPlayers = applyCombat(playerId, pieceIndex, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
+        newPlayers = applyCombat(playerId, pieceIndex, state, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
       }
       
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: newPieces };
@@ -172,7 +191,7 @@ function gameReducer(state, action) {
         newQueue[rollIndex] = { d1: distanceRemaining, d2: null, sum: distanceRemaining };
       } else {
         newPieces[pieceIndex] = newPosition;
-        newPlayers = applyCombat(playerId, pieceIndex, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
+        newPlayers = applyCombat(playerId, pieceIndex, state, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
         newQueue[rollIndex] = { d1: distanceRemaining, d2: null, sum: distanceRemaining };
       }
 
@@ -205,6 +224,15 @@ function gameReducer(state, action) {
       attackerPieces[firstPieceIndex] += moveDistance;
       attackerPieces[secondPieceIndex] += moveDistance;
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: attackerPieces, hasKilled: true };
+      
+      // Share blood debt for pair attacks in Team Mode
+      if (state.isTeamMode) {
+        for (const pId in newPlayers) {
+          if (newPlayers[pId].team === newPlayers[playerId].team) {
+            newPlayers[pId] = { ...newPlayers[pId], hasKilled: true };
+          }
+        }
+      }
 
       // Update defender's pieces (send them back to base)
       if (defendingPlayerId && defendingPieceIndices.length === 2) {

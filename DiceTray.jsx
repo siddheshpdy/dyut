@@ -31,7 +31,7 @@ const DiceTray = () => {
   // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
   useEffect(() => {
     if (showVoidGif) {
-      const delay = isBotPlaying ? 1500 : 3000;
+      const delay = isBotPlaying ? 600 : 2000;
       const timer = setTimeout(() => {
         setShowVoidGif(false);
         dispatch({ type: ACTION_TYPES.END_TURN });
@@ -63,7 +63,10 @@ const DiceTray = () => {
 
       // CRITICAL: Check for Void Rule (1+3) before anything else
       if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
-        setShowVoidGif(true);
+        // Randomly show the popup (25% chance) so it doesn't get repetitive
+        if (Math.random() < 0.25) {
+          setShowVoidGif(true);
+        }
         dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
       } else {
         // Dispatch the roll to the global state to be added to the queue
@@ -168,7 +171,7 @@ const DiceTray = () => {
           <div className="flex flex-col items-start lg:items-center">
             <span className="text-white/60 text-[10px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1">{t('active')}</span>
             <div className="text-gold font-display font-bold text-2xl sm:text-3xl drop-shadow-md uppercase text-glow-gold leading-none">
-              {state.currentPlayer}
+              {state.players[state.currentPlayer]?.name || state.currentPlayer}
             </div>
           </div>
           <div className="flex gap-2 sm:gap-4">
