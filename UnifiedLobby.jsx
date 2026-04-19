@@ -168,11 +168,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
 
     const newGameId = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    await setDoc(doc(db, 'lobbies', newGameId), {
-      seats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid || null, gameStarted: false
-    });
-
-    setPendingGameId(newGameId);
+    try {
+      await setDoc(doc(db, 'lobbies', newGameId), {
+        seats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid || null, gameStarted: false
+      });
+  
+      setPendingGameId(newGameId);
+    } catch (error) {
+      console.error("Firebase Error:", error);
+      alert("Failed to create online lobby. Please check your Firestore Security Rules in the Firebase Console!");
+    }
   };
 
   const handleStartOnlineMatch = async () => {

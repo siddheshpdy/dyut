@@ -17,7 +17,11 @@ function App() {
 
   // Preload heavy assets (sounds and gifs) in the background so they are instantly ready during gameplay
   useEffect(() => {
-    const audioFiles = ['/sounds/dice-roll.mp3', '/sounds/capture.mp3', '/sounds/goal.mp3'];
+    const audioFiles = [
+      `${import.meta.env.BASE_URL}sounds/dice-roll.mp3`,
+      `${import.meta.env.BASE_URL}sounds/capture.mp3`,
+      `${import.meta.env.BASE_URL}sounds/goal.mp3`
+    ];
     audioFiles.forEach(src => {
       const audio = new Audio();
       audio.src = src;
