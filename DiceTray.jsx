@@ -44,7 +44,7 @@ const DiceTray = () => {
   const handleRoll = () => {
     if (isRolling) return;
     
-    const rollSound = playSound('/sounds/dice-roll.mp3');
+    const rollSound = playSound(`${import.meta.env.BASE_URL}sounds/dice-roll.mp3`);
     setIsRolling(true);
 
     const animationInterval = setInterval(() => {
