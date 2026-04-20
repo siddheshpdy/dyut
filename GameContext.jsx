@@ -1,30 +1,46 @@
 import React, { createContext, useReducer, useContext, useEffect } from 'react';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
+import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from './firebaseSetup.js';
+import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard' } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null } = gameConfig;
+
+  const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
   const players = {};
-  for (let i = 0; i < playerCount; i++) {
-    players[`Player${i + 1}`] = {
-      color: playerColors[i],
+  seatsToUse.forEach((playerId, index) => {
+    const playerNum = parseInt(playerId.replace('Player', ''));
+    const team = isTeamMode ? (playerNum % 2 !== 0 ? 1 : 2) : 0;
+    players[playerId] = {
+      color: playerColors[index],
+      name: playerAliases[playerId] || playerId,
       hasKilled: false,
-      pieces: [-1, -1, -1, -1]
+      pieces: [-1, -1, -1, -1],
+      team
     };
-  }
+  });
 
   return {
-    currentPlayer: 'Player1',
+    currentPlayer: seatsToUse[0],
     turnQueue: [],
     turnHistory: [],
     players,
     boardOccupancy: {},
+    playerUids,
     bots,
     botDifficulty,
     isVoidRuleEnabled,
+    isQuickGame,
+    isTeamMode,
     hasRolledThisTurn: false,
     rollingPhaseComplete: false,
+    isOnline,
+    gameId,
+    hostUid,
+    localUid,
   };
 };
 
@@ -38,12 +54,13 @@ export const ACTION_TYPES = {
   MOVE_AND_SPLIT_ROLL: 'MOVE_AND_SPLIT_ROLL',
   RESET_GAME: 'RESET_GAME',
   EXECUTE_PAIR_ATTACK: 'EXECUTE_PAIR_ATTACK',
+  SYNC_FROM_CLOUD: 'SYNC_FROM_CLOUD',
 };
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
 
-function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
-  const newPlayers = { ...playersState };
+function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
+  const newPlayers = { ...currentPlayersState };
   const targetPos = newPlayers[playerId].pieces[pieceIndex];
   if (targetPos === -1) return newPlayers;
 
@@ -66,6 +83,8 @@ function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
 
   for (const [otherPlayerId, player] of Object.entries(newPlayers)) {
     if (otherPlayerId === playerId) continue;
+
+    if (state.isTeamMode && player.team === newPlayers[playerId].team) continue; // No friendly fire
 
     const opponentPieceIndices = player.pieces.map((p, i) => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId ? i : -1).filter(i => i !== -1);
     const opponentPiecesOnSquare = opponentPieceIndices.length;
@@ -90,6 +109,15 @@ function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
 
   if (killed) {
     newPlayers[playerId] = { ...newPlayers[playerId], hasKilled: true };
+    
+    // In Team Mode, blood debt is shared between teammates
+    if (state.isTeamMode) {
+      for (const pId in newPlayers) {
+        if (newPlayers[pId].team === newPlayers[playerId].team) {
+          newPlayers[pId] = { ...newPlayers[pId], hasKilled: true };
+        }
+      }
+    }
   }
 
   return newPlayers;
@@ -98,6 +126,9 @@ function applyCombat(playerId, pieceIndex, playersState, isSpawning = false) {
 // Central Game Reducer
 function gameReducer(state, action) {
   switch (action.type) {
+    case ACTION_TYPES.SYNC_FROM_CLOUD:
+      if (!state.isOnline) return state;
+      return { ...state, ...action.payload };
     case ACTION_TYPES.ROLL_DICE: {
       const isDouble = action.payload.d1 === action.payload.d2 && action.payload.d2 !== null;
       // Add the new roll object to the turnQueue array
@@ -122,7 +153,7 @@ function gameReducer(state, action) {
       newPieces[pieceIndex] = spawnPosition;
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: newPieces };
 
-      newPlayers = applyCombat(playerId, pieceIndex, newPlayers, true); // isSpawning = true
+      newPlayers = applyCombat(playerId, pieceIndex, state, newPlayers, true); // isSpawning = true
 
       const newQueue = [...state.turnQueue];
       newQueue.splice(rollIndex, 1); // Remove the used roll
@@ -145,7 +176,7 @@ function gameReducer(state, action) {
         newPieces[pieceIndex] = FINISHED_STATE;
       } else {
         newPieces[pieceIndex] = newPosition;
-        newPlayers = applyCombat(playerId, pieceIndex, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
+        newPlayers = applyCombat(playerId, pieceIndex, state, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
       }
       
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: newPieces };
@@ -172,7 +203,7 @@ function gameReducer(state, action) {
         newQueue[rollIndex] = { d1: distanceRemaining, d2: null, sum: distanceRemaining };
       } else {
         newPieces[pieceIndex] = newPosition;
-        newPlayers = applyCombat(playerId, pieceIndex, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
+        newPlayers = applyCombat(playerId, pieceIndex, state, { ...newPlayers, [playerId]: { ...newPlayers[playerId], pieces: newPieces } });
         newQueue[rollIndex] = { d1: distanceRemaining, d2: null, sum: distanceRemaining };
       }
 
@@ -205,6 +236,15 @@ function gameReducer(state, action) {
       attackerPieces[firstPieceIndex] += moveDistance;
       attackerPieces[secondPieceIndex] += moveDistance;
       newPlayers[playerId] = { ...newPlayers[playerId], pieces: attackerPieces, hasKilled: true };
+      
+      // Share blood debt for pair attacks in Team Mode
+      if (state.isTeamMode) {
+        for (const pId in newPlayers) {
+          if (newPlayers[pId].team === newPlayers[playerId].team) {
+            newPlayers[pId] = { ...newPlayers[pId], hasKilled: true };
+          }
+        }
+      }
 
       // Update defender's pieces (send them back to base)
       if (defendingPlayerId && defendingPieceIndices.length === 2) {
@@ -266,11 +306,68 @@ export function GameProvider({ gameConfig, children }) {
     return gameReducer(state, action);
   };
 
-  const [state, dispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
+  const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
+
+  // Check if the local client has authority over the current active turn
+  const checkIsMyTurn = (currentState) => {
+    if (!currentState.isOnline) return true;
+    const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
+    if (currentState.bots.includes(activeId)) return currentState.localUid === currentState.hostUid;
+    return currentState.playerUids[activeId] === currentState.localUid;
+  };
+
+  // Phase 17.3: The Action Interceptor (Middleware)
+  const dispatch = (action) => {
+    // Block unauthorized actions in online mode
+    const protectedActions = [
+      ACTION_TYPES.ROLL_DICE, ACTION_TYPES.SPAWN_PIECE, ACTION_TYPES.MOVE_WITH_FULL_ROLL, 
+      ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN
+    ];
+    
+    if (state.isOnline && protectedActions.includes(action.type) && !checkIsMyTurn(state)) {
+      return; // Ignore unauthorized action completely
+    }
+
+    baseDispatch(action);
+
+    if (state.isOnline && state.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
+      const nextState = gameReducer(state, action);
+      const gameRef = doc(db, 'games', state.gameId);
+      
+      updateDoc(gameRef, {
+        currentPlayer: nextState.currentPlayer,
+        turnQueue: nextState.turnQueue,
+        players: nextState.players,
+        hasRolledThisTurn: nextState.hasRolledThisTurn,
+        rollingPhaseComplete: nextState.rollingPhaseComplete
+      }).catch(e => console.error("Firestore sync failed:", e));
+    }
+  };
 
   useEffect(() => {
-    // Only save state if the game is active (not on initial setup)
-    if (state.players) {
+    if (state.isOnline && state.gameId) {
+      const gameRef = doc(db, 'games', state.gameId);
+      const unsubscribe = onSnapshot(gameRef, (docSnap) => {
+        if (docSnap.exists()) {
+          baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: docSnap.data() });
+        } else if (state.localUid === state.hostUid) {
+          // Host initializes the game document
+          setDoc(gameRef, {
+            currentPlayer: state.currentPlayer,
+            turnQueue: state.turnQueue,
+            players: state.players,
+            hasRolledThisTurn: state.hasRolledThisTurn,
+            rollingPhaseComplete: state.rollingPhaseComplete
+          }).catch(console.error);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
+
+  useEffect(() => {
+    // Only save state for active, local offline games
+    if (state.players && !state.isOnline) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
     }
   }, [state]);

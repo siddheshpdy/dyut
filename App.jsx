@@ -5,6 +5,8 @@ import UnifiedLobby from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
 import { GameProvider } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
+import { auth, signInUserAnonymously } from './firebaseSetup.js';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
@@ -12,6 +14,8 @@ const GAME_STATE_KEY = 'dyut_game_state';
 function App() {
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
+  const [user, setUser] = useState(null);
+  const [joinGameId, setJoinGameId] = useState(null);
 
   const hasCachedGame = !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
 
@@ -26,6 +30,18 @@ function App() {
 
     const img = new Image();
     img.src = blehMochiGif;
+
+    // Parse URL for joining online games
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinId = urlParams.get('join');
+    if (joinId) {
+      setJoinGameId(joinId);
+    }
+
+    // Authenticate anonymously for Firebase
+    signInUserAnonymously();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
+    return () => unsubscribe();
   }, []);
 
   const handleStartNewGame = (config) => {
@@ -103,7 +119,7 @@ function App() {
         );
       case 'menu':
       default:
-        return <UnifiedLobby onStartGame={handleStartNewGame} onResumeGame={handleResumeGame} onShowRules={() => setView('rules')} hasCachedGame={hasCachedGame} />;
+        return <UnifiedLobby onStartGame={handleStartNewGame} onResumeGame={handleResumeGame} onShowRules={() => setView('rules')} hasCachedGame={hasCachedGame} joinGameId={joinGameId} user={user} />;
     }
   };
 
