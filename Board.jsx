@@ -119,10 +119,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
   const doubleRoll = state.turnQueue.find(r => r.d1 === r.d2);
-  
-  const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-  const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
-  const canSpawn = isMyTurn && state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isRollingPhaseActive && canSpawnPiece(playerId, doubleRoll.sum, state);
+  const canSpawn = state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isRollingPhaseActive && canSpawnPiece(playerId, doubleRoll.sum, state);
 
   const dispatchWithTransition = (action) => {
     if (!document.startViewTransition) {
@@ -137,8 +134,9 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
   };
 
   const handleSpawnClick = (pieceIndex) => {
-    // Only current player can spawn, and only if they have a double in the queue
-    if (state.currentPlayer !== playerId || isRollingPhaseActive) return;
+    // Only active player (or proxy) can spawn
+    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+    if (activePlayerId !== playerId || isRollingPhaseActive) return;
     const doubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2);
     if (doubleIndex !== -1) {
       dispatchWithTransition({
@@ -170,7 +168,12 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
           <div className={`w-2 h-2 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
-          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-gold'}`}>{playerId}</span>
+          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-gold'}`}>{player.name || playerId}</span>
+          {state.isTeamMode && (
+            <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[6px] sm:text-[8px] font-sans font-bold uppercase tracking-widest rounded border ${player.team === 1 ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30' : 'bg-rose-500/20 text-rose-200 border-rose-500/30'}`} title={`Team ${player.team}`}>
+              T{player.team}
+            </span>
+          )}
         </div>
         <div className="flex gap-1 sm:gap-2 mt-0.5 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'text-ruby drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
@@ -220,9 +223,37 @@ const Board = ({ onGoToMenu }) => {
   const activeBases = allBases.filter(base => state.players[base.id]);
 
   const winnerInfo = useMemo(() => {
+    if (state.isQuickGame) {
+      const winnerEntry = Object.entries(state.players).find(([id, player]) => player.pieces.some(p => p === 999));
+      if (winnerEntry) {
+        if (state.isTeamMode) {
+          const winningTeam = winnerEntry[1].team;
+          const teamPlayers = Object.entries(state.players).filter(([id, p]) => p.team === winningTeam).map(e => e[1].name || e[0]);
+          return { id: `Team ${winningTeam} (${teamPlayers.join(' & ')})`, data: {} };
+        }
+        return { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] };
+      }
+      return null;
+    }
+
+    if (state.isTeamMode) {
+      const teams = {};
+      for (const [id, player] of Object.entries(state.players)) {
+        if (!teams[player.team]) teams[player.team] = { allFinished: true, players: [] };
+        teams[player.team].players.push(id);
+        if (!player.pieces.every(p => p === 999)) teams[player.team].allFinished = false;
+      }
+      const winningTeam = Object.entries(teams).find(([team, data]) => data.allFinished);
+      if (winningTeam) {
+        const teamNames = winningTeam[1].players.map(id => state.players[id].name || id);
+        return { id: `Team ${winningTeam[0]} (${teamNames.join(' & ')})`, data: {} };
+      }
+      return null;
+    }
+
     const winnerEntry = Object.entries(state.players).find(([id, player]) => player.pieces.every(p => p === 999));
-    return winnerEntry ? { id: winnerEntry[0], data: winnerEntry[1] } : null;
-  }, [state.players]);
+    return winnerEntry ? { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] } : null;
+  }, [state.players, state.isQuickGame, state.isTeamMode]);
 
   const finishedPieces = useMemo(() => {
     const counts = [];
@@ -247,7 +278,7 @@ const Board = ({ onGoToMenu }) => {
             const prevLockedCount = prevPlayer.pieces.filter(p => p === -1).length;
             const currentLockedCount = currentPlayer.pieces.filter(p => p === -1).length;
             if (currentLockedCount > prevLockedCount) {
-                playSound('./sounds/capture.mp3');
+                playSound(`${import.meta.env.BASE_URL}sounds/capture.mp3`);
                 // Find which piece was captured to trigger the animation
                 const capturedPieceIndex = prevPlayer.pieces.findIndex((prevPos, i) => prevPos !== -1 && currentPlayer.pieces[i] === -1);
                 if (capturedPieceIndex !== -1) {
@@ -264,7 +295,7 @@ const Board = ({ onGoToMenu }) => {
             const prevFinishedCount = prevPlayer.pieces.filter(p => p === 999).length;
             const currentFinishedCount = currentPlayer.pieces.filter(p => p === 999).length;
             if (currentFinishedCount > prevFinishedCount) {
-                playSound('./sounds/goal.mp3');
+                playSound(`${import.meta.env.BASE_URL}sounds/goal.mp3`);
             }
         }
     }
@@ -308,7 +339,10 @@ const Board = ({ onGoToMenu }) => {
     }
 
     // Can only select pieces if it's your turn and you have rolls in the queue
-    if (state.currentPlayer !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
+    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+    const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
+
+    if (!isMyTurn || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
       setSelectedPiece(null);
       return;
     }
@@ -368,7 +402,7 @@ const Board = ({ onGoToMenu }) => {
     const moveDistance = activeRoll.d1;
     const targetPos = pieceCurrentPos + moveDistance;
 
-    if (getPairShieldTarget(targetPos, playerId, state.players)) {
+    if (getPairShieldTarget(targetPos, playerId, state)) {
       const targetCellId = PLAYER_PATHS[playerId][targetPos];
       const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
       let isTargetSafe = false;
@@ -408,7 +442,7 @@ const Board = ({ onGoToMenu }) => {
         if (pos !== -1 && pos < 999 && visualId === cellId) {
           let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !pairAttackState && !isRollingPhaseActive;
           // If in a pair attack, only highlight valid partners
-          if (pairAttackState && isCurrentPlayer && pieceIndex !== pairAttackState.firstPieceIndex) {
+          if (pairAttackState && isActiveOrProxy && pieceIndex !== pairAttackState.firstPieceIndex) {
             const moveDistance = pairAttackState.roll.d1;
             const targetPathIndex = PLAYER_PATHS[playerId].indexOf(pairAttackState.targetCellId);
             if (pos !== -1 && (pos + moveDistance === targetPathIndex)) {

@@ -34,7 +34,7 @@ const DiceTray = () => {
   // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
   useEffect(() => {
     if (showVoidGif) {
-      const delay = isBotPlaying ? 1500 : 3000;
+      const delay = isBotPlaying ? 600 : 2000;
       const timer = setTimeout(() => {
         setShowVoidGif(false);
         if (isMyTurn) dispatch({ type: ACTION_TYPES.END_TURN });
@@ -47,7 +47,7 @@ const DiceTray = () => {
   const handleRoll = () => {
     if (isRolling) return;
     
-    const rollSound = playSound('./sounds/dice-roll.mp3');
+    const rollSound = playSound(`${import.meta.env.BASE_URL}sounds/dice-roll.mp3`);
     setIsRolling(true);
 
     const animationInterval = setInterval(() => {
@@ -56,8 +56,8 @@ const DiceTray = () => {
       setLastRoll({ d1, d2 });
     }, 80);
 
-    // This function will execute once the dice roll sound has finished playing
-    const onSoundEnd = () => {
+    // Use a strict timeout instead of audio events to prevent stranded listeners and multiple dispatches
+    setTimeout(() => {
       clearInterval(animationInterval);
 
       const final_d1 = DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
@@ -66,7 +66,10 @@ const DiceTray = () => {
 
       // CRITICAL: Check for Void Rule (1+3) before anything else
       if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
-        setShowVoidGif(true);
+        // Randomly show the popup (25% chance) so it doesn't get repetitive
+        if (Math.random() < 0.25) {
+          setShowVoidGif(true);
+        }
         dispatch({ type: ACTION_TYPES.CLEAR_QUEUE, skipSync: true });
       } else {
         // Projected state for cost optimization (Batching Roll + AutoMove)
@@ -88,11 +91,7 @@ const DiceTray = () => {
       }
       
       setIsRolling(false);
-    };
-
-    // Listen for the 'ended' event on the audio object to sync animation and sound
-    rollSound.addEventListener('ended', onSoundEnd, { once: true });
-    rollSound.addEventListener('error', onSoundEnd, { once: true }); // Fallback if audio fails to load/play
+    }, 800);
   };
 
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
@@ -182,7 +181,7 @@ const DiceTray = () => {
           <div className="flex flex-col items-start lg:items-center">
             <span className="text-white/60 text-[10px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1">{t('active')}</span>
             <div className="text-gold font-display font-bold text-2xl sm:text-3xl drop-shadow-md uppercase text-glow-gold leading-none">
-              {state.currentPlayer}
+              {state.players[state.currentPlayer]?.name || state.currentPlayer}
             </div>
           </div>
           <div className="flex gap-2 sm:gap-4">

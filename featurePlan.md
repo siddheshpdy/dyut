@@ -75,7 +75,7 @@
 * Architecture: Create an `aiLogic.js` layer that listens to the `GameContext`.
 * Execution: Automatically trigger dice rolls for the AI, pass values to the logic layer, and add a 1-2 second timeout to simulate thinking.
 
-## Phase 14: Multi-Language Support (i18n) (Pending)
+## Phase 14: Multi-Language Support (i18n) (Completed)
 * Technology Stack: Install the `i18next` and `react-i18next` libraries.
 * Configuration: Set up an `i18n.js` config file alongside the Vite entry point.
 * Translation Files: Create `en.json`, `hi.json`, and `mr.json` dictionaries storing key-value pairs for UI elements.
@@ -95,16 +95,23 @@
 * Signaling: Transmit WebRTC SDP tokens over Bluetooth to open a Data Channel.
 * State Syncing: Dispatch all `GameContext` actions as stringified JSON payloads across WebRTC to synchronize both screens perfectly.
 
-## Phase 17: Online Multiplayer (Serverless NoSQL Architecture) (Pending)
+## Phase 17.1: Firebase Setup & Authentication (Pending)
 * Technology Stack: Utilize Firebase Firestore for NoSQL document storage and Firebase Anonymous Authentication to handle persistent reconnects.
 * State Architecture: Sync React `Context` with Firestore `onSnapshot` listeners.
 * Data Schema: Store the game session as one JSON-like document in a `games` collection.
 * Project Configuration: Set up a free Firebase project, install the SDK, and initialize it inside a `services/firebase.js` file.
-* Authentication Logic: Assign users a persistent silent `uid` so they are recognized upon returning.
-* Lobby Routing: Generate a new document on creation and redirect Player 1 to a unique URL.
-* Joining Logic: When Player 2 opens the URL, append their `uid` to the player object and mark the status as "active".
-* Real-Time Synchronization: Set up a `useEffect` hook in `GameContext.jsx` to listen for document updates and instantly dispatch the new JSON payload to the UI.
-* Move Execution: Calculate moves via `gameLogic.js` on the client and push the updated state to Firestore using `updateDoc()`.
+* Authentication Init & URL Parsing: Call `signInUserAnonymously()` on app load to assign users a persistent silent `uid`. Read `?join=GAME_ID` from the URL to route joining players automatically.
+
+## Phase 17.2: Collaborative Lobby Syncing (Completed)
+* Collaborative Lobby Syncing: Push the 2x2 "Seat Arrangement" to Firestore so joining players can see the host's setup in real-time, "Claim" specific seats, and bind their `uid` to a player slot.
+
+## Phase 17.3: Real-Time Synchronization Engine (Completed)
+* Real-Time Synchronization: Set up a `useEffect` hook in `GameContext.jsx` to listen for document updates via `onSnapshot` and dispatch a `SYNC_FROM_CLOUD` action to update the UI.
+* The Action Interceptor (Middleware): Wrap the `dispatch` function to intercept actions, calculate the new state locally, and push delta updates to Firestore using `updateDoc()`.
+
+## Phase 17.4: Firestore Cost Optimization & Bot Handling (Completed)
+* Cost Minimization (Read/Write Batching): Combine Roll & Auto-Move and Bot turns into single `updateDoc()` calls to drastically reduce Firestore usage and stay within the free tier.
+* Host-Only Bot Execution: Restrict the `useAIBot` hook so only the "Host" calculates and pushes bot moves, preventing multiple connected clients from writing simultaneously.
 
 
 
