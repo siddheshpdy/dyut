@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   build:
+    environment: Dev
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
