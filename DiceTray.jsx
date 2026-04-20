@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useGame, ACTION_TYPES } from './GameContext';
-import { hasAnyPlayableMove, getAutoMove } from './gameLogic';
+import { hasAnyPlayableMove, getAutoMove, getProxyPlayerId } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { useAIBot } from './useAIBot';
@@ -28,18 +28,21 @@ const DiceTray = () => {
 
   const isBotPlaying = state.bots?.includes(state.currentPlayer);
 
+  const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+  const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+
   // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
   useEffect(() => {
     if (showVoidGif) {
       const delay = isBotPlaying ? 600 : 2000;
       const timer = setTimeout(() => {
         setShowVoidGif(false);
-        dispatch({ type: ACTION_TYPES.END_TURN });
+        if (isMyTurn) dispatch({ type: ACTION_TYPES.END_TURN });
         setLastRoll({ d1: null, d2: null });
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [showVoidGif, isBotPlaying, dispatch]);
+  }, [showVoidGif, isBotPlaying, dispatch, isMyTurn]);
 
   const handleRoll = () => {
     if (isRolling) return;
@@ -104,7 +107,7 @@ const DiceTray = () => {
 
   useEffect(() => {
     // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
-    if (canRoll || isRolling || showVoidGif) return;
+    if (canRoll || isRolling || showVoidGif || !isMyTurn) return;
 
     // Automatically dispatch a move if the player only has exactly 1 valid option
     if (autoMoveAction) {
@@ -191,7 +194,7 @@ const DiceTray = () => {
           <button
             onClick={handleRoll}
             id="dice-roll-btn"
-            disabled={!canRoll || isRolling || showVoidGif}
+            disabled={!canRoll || isRolling || showVoidGif || !isMyTurn}
             className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             {isRolling ? t('rolling') : t('rollDice')}

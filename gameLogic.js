@@ -1,6 +1,25 @@
 import { PLAYER_PATHS, isSafeZone as isCellVisuallySafe } from './boardMapping';
 
 /**
+ * Returns the ID of the teammate if the current player is entirely finished.
+ */
+export function getProxyPlayerId(playerId, state) {
+    if (!state?.isTeamMode) return playerId;
+    const player = state.players[playerId];
+    if (!player) return playerId;
+    
+    const isFinished = player.pieces.every(p => p === 999);
+    if (!isFinished) return playerId;
+    
+    // Find teammate
+    const teammateId = Object.keys(state.players).find(id => id !== playerId && state.players[id].team === player.team);
+    if (teammateId && !state.players[teammateId].pieces.every(p => p === 999)) {
+        return teammateId;
+    }
+    return playerId; // Both are finished
+}
+
+/**
  * Gets all pieces currently occupying a specific logical path index for a given player.
  * This is the core function for collision detection.
  * @param {number} targetPathIndex - The logical index on the player's path.
@@ -28,25 +47,6 @@ export function getOccupantsOfPathIndex(targetPathIndex, checkingPlayerId, allPl
         }
     }
     return occupants;
-}
-
-/**
- * Returns the ID of the teammate if the current player is entirely finished.
- */
-export function getProxyPlayerId(playerId, state) {
-    if (!state?.isTeamMode) return playerId;
-    const player = state.players[playerId];
-    if (!player) return playerId;
-    
-    const isFinished = player.pieces.every(p => p === 999);
-    if (!isFinished) return playerId;
-    
-    // Find teammate
-    const teammateId = Object.keys(state.players).find(id => id !== playerId && state.players[id].team === player.team);
-    if (teammateId && !state.players[teammateId].pieces.every(p => p === 999)) {
-        return teammateId;
-    }
-    return playerId; // Both are finished
 }
 
 /**

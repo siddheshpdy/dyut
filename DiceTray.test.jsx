@@ -16,7 +16,8 @@ vi.mock('./audio', () => ({ playSound: vi.fn() }));
 vi.mock('./useAIBot', () => ({ useAIBot: vi.fn() }));
 vi.mock('./gameLogic', () => ({
     hasAnyPlayableMove: vi.fn(() => true),
-    getAutoMove: vi.fn(() => null)
+    getAutoMove: vi.fn(() => null),
+    getProxyPlayerId: vi.fn((id) => id)
 }));
 
 describe('DiceTray Component', () => {

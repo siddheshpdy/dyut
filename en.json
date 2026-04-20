@@ -73,5 +73,11 @@
   "shareLinkInstruction": "Share this link with your friends to let them join your match.",
   "copy": "Copy",
   "copied": "Copied!",
-  "enterMatch": "Enter Match"
+  "enterMatch": "Enter Match",
+  "hostingMatch": "HOSTING...",
+  "claimSeat": "Claim Seat",
+  "taken": "Taken",
+  "onlineHumansRequired": "Online games require at least 2 human players.",
+  "maxOneBotInFourPlayer": "Maximum 1 bot allowed in a 4-player game.",
+  "allHumansMustBeClaimed": "All human seats must be claimed before starting."
 }

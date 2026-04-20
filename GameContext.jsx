@@ -1,18 +1,19 @@
 import React, { createContext, useReducer, useContext, useEffect } from 'react';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from './firebaseSetup.js';
+import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, isOnline = false, gameId = null, hostUid = null, localUid = null } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
   const players = {};
   seatsToUse.forEach((playerId, index) => {
     const playerNum = parseInt(playerId.replace('Player', ''));
-    const team = isTeamMode ? (playerNum % 2 !== 0 ? 1 : 2) : 0; // P1 & P3 = Team 1, P2 & P4 = Team 2
+    const team = isTeamMode ? (playerNum % 2 !== 0 ? 1 : 2) : 0;
     players[playerId] = {
       color: playerColors[index],
       name: playerAliases[playerId] || playerId,
@@ -28,6 +29,7 @@ const createInitialState = (gameConfig) => {
     turnHistory: [],
     players,
     boardOccupancy: {},
+    playerUids,
     bots,
     botDifficulty,
     isVoidRuleEnabled,
@@ -81,7 +83,7 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
 
   for (const [otherPlayerId, player] of Object.entries(newPlayers)) {
     if (otherPlayerId === playerId) continue;
-    
+
     if (state.isTeamMode && player.team === newPlayers[playerId].team) continue; // No friendly fire
 
     const opponentPieceIndices = player.pieces.map((p, i) => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId ? i : -1).filter(i => i !== -1);
@@ -125,7 +127,6 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
 function gameReducer(state, action) {
   switch (action.type) {
     case ACTION_TYPES.SYNC_FROM_CLOUD:
-      // Only accept syncs if the local game knows it's online
       if (!state.isOnline) return state;
       return { ...state, ...action.payload };
     case ACTION_TYPES.ROLL_DICE: {
@@ -307,18 +308,32 @@ export function GameProvider({ gameConfig, children }) {
 
   const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
 
-  // --- Phase 17.3: The Action Interceptor ---
+  // Check if the local client has authority over the current active turn
+  const checkIsMyTurn = (currentState) => {
+    if (!currentState.isOnline) return true;
+    const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
+    if (currentState.bots.includes(activeId)) return currentState.localUid === currentState.hostUid;
+    return currentState.playerUids[activeId] === currentState.localUid;
+  };
+
+  // Phase 17.3: The Action Interceptor (Middleware)
   const dispatch = (action) => {
-    // 1. Always apply the action locally for instant UI response and View Transitions
+    // Block unauthorized actions in online mode
+    const protectedActions = [
+      ACTION_TYPES.ROLL_DICE, ACTION_TYPES.SPAWN_PIECE, ACTION_TYPES.MOVE_WITH_FULL_ROLL, 
+      ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN
+    ];
+    
+    if (state.isOnline && protectedActions.includes(action.type) && !checkIsMyTurn(state)) {
+      return; // Ignore unauthorized action completely
+    }
+
     baseDispatch(action);
 
-    // 2. If online, sync the resulting state to the cloud (respecting skipSync for cost batching)
     if (state.isOnline && state.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
-      // Calculate what the state becomes after this action
       const nextState = gameReducer(state, action);
       const gameRef = doc(db, 'games', state.gameId);
       
-      // Only push the mutable gameplay fields to minimize payload
       updateDoc(gameRef, {
         currentPlayer: nextState.currentPlayer,
         turnQueue: nextState.turnQueue,
@@ -330,14 +345,13 @@ export function GameProvider({ gameConfig, children }) {
   };
 
   useEffect(() => {
-    // If playing an online game, listen to Firestore in real-time
     if (state.isOnline && state.gameId) {
       const gameRef = doc(db, 'games', state.gameId);
       const unsubscribe = onSnapshot(gameRef, (docSnap) => {
         if (docSnap.exists()) {
           baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: docSnap.data() });
-        } else {
-          // First time initialization (Host creates the document)
+        } else if (state.localUid === state.hostUid) {
+          // Host initializes the game document
           setDoc(gameRef, {
             currentPlayer: state.currentPlayer,
             turnQueue: state.turnQueue,
@@ -347,10 +361,9 @@ export function GameProvider({ gameConfig, children }) {
           }).catch(console.error);
         }
       });
-      // Cleanup listener when component unmounts or gameId changes
       return () => unsubscribe();
     }
-  }, [state.isOnline, state.gameId]);
+  }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
 
   useEffect(() => {
     // Only save state for active, local offline games

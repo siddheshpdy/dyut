@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import { doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from './firebaseSetup.js';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -11,9 +11,25 @@ const ALL_COLORS = [
   { name: 'amber', tw: 'bg-amber' },
 ];
 
-const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, activeColors, t }) => {
+const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t }) => {
   const isActive = seat.type !== 'closed';
+  const isBot = seat.type === 'bot';
   const typeColor = seat.type === 'human' ? 'text-gold bg-gold/10 border-gold/30' : seat.type === 'bot' ? 'text-sapphire bg-sapphire/10 border-sapphire/30' : 'text-white/40 bg-white/5 border-white/10';
+  
+  const isOwnedByMe = seat.uid === userUid;
+  const editable = !isOnline || isOwnedByMe || (isBot && isHost);
+
+  // Local state to prevent rapid keystrokes from causing Firebase race conditions
+  const [localName, setLocalName] = useState(seat.name || '');
+
+  // Sync local state when external data changes, but only when necessary
+  useEffect(() => {
+    setLocalName(seat.name || '');
+  }, [seat.name]);
+
+  const handleBlur = () => {
+    if (localName !== seat.name) onNameChange(localName);
+  };
 
   return (
     <div className={`flex flex-col items-center bg-black/40 p-3 rounded-xl border transition-all ${isActive ? 'border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]' : 'border-transparent opacity-50 hover:opacity-80'}`}>
@@ -23,7 +39,8 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         <select 
           value={seat.type} 
           onChange={(e) => onTypeChange(e.target.value)}
-          className={`w-full py-1.5 px-2 appearance-none rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors cursor-pointer text-center outline-none ${typeColor}`}
+          disabled={isOnline && !isHost}
+          className={`w-full py-1.5 px-2 appearance-none rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${isOnline && !isHost ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} text-center outline-none ${typeColor}`}
         >
           <option value="human" className="bg-charcoal text-gold">{t('human', 'Human')}</option>
           <option value="bot" className="bg-charcoal text-sapphire">{t('bot', 'Bot')}</option>
@@ -38,8 +55,10 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
       
       <input
         type="text"
-        value={seat.name || ''}
-        onChange={(e) => onNameChange(e.target.value)}
+        value={localName}
+        onChange={(e) => setLocalName(e.target.value)}
+        onBlur={handleBlur}
+        disabled={!editable}
         placeholder={t('playerNamePlaceholder', 'Enter Name')}
         maxLength={12}
         spellCheck="false"
@@ -52,6 +71,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           return (
             <button
               key={color.name}
+              disabled={!editable || isTaken}
               onClick={() => !isTaken && onColorChange(color.name)}
               className={`w-5 h-5 rounded-full ${color.tw} jewel-shadow transition-all ${seat.color === color.name ? 'ring-2 ring-white ring-offset-2 ring-offset-charcoal scale-125 z-10' : isTaken ? 'opacity-20 cursor-not-allowed' : 'opacity-60 hover:opacity-100 hover:scale-110'}`}
               title={color.name}
@@ -59,16 +79,27 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           );
         })}
       </div>
+
+      {isOnline && seat.type === 'human' && !seat.uid && (
+        <button onClick={() => onClaim(id)} className="w-full mt-2 py-1 bg-emerald/20 text-emerald border border-emerald/30 rounded text-[10px] uppercase font-bold tracking-widest hover:bg-emerald/30 transition-colors">
+          {t('claimSeat', 'Claim Seat')}
+        </button>
+      )}
+      {isOnline && seat.type === 'human' && seat.uid && !isOwnedByMe && (
+        <div className="w-full mt-2 py-1 bg-ruby/20 text-ruby border border-ruby/30 rounded text-[10px] uppercase font-bold tracking-widest text-center cursor-not-allowed">
+          {t('taken', 'Taken')}
+        </div>
+      )}
     </div>
   );
 };
 
 const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, joinGameId, user }) => {
   const [seats, setSeats] = useState({
-    Player4: { type: 'closed', color: 'amber', name: '' },
-    Player3: { type: 'closed', color: 'emerald', name: '' },
-    Player1: { type: 'human', color: 'ruby', name: '' },
-    Player2: { type: 'bot', color: 'sapphire', name: '' }
+    Player4: { type: 'closed', color: 'amber', name: '', uid: null },
+    Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
+    Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+    Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
   });
   const [botDifficulty, setBotDifficulty] = useState('hard');
   const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(true);
@@ -76,6 +107,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   const [isTeamMode, setIsTeamMode] = useState(false);
   const [pendingGameId, setPendingGameId] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [isHosting, setIsHosting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('Waiting...');
 
   const { t } = useTranslation();
 
@@ -88,9 +121,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   const activeColors = activeSeats.map(([_, s]) => s.color);
 
   useEffect(() => {
-    if (!activeLobbyId) return;
+    // Wait until the anonymous authentication completes before attempting to listen to the secure database
+    if (!activeLobbyId || !user) return; 
+    
+    setConnectionStatus('Connecting...');
+
     const unsub = onSnapshot(doc(db, 'lobbies', activeLobbyId), (docSnap) => {
       if (docSnap.exists()) {
+        setConnectionStatus('Connected');
         const data = docSnap.data();
         if (data.seats) setSeats(data.seats);
         if (data.botDifficulty !== undefined) setBotDifficulty(data.botDifficulty);
@@ -102,15 +140,24 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
         if (data.gameStarted && joinGameId) {
           executeStart(true, activeLobbyId, data);
         }
+      } else {
+        setConnectionStatus('Lobby not found');
       }
+    }, (error) => {
+      console.error("Lobby listener error:", error);
+      setConnectionStatus('Error: ' + error.message);
     });
     return () => unsub();
-  }, [activeLobbyId, joinGameId]);
+  }, [activeLobbyId, joinGameId, user]);
 
   const pushUpdate = async (field, value) => {
     if (activeLobbyId) {
-      try { await updateDoc(doc(db, 'lobbies', activeLobbyId), { [field]: value }); } 
-      catch (e) { console.error("Sync error:", e); }
+      try { 
+        await updateDoc(doc(db, 'lobbies', activeLobbyId), { [field]: value }); 
+      } catch (e) { 
+        console.error("Sync error:", e); 
+        alert(`Failed to sync ${field}. Check console for details.`);
+      }
     }
   };
 
@@ -129,6 +176,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
+  const handleClaimSeat = (playerId) => {
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], uid: user.uid } };
+    setSeats(newSeats); pushUpdate('seats', newSeats);
+  };
+
   useEffect(() => {
     if (playerCount !== 4) setIsTeamMode(false); // Team mode strictly 2v2
   }, [playerCount]);
@@ -137,24 +189,34 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     const currentSeats = overrideData?.seats || seats;
     const currentActiveSeats = Object.entries(currentSeats).filter(([_, s]) => s.type !== 'closed');
     const currentActiveColors = currentActiveSeats.map(([_, s]) => s.color);
+    const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
     
     if (!overrideData) { // Only validate if we are initiating the start locally
       if (currentActiveSeats.length < 2) return alert("Need at least 2 players.");
-      if (currentActiveSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert("Need at least 1 human player.");
+      if (isOnline) {
+        const humanCount = currentActiveSeats.filter(([_, s]) => s.type === 'human').length;
+        if (humanCount < 2) return alert(t('onlineHumansRequired', "Online games require at least 2 human players."));
+        if (currentActiveSeats.length === 4 && bots.length > 1) return alert(t('maxOneBotInFourPlayer', "Maximum 1 bot allowed in a 4-player game."));
+        const unclaimedHumans = currentActiveSeats.filter(([_, s]) => s.type === 'human' && !s.uid).length;
+        if (unclaimedHumans > 0) return alert(t('allHumansMustBeClaimed', "All human seats must be claimed before starting."));
+      } else {
+        if (currentActiveSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert("Need at least 1 human player.");
+      }
       if (new Set(currentActiveColors).size !== currentActiveColors.length) return alert("Each active player must have a unique color.");
     }
 
     const activeSeatIds = currentActiveSeats.map(([id]) => id).sort();
-    const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
     const playerColors = activeSeatIds.map(id => currentSeats[id].color);
     
     const playerAliases = {};
+    const playerUids = {};
     activeSeatIds.forEach(id => {
       playerAliases[id] = currentSeats[id].name.trim() || (currentSeats[id].type === 'bot' ? `${t('bot', 'Bot')} ${id.replace('Player', '')}` : `${t('player', 'Player')} ${id.replace('Player', '')}`);
+      playerUids[id] = currentSeats[id].uid || null;
     });
 
     onStartGame({ 
-      playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, 
+      playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, playerUids,
       isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
       hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null
@@ -162,21 +224,33 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   };
 
   const handleHostOnlineClick = async () => {
-    if (playerCount < 2) return alert("Need at least 2 players.");
-    if (activeSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert("Need at least 1 human player.");
+    const humanCount = activeSeats.filter(([_, s]) => s.type === 'human').length;
+    if (humanCount < 2) return alert(t('onlineHumansRequired', "Online games require at least 2 human players."));
+    if (activeSeats.length === 4 && botCount > 1) return alert(t('maxOneBotInFourPlayer', "Maximum 1 bot allowed in a 4-player game."));
     if (new Set(activeColors).size !== activeColors.length) return alert("Each active player must have a unique color.");
 
+    setIsHosting(true);
     const newGameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // Auto-claim the first human seat for the Host
+    const newSeats = { ...seats };
+    const firstHuman = Object.keys(newSeats).find(id => newSeats[id].type === 'human');
+    if (firstHuman) {
+      newSeats[firstHuman].uid = user?.uid || null;
+    }
     
     try {
       await setDoc(doc(db, 'lobbies', newGameId), {
-        seats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid || null, gameStarted: false
+        seats: newSeats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid || null, gameStarted: false
       });
   
+      setSeats(newSeats);
       setPendingGameId(newGameId);
     } catch (error) {
       console.error("Firebase Error:", error);
       alert("Failed to create online lobby. Please check your Firestore Security Rules in the Firebase Console!");
+    } finally {
+      setIsHosting(false);
     }
   };
 
@@ -191,10 +265,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
 
       {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
-          <span className="text-gold font-bold text-sm tracking-widest uppercase mb-3">{t('onlineLobby', 'Online Lobby')} - ID: {activeLobbyId}</span>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-gold font-bold text-sm tracking-widest uppercase">{t('onlineLobby', 'Online Lobby')} - ID: {activeLobbyId}</span>
+            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${connectionStatus === 'Connected' ? 'bg-emerald/20 text-emerald' : 'bg-ruby/20 text-white'}`}>{connectionStatus}</span>
+          </div>
           <div className="flex w-full gap-2">
-            <input type="text" readOnly value={`${window.location.origin}?join=${activeLobbyId}`} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
-            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?join=${activeLobbyId}`); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
+            <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
+            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
           </div>
         </div>
       )}
@@ -214,13 +291,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
           
           <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
              {/* Player 4 (Top Left) */}
-             <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} activeColors={activeColors} t={t} />
+             <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
              {/* Player 3 (Top Right) */}
-             <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} activeColors={activeColors} t={t} />
+             <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
              {/* Player 1 (Bottom Left) */}
-             <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} activeColors={activeColors} t={t} />
+             <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
              {/* Player 2 (Bottom Right) */}
-             <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} activeColors={activeColors} t={t} />
+             <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
           </div>
         </div>
 
@@ -229,14 +306,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
           <div className="animate-fade-in">
             <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('botDifficulty')}</h2>
             <div className="flex justify-center gap-4">
-              <button onClick={() => {
+              <button disabled={!!activeLobbyId && !isHost} onClick={() => {
                 setBotDifficulty('easy'); pushUpdate('botDifficulty', 'easy');
-              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'} disabled:opacity-70 disabled:cursor-not-allowed`}>
                 {t('easy')}
               </button>
-              <button onClick={() => {
+              <button disabled={!!activeLobbyId && !isHost} onClick={() => {
                 setBotDifficulty('hard'); pushUpdate('botDifficulty', 'hard');
-              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'} disabled:opacity-70 disabled:cursor-not-allowed`}>
                 {t('hard')}
               </button>
             </div>
@@ -246,21 +323,32 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
         {/* Rules Toggle */}
         <div className="flex flex-col items-center justify-center gap-3">
           <div className="flex items-center gap-3">
-            <input type="checkbox" id="void-rule" checked={isVoidRuleEnabled} onChange={(e) => setIsVoidRuleEnabled(e.target.checked)} className="w-5 h-5 accent-gold cursor-pointer" />
+            <input type="checkbox" id="void-rule" disabled={!!activeLobbyId && !isHost} checked={isVoidRuleEnabled} onChange={(e) => {
+              setIsVoidRuleEnabled(e.target.checked);
+              pushUpdate('isVoidRuleEnabled', e.target.checked);
+            }} className="w-5 h-5 accent-gold cursor-pointer" />
             <label htmlFor="void-rule" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('enableVoidRule')}</label>
           </div>
           <div className="flex items-center gap-3">
-            <input type="checkbox" id="quick-game" checked={isQuickGame} onChange={(e) => {
+            <input type="checkbox" id="quick-game" disabled={!!activeLobbyId && !isHost} checked={isQuickGame} onChange={(e) => {
               setIsQuickGame(e.target.checked);
-              if (e.target.checked) setIsTeamMode(false);
+              pushUpdate('isQuickGame', e.target.checked);
+              if (e.target.checked) {
+                setIsTeamMode(false);
+                pushUpdate('isTeamMode', false);
+              }
             }} className="w-5 h-5 accent-gold cursor-pointer" />
             <label htmlFor="quick-game" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('quickGame')}</label>
           </div>
           {playerCount === 4 && (
             <div className="flex items-center gap-3">
-              <input type="checkbox" id="team-mode" checked={isTeamMode} onChange={(e) => {
+              <input type="checkbox" id="team-mode" disabled={!!activeLobbyId && !isHost} checked={isTeamMode} onChange={(e) => {
                 setIsTeamMode(e.target.checked);
-                if (e.target.checked) setIsQuickGame(false);
+                pushUpdate('isTeamMode', e.target.checked);
+                if (e.target.checked) {
+                  setIsQuickGame(false);
+                  pushUpdate('isQuickGame', false);
+                }
               }} className="w-5 h-5 accent-gold cursor-pointer" />
               <label htmlFor="team-mode" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('teamMode')}</label>
             </div>
@@ -272,7 +360,19 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
         {!activeLobbyId ? (
           <>
             <button onClick={() => executeStart(false)} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('startNewGame')}</button>
-            <button onClick={handleHostOnlineClick} className="w-full py-3 bg-sapphire text-white font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] transition-all">{t('hostOnlineMatch', 'HOST ONLINE MATCH')}</button>
+            <button onClick={handleHostOnlineClick} disabled={isHosting} className="w-full py-3 flex items-center justify-center gap-2 bg-sapphire text-white font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+              {isHosting ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {t('hostingMatch', 'HOSTING...')}
+                </>
+              ) : (
+                t('hostOnlineMatch', 'HOST ONLINE MATCH')
+              )}
+            </button>
             {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeSession')}</button>}
           </>
         ) : (

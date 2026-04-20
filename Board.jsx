@@ -119,8 +119,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
   const doubleRoll = state.turnQueue.find(r => r.d1 === r.d2);
-  const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-  const canSpawn = activePlayerId === playerId && doubleRoll && !pairAttackState && !isRollingPhaseActive && canSpawnPiece(playerId, doubleRoll.sum, state);
+  const canSpawn = state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isRollingPhaseActive && canSpawnPiece(playerId, doubleRoll.sum, state);
 
   const dispatchWithTransition = (action) => {
     if (!document.startViewTransition) {
@@ -341,7 +340,9 @@ const Board = ({ onGoToMenu }) => {
 
     // Can only select pieces if it's your turn and you have rolls in the queue
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    if (activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
+    const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
+
+    if (!isMyTurn || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
       setSelectedPiece(null);
       return;
     }
@@ -427,8 +428,11 @@ const Board = ({ onGoToMenu }) => {
   // Find which pieces are on which cells
   const getOccupants = (cellId) => {
     const occupants = [];
+    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+    const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
+
     Object.entries(state.players).forEach(([playerId, player]) => {
-      const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+      const isCurrentPlayer = state.currentPlayer === playerId;
       const isActiveOrProxy = playerId === activePlayerId;
       const hasRolls = state.turnQueue.length > 0;
       player.pieces.forEach((pos, pieceIndex) => {
@@ -436,7 +440,7 @@ const Board = ({ onGoToMenu }) => {
         const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
 
         if (pos !== -1 && pos < 999 && visualId === cellId) {
-          let isMovable = isActiveOrProxy && hasRolls && !pairAttackState && !isRollingPhaseActive;
+          let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !pairAttackState && !isRollingPhaseActive;
           // If in a pair attack, only highlight valid partners
           if (pairAttackState && isActiveOrProxy && pieceIndex !== pairAttackState.firstPieceIndex) {
             const moveDistance = pairAttackState.roll.d1;
