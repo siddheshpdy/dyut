@@ -10,12 +10,14 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
+const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 
 function App() {
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
   const [joinGameId, setJoinGameId] = useState(null);
+  const [lastOnlineGameId, setLastOnlineGameId] = useState(null);
 
   const hasCachedGame = !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
 
@@ -41,6 +43,8 @@ function App() {
     if (joinId) {
       setJoinGameId(joinId);
     }
+
+    setLastOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
 
     // Authenticate anonymously for Firebase
     signInUserAnonymously();
@@ -70,6 +74,10 @@ function App() {
 
   const handleGameSetupComplete = (config) => {
     localStorage.setItem(PLAYER_COUNT_KEY, config.playerCount);
+    if (config.isOnline && config.gameId) {
+      localStorage.setItem(ONLINE_GAME_ID_KEY, config.gameId);
+      setLastOnlineGameId(config.gameId);
+    }
     setGameConfig(config);
     setView('game');
   };
@@ -77,6 +85,7 @@ function App() {
   const handleWipeAndGoToMenu = () => {
     localStorage.removeItem(PLAYER_COUNT_KEY);
     localStorage.removeItem(GAME_STATE_KEY);
+    localStorage.removeItem(ONLINE_GAME_ID_KEY);
     setGameConfig(null);
     setView('menu');
   };
@@ -123,7 +132,19 @@ function App() {
         );
       case 'menu':
       default:
-        return <UnifiedLobby onStartGame={handleStartNewGame} onResumeGame={handleResumeGame} onShowRules={() => setView('rules')} hasCachedGame={hasCachedGame} joinGameId={joinGameId} user={user} />;
+        return <UnifiedLobby 
+          onStartGame={handleStartNewGame} 
+          onResumeGame={handleResumeGame} 
+          onShowRules={() => setView('rules')} 
+          hasCachedGame={hasCachedGame} 
+          joinGameId={joinGameId} 
+          user={user} 
+          lastOnlineGameId={lastOnlineGameId}
+          onReconnectOnline={(id) => {
+            setJoinGameId(id);
+            window.history.pushState({}, '', `?join=${id}`);
+          }}
+        />;
     }
   };
 

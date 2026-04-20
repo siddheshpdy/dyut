@@ -94,7 +94,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, joinGameId, user }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, joinGameId, user, lastOnlineGameId, onReconnectOnline }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -373,7 +373,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
                 t('hostOnlineMatch', 'HOST ONLINE MATCH')
               )}
             </button>
-            {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeSession')}</button>}
+          {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeOffline', 'Resume Offline Match')}</button>}
+          {lastOnlineGameId && <button onClick={() => onReconnectOnline(lastOnlineGameId)} className="w-full py-3 bg-white/5 text-sapphire font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('reconnectOnline', 'Reconnect Online')} ({lastOnlineGameId})</button>}
           </>
         ) : (
           <>
