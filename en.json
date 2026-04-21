@@ -79,5 +79,7 @@
   "taken": "Taken",
   "onlineHumansRequired": "Online games require at least 2 human players.",
   "maxOneBotInFourPlayer": "Maximum 1 bot allowed in a 4-player game.",
-  "allHumansMustBeClaimed": "All human seats must be claimed before starting."
+  "allHumansMustBeClaimed": "All human seats must be claimed before starting.",
+  "publicLobby": "PUBLIC LOBBY",
+  "privateLobby": "PRIVATE LOBBY"
 }

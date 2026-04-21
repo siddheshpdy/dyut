@@ -259,7 +259,7 @@ function gameReducer(state, action) {
     }
 
     case ACTION_TYPES.END_TURN: {
-      const playerKeys = Object.keys(state.players);
+      const playerKeys = Object.keys(state.players).sort();
       const currentIndex = playerKeys.indexOf(state.currentPlayer);
       const nextPlayer = playerKeys[(currentIndex + 1) % playerKeys.length];
       return { ...state, currentPlayer: nextPlayer, turnQueue: [], hasRolledThisTurn: false, rollingPhaseComplete: false };
@@ -357,7 +357,9 @@ export function GameProvider({ gameConfig, children }) {
             turnQueue: state.turnQueue,
             players: state.players,
             hasRolledThisTurn: state.hasRolledThisTurn,
-            rollingPhaseComplete: state.rollingPhaseComplete
+            rollingPhaseComplete: state.rollingPhaseComplete,
+            isPublic: gameConfig.isPublic || false,
+            status: gameConfig.status || 'playing'
           }).catch(console.error);
         }
       });
@@ -366,9 +368,34 @@ export function GameProvider({ gameConfig, children }) {
   }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
 
   useEffect(() => {
-    // Only save state for active, local offline games
-    if (state.players && !state.isOnline) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    if (state.players) {
+      let isGameOver = false;
+      if (state.isQuickGame) {
+        isGameOver = Object.values(state.players).some(p => p.pieces.some(pos => pos === 999));
+      } else if (state.isTeamMode) {
+        const teams = {};
+        for (const player of Object.values(state.players)) {
+          if (!teams[player.team]) teams[player.team] = { allFinished: true };
+          if (!player.pieces.every(pos => pos === 999)) teams[player.team].allFinished = false;
+        }
+        isGameOver = Object.values(teams).some(t => t.allFinished);
+      } else {
+        isGameOver = Object.values(state.players).some(p => p.pieces.every(pos => pos === 999));
+      }
+
+      if (isGameOver) {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        localStorage.removeItem('dyut_player_count');
+        
+        if (state.isOnline) {
+          localStorage.removeItem('dyut_last_online_id');
+          if (state.gameId && state.localUid === state.hostUid) {
+            updateDoc(doc(db, 'games', state.gameId), { status: 'finished' }).catch(console.error);
+          }
+        }
+      } else if (!state.isOnline) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+      }
     }
   }, [state]);
 
