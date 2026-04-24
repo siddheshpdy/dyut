@@ -6,7 +6,7 @@ import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
@@ -41,6 +41,7 @@ const createInitialState = (gameConfig) => {
     gameId,
     hostUid,
     localUid,
+    isPublic,
   };
 };
 
@@ -308,6 +309,58 @@ export function GameProvider({ gameConfig, children }) {
 
   const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
 
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  const leaveGame = () => {
+    const currentState = stateRef.current;
+    if (currentState && currentState.isOnline && currentState.gameId) {
+      const myPlayerId = Object.keys(currentState.playerUids).find(key => currentState.playerUids[key] === currentState.localUid);
+      if (myPlayerId && !currentState.bots.includes(myPlayerId)) {
+        const newBots = [...new Set([...currentState.bots, myPlayerId])];
+        let newHostUid = currentState.hostUid;
+        
+        const activeHumans = Object.keys(currentState.playerUids).filter(key => currentState.playerUids[key] && !newBots.includes(key));
+        
+        if (currentState.localUid === currentState.hostUid) {
+          if (activeHumans.length > 0) {
+            newHostUid = currentState.playerUids[activeHumans[0]];
+          } else {
+            newHostUid = null;
+          }
+        }
+
+        const updates = {
+          bots: newBots,
+          hostUid: newHostUid
+        };
+
+        if (currentState.isPublic) {
+          if (activeHumans.length === 1) {
+            const remainingHumanId = activeHumans[0];
+            const newPlayers = { ...currentState.players };
+            newPlayers[remainingHumanId] = {
+              ...newPlayers[remainingHumanId],
+              pieces: [999, 999, 999, 999]
+            };
+            updates.players = newPlayers;
+            updates.status = 'finished';
+          } else if (activeHumans.length === 0) {
+            updates.status = 'finished';
+          }
+        }
+
+        updateDoc(doc(db, 'games', currentState.gameId), updates).catch(console.error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleUnload = () => leaveGame();
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
+
   // Check if the local client has authority over the current active turn
   const checkIsMyTurn = (currentState) => {
     if (!currentState.isOnline) return true;
@@ -399,7 +452,7 @@ export function GameProvider({ gameConfig, children }) {
     }
   }, [state]);
 
-  return <GameContext.Provider value={{ state, dispatch }}>{children}</GameContext.Provider>;
+  return <GameContext.Provider value={{ state, dispatch, leaveGame }}>{children}</GameContext.Provider>;
 }
 
 // Custom hook for consuming the game state
