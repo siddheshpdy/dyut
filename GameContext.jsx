@@ -1,4 +1,4 @@
-import React, { createContext, useReducer, useContext, useEffect } from 'react';
+import React, { createContext, useReducer, useContext, useEffect, useRef } from 'react';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebaseSetup.js';
