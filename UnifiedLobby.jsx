@@ -12,13 +12,14 @@ const ALL_COLORS = [
   { name: 'amber', tw: 'bg-amber' },
 ];
 
-const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus }) => {
+const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
   const typeColor = seat.type === 'human' ? 'text-gold bg-gold/10 border-gold/30' : seat.type === 'bot' ? 'text-sapphire bg-sapphire/10 border-sapphire/30' : 'text-white/40 bg-white/5 border-white/10';
   
   const isOwnedByMe = seat.uid === userUid;
   const editable = !isOnline || isOwnedByMe || (isBot && isHost);
+  const isUnclaimedHuman = isOnline && seat.type === 'human' && !seat.uid;
 
   // Local state to prevent rapid keystrokes from causing Firebase race conditions
   const [localName, setLocalName] = useState(seat.name || '');
@@ -33,15 +34,17 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   };
 
   return (
-    <div className={`flex flex-col items-center bg-black/40 p-3 rounded-xl border transition-all ${isActive ? 'border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]' : 'border-transparent opacity-50 hover:opacity-80'}`}>
-      <span className="text-[9px] text-white/50 uppercase tracking-widest mb-1.5 whitespace-nowrap">{label}</span>
+    <div className={`flex flex-col items-center p-3 rounded-xl border transition-all ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
+      <span className={`text-[9px] uppercase tracking-widest mb-1.5 whitespace-nowrap font-bold ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
+        {label} {isOwnedByMe && <span className="opacity-80">({t('you', 'YOU')})</span>}
+      </span>
       
       <div className="relative w-full">
         <select 
           value={seat.type} 
           onChange={(e) => onTypeChange(e.target.value)}
-          disabled={isOnline && !isHost}
-          className={`w-full py-1.5 px-2 appearance-none rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${isOnline && !isHost ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} text-center outline-none ${typeColor}`}
+          disabled={(isOnline && !isHost) || isLobbyPublic}
+          className={`w-full py-1.5 px-2 appearance-none rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${(isOnline && !isHost) || isLobbyPublic ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} text-center outline-none ${typeColor}`}
         >
           <option value="human" className="bg-charcoal text-gold">{t('human', 'Human')}</option>
           <option value="bot" className="bg-charcoal text-sapphire">{t('bot', 'Bot')}</option>
@@ -54,19 +57,25 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         </div>
       </div>
       
-      <input
-        type="text"
-        value={localName}
-        onChange={(e) => setLocalName(e.target.value)}
-        onBlur={handleBlur}
-        disabled={!editable}
-        placeholder={t('playerNamePlaceholder', 'Enter Name')}
-        maxLength={12}
-        spellCheck="false"
-        className={`w-full mt-2 py-1 bg-transparent text-white/90 text-xs font-sans text-center border border-white/10 rounded focus:outline-none focus:border-gold/50 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-      />
+      {isUnclaimedHuman ? (
+        <div className="w-full mt-2 py-1.5 text-white/50 text-[10px] uppercase font-bold tracking-widest text-center border border-dashed border-white/20 rounded animate-pulse">
+          {t('waiting', 'WAITING...')}
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={localName}
+          onChange={(e) => setLocalName(e.target.value)}
+          onBlur={handleBlur}
+          disabled={!editable}
+          placeholder={t('playerNamePlaceholder', 'Enter Name')}
+          maxLength={12}
+          spellCheck="false"
+          className={`w-full mt-2 py-1 bg-transparent text-white/90 text-xs font-sans text-center border border-white/10 rounded focus:outline-none focus:border-gold/50 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        />
+      )}
 
-      <div className={`flex gap-1.5 mt-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`flex gap-1.5 mt-3 transition-opacity ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {ALL_COLORS.map(color => {
           const isTaken = activeColors.includes(color.name) && seat.color !== color.name;
           return (
@@ -81,7 +90,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         })}
       </div>
 
-      {isOnline && !seat.uid && !hasClaimedSeat && lobbyStatus === 'waiting' && (
+      {isOnline && !seat.uid && !hasClaimedSeat && lobbyStatus === 'waiting' && !isLobbyPublic && (
         <button onClick={() => onClaim(id)} className="w-full mt-2 py-1 bg-emerald/20 text-emerald border border-emerald/30 rounded text-[10px] uppercase font-bold tracking-widest hover:bg-emerald/30 transition-colors">
           {t('claimSeat', 'Claim Seat')}
         </button>
@@ -111,6 +120,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   const [isHosting, setIsHosting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isLobbyPublic, setIsLobbyPublic] = useState(false);
+  const [setupMode, setSetupMode] = useState(null);
+  const [setupStep, setSetupStep] = useState('config');
+  const [matchType, setMatchType] = useState('1v1');
   const [lobbyStatus, setLobbyStatus] = useState('waiting');
   const [lobbyHostUid, setLobbyHostUid] = useState(null);
   const [lobbyExpiresAt, setLobbyExpiresAt] = useState(null);
@@ -293,28 +305,32 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
       playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, playerUids,
       isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
-      hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null
+      hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null,
+      isPublic: overrideData?.isPublic ?? isLobbyPublic
     });
   };
 
   const handleHostOnlineClick = async (isPublicLobby = false) => {
     const isPublic = typeof isPublicLobby === 'boolean' ? isPublicLobby : false;
     
-    const newSeats = { ...seats };
-    if (isPublic) {
-      Object.keys(newSeats).forEach(k => {
-        newSeats[k] = { ...newSeats[k], type: 'human', uid: null };
-      });
+    let newSeats = {};
+    if (matchType === '1v1') {
+      newSeats = {
+        Player4: { type: 'closed', color: 'amber', name: '', uid: null },
+        Player3: { type: 'human', color: 'emerald', name: '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+        Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
+      };
+    } else {
+      newSeats = {
+        Player4: { type: 'human', color: 'amber', name: '', uid: null },
+        Player3: { type: 'human', color: 'emerald', name: '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+        Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
+      };
     }
     
     const currentActiveSeats = Object.values(newSeats).filter(s => s.type !== 'closed');
-    const humanCount = currentActiveSeats.filter(s => s.type === 'human').length;
-    const botCountLocal = currentActiveSeats.filter(s => s.type === 'bot').length;
-    const activeCols = currentActiveSeats.map(s => s.color);
-
-    if (humanCount < 2) return alert(t('onlineHumansRequired', "Online games require at least 2 human players."));
-    if (currentActiveSeats.length === 4 && botCountLocal > 1) return alert(t('maxOneBotInFourPlayer', "Maximum 1 bot allowed in a 4-player game."));
-    if (new Set(activeCols).size !== activeCols.length) return alert("Each active player must have a unique color.");
 
     setIsHosting(true);
     const newGameId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -326,14 +342,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     }
     
     const expiresAt = isPublic ? Date.now() + 60000 : null; // 60 second matchmaking timer
+    const isTeamModeLocal = (matchType === '2v2');
 
     try {
       await setDoc(doc(db, 'lobbies', newGameId), {
-        seats: newSeats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode, hostUid: user?.uid || null, gameStarted: false,
-        isPublic, status: 'waiting', expiresAt
+        seats: newSeats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
+        isPublic, status: 'waiting', expiresAt, matchType
       });
   
       setSeats(newSeats);
+      setIsTeamMode(isTeamModeLocal);
       setPendingGameId(newGameId);
     } catch (error) {
       console.error("Firebase Error:", error);
@@ -345,7 +363,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
 
   const handleFindMatch = async () => {
     setIsSearching(true);
-    const availableGameId = await findRandomPublicGame();
+    const availableGameId = await findRandomPublicGame({
+      matchType,
+      isQuickGame,
+      isTeamMode: matchType === '2v2',
+      isVoidRuleEnabled
+    });
 
     if (availableGameId) {
       window.history.pushState({}, '', `?join=${availableGameId}`);
@@ -428,122 +451,186 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
       
       <h1 className="font-display text-5xl font-bold mb-8 tracking-widest text-glow-gold text-gold">DYUT</h1>
       
-      <div className="w-full space-y-8">
-        {/* Seat Arrangement */}
-        <div className="w-full flex flex-col items-center">
-          <h2 className="text-white/70 text-xs uppercase tracking-widest mb-4 text-center font-semibold">{t('seatArrangement', 'Seat Arrangement')}</h2>
-          
-          <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
-             {/* Player 4 (Top Left) */}
-             <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
-             {/* Player 3 (Top Right) */}
-             <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
-             {/* Player 1 (Bottom Left) */}
-             <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
-             {/* Player 2 (Bottom Right) */}
-             <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} />
-          </div>
-        </div>
+      <div className="w-full">
+        {/* --- STATE 1: MAIN MENU --- */}
+        {!activeLobbyId && !setupMode && (
+          <div className="w-full flex flex-col gap-3 animate-fade-in">
+            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-gold text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all" title={t('startNewGame', 'Local Play')}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('local', 'LOCAL PLAY')}</span>
+            </button>
 
-        {/* Bot Difficulty (Only show if bots are enabled) */}
-        {botCount > 0 && (
-          <div className="animate-fade-in">
-            <h2 className="text-white/70 text-xs uppercase tracking-widest mb-3 text-center font-semibold">{t('botDifficulty')}</h2>
-            <div className="flex justify-center gap-4">
-              <button disabled={!!activeLobbyId && !isHost} onClick={() => {
-                setBotDifficulty('easy'); pushUpdate('botDifficulty', 'easy');
-              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'easy' ? 'bg-emerald text-charcoal scale-110 shadow-[0_0_15px_rgba(74,222,128,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'} disabled:opacity-70 disabled:cursor-not-allowed`}>
-                {t('easy')}
-              </button>
-              <button disabled={!!activeLobbyId && !isHost} onClick={() => {
-                setBotDifficulty('hard'); pushUpdate('botDifficulty', 'hard');
-              }} className={`px-6 py-2 rounded-xl font-sans text-sm font-bold transition-all duration-300 ${botDifficulty === 'hard' ? 'bg-ruby text-white scale-110 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'} disabled:opacity-70 disabled:cursor-not-allowed`}>
-                {t('hard')}
-              </button>
+            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-emerald text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] transition-all" title={t('findRandomMatch', 'Find Public Match')}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('public', 'PUBLIC MATCH')}</span>
+            </button>
+
+            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-sapphire text-white font-display font-bold rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] transition-all" title={t('hostOnlineMatch', 'Host Private Match')}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('private', 'PRIVATE MATCH')}</span>
+            </button>
+
+            {(hasCachedGame || lastOnlineGameId) && (
+              <div className="flex gap-2 w-full mt-2">
+                {hasCachedGame && (
+                  <button onClick={onResumeGame} className="flex-1 py-3 bg-white/5 text-white font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    {t('resumeOffline', 'Resume Offline')}
+                  </button>
+                )}
+                {lastOnlineGameId && (
+                  <button onClick={() => onReconnectOnline(lastOnlineGameId)} className="flex-1 py-3 bg-white/5 text-sapphire font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                    {t('reconnectOnline', 'Reconnect')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
+        {!activeLobbyId && setupMode && setupStep === 'config' && (
+          <div className="w-full flex flex-col items-center animate-fade-in space-y-6">
+            <div className="w-full flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+              <button onClick={() => setSetupMode(null)} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg> {t('back', 'BACK')}</button>
+              <h2 className="text-white/80 font-bold tracking-widest uppercase text-sm">{setupMode === 'public' ? t('publicMatch', 'PUBLIC MATCH') : setupMode === 'private' ? t('privateMatch', 'PRIVATE MATCH') : t('localPlay', 'LOCAL PLAY')}</h2>
+              <div className="w-[72px]"></div>
+            </div>
+
+            <div className="w-full flex flex-col items-center">
+              <h3 className="text-white/70 text-[10px] uppercase tracking-widest mb-3 text-center font-semibold">{t('matchType', 'Match Type')}</h3>
+              <div className="flex gap-2 w-full max-w-[340px]">
+                <button onClick={() => setMatchType('1v1')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === '1v1' ? 'bg-sapphire/20 border-sapphire text-sapphire shadow-[0_0_15px_rgba(56,189,248,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
+                  <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-sapphire"></div><div className="w-2.5 h-2.5 rounded-full bg-ruby"></div></div>
+                  1 vs 1
+                </button>
+                <button onClick={() => setMatchType('2v2')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === '2v2' ? 'bg-emerald/20 border-emerald text-emerald shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
+                  <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-emerald"></div><div className="w-2.5 h-2.5 rounded-full bg-amber"></div></div>
+                  2 vs 2
+                </button>
+                <button onClick={() => setMatchType('ffa')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === 'ffa' ? 'bg-ruby/20 border-ruby text-ruby shadow-[0_0_15px_rgba(244,63,94,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
+                  <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-ruby"></div><div className="w-2.5 h-2.5 rounded-full bg-sapphire"></div><div className="w-2.5 h-2.5 rounded-full bg-emerald"></div></div>
+                  FFA 4P
+                </button>
+              </div>
+            </div>
+
+            <div className="w-full flex flex-col items-center">
+              <h3 className="text-white/70 text-[10px] uppercase tracking-widest mb-3 text-center font-semibold">{t('gameRules', 'Game Rules')}</h3>
+              <div className="flex justify-center gap-3 w-full max-w-[340px]">
+                <button onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${isVoidRuleEnabled ? 'bg-gold/20 border-gold/40 text-gold shadow-[0_0_10px_rgba(251,191,36,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">1+3 Void</span>
+                </button>
+                <button onClick={() => setIsQuickGame(!isQuickGame)} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${isQuickGame ? 'bg-sapphire/20 border-sapphire/40 text-sapphire shadow-[0_0_10px_rgba(56,189,248,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('quickGame', 'Quick')}</span>
+                </button>
+              </div>
+            </div>
+
+            {setupMode !== 'public' && (
+              <div className="w-full flex flex-col items-center">
+                <h3 className="text-white/70 text-[10px] uppercase tracking-widest mb-3 text-center font-semibold">{t('botDifficulty', 'Bot Difficulty')}</h3>
+                <div className="flex justify-center gap-3 w-full max-w-[340px]">
+                  <button onClick={() => setBotDifficulty('easy')} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${botDifficulty === 'easy' ? 'bg-emerald/20 border-emerald/40 text-emerald shadow-[0_0_10px_rgba(52,211,153,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clipRule="evenodd" /></svg>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{t('easy', 'EASY')}</span>
+                  </button>
+                  <button onClick={() => setBotDifficulty('hard')} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${botDifficulty === 'hard' ? 'bg-ruby/20 border-ruby/40 text-ruby shadow-[0_0_10px_rgba(244,63,94,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-1.5 5.5a1 1 0 00-1 1h-3a1 1 0 100 2h7a1 1 0 100-2h-3a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{t('hard', 'HARD')}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="w-full mt-4">
+              {setupMode === 'local' && (
+                <button onClick={() => {
+                  let newSeats = {};
+                  if (matchType === '1v1') {
+                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: '', uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
+                  } else {
+                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: '', uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
+                  }
+                  setSeats(newSeats);
+                  setIsTeamMode(matchType === '2v2');
+                  setSetupStep('seats');
+                }} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+                  NEXT
+                </button>
+              )}
+              {setupMode === 'public' && (
+                <button onClick={handleFindMatch} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+                  {isSearching ? t('searching', 'SEARCHING...') : t('findMatch', 'FIND MATCH')}
+                </button>
+              )}
+              {setupMode === 'private' && (
+                <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className="w-full py-4 flex items-center justify-center gap-2 bg-sapphire text-white font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+                  {isHosting ? t('hostingMatch', 'CREATING LOBBY...') : t('createLobby', 'CREATE LOBBY')}
+                </button>
+              )}
             </div>
           </div>
         )}
 
-        {/* Rules Toggle */}
-        <div className="flex flex-col items-center justify-center gap-3">
-          <div className="flex items-center gap-3">
-            <input type="checkbox" id="void-rule" disabled={!!activeLobbyId && !isHost} checked={isVoidRuleEnabled} onChange={(e) => {
-              setIsVoidRuleEnabled(e.target.checked);
-              pushUpdate('isVoidRuleEnabled', e.target.checked);
-            }} className="w-5 h-5 accent-gold cursor-pointer" />
-            <label htmlFor="void-rule" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('enableVoidRule')}</label>
-          </div>
-          <div className="flex items-center gap-3">
-            <input type="checkbox" id="quick-game" disabled={!!activeLobbyId && !isHost} checked={isQuickGame} onChange={(e) => {
-              setIsQuickGame(e.target.checked);
-              pushUpdate('isQuickGame', e.target.checked);
-              if (e.target.checked) {
-                setIsTeamMode(false);
-                pushUpdate('isTeamMode', false);
-              }
-            }} className="w-5 h-5 accent-gold cursor-pointer" />
-            <label htmlFor="quick-game" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('quickGame')}</label>
-          </div>
-          {playerCount === 4 && (
-            <div className="flex items-center gap-3">
-              <input type="checkbox" id="team-mode" disabled={!!activeLobbyId && !isHost} checked={isTeamMode} onChange={(e) => {
-                setIsTeamMode(e.target.checked);
-                pushUpdate('isTeamMode', e.target.checked);
-                if (e.target.checked) {
-                  setIsQuickGame(false);
-                  pushUpdate('isQuickGame', false);
-                }
-              }} className="w-5 h-5 accent-gold cursor-pointer" />
-              <label htmlFor="team-mode" className="text-white/80 font-sans text-sm cursor-pointer hover:text-white transition-colors">{t('teamMode')}</label>
+        {/* --- STATE 3: LOCAL PLAY SETUP --- */}
+        {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
+          <div className="w-full space-y-6 animate-fade-in">
+            <div className="w-full flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] mb-4">
+              <button onClick={() => setSetupStep('config')} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg> {t('back', 'BACK')}</button>
+              <h2 className="text-white/80 font-bold tracking-widest uppercase text-sm">{t('localPlay', 'LOCAL PLAY')}</h2>
+              <div className="w-[72px]"></div>
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="mt-10 w-full flex flex-col gap-3">
-        {!activeLobbyId ? (
-          <>
-            <button onClick={() => executeStart(false)} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('startNewGame')}</button>
-            
-            <button onClick={handleFindMatch} disabled={isSearching || isHosting} className="w-full py-3 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
-              {isSearching ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-charcoal" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {t('searching', 'SEARCHING...')}
-                </>
-              ) : (
-                t('findRandomMatch', 'FIND RANDOM MATCH')
-              )}
-            </button>
+            <div className="w-full flex flex-col items-center">
+              <h2 className="text-white/70 text-[10px] uppercase tracking-widest mb-4 text-center font-semibold">{t('seatArrangement', 'Seat Arrangement')}</h2>
+              <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
+                 <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+              </div>
+            </div>
 
-            <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className="w-full py-3 flex items-center justify-center gap-2 bg-sapphire text-white font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
-              {isHosting ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {t('hostingMatch', 'HOSTING...')}
-                </>
-              ) : (
-                t('hostOnlineMatch', 'HOST PRIVATE MATCH')
-              )}
+            <button onClick={() => executeStart(false)} className="w-full py-4 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+              {t('startMatch', 'START MATCH')}
             </button>
-          {hasCachedGame && <button onClick={onResumeGame} className="w-full py-3 bg-white/5 text-white font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('resumeOffline', 'Resume Offline Match')}</button>}
-          {lastOnlineGameId && <button onClick={() => onReconnectOnline(lastOnlineGameId)} className="w-full py-3 bg-white/5 text-sapphire font-sans text-sm font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors">{t('reconnectOnline', 'Reconnect Online')} ({lastOnlineGameId})</button>}
-          </>
-        ) : (
-          <>
+          </div>
+        )}
+
+        {/* --- STATE 4: ACTIVE LOBBY (PUBLIC OR PRIVATE) --- */}
+        {activeLobbyId && (
+          <div className="w-full space-y-6 animate-fade-in">
+            <div className="w-full flex flex-col items-center">
+              <h2 className="text-white/70 text-[10px] uppercase tracking-widest mb-4 text-center font-semibold">{t('seatArrangement', 'Seat Arrangement')}</h2>
+              <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
+                 <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 w-full mt-4">
             {isHost ? (
-              <button onClick={handleStartOnlineMatch} className="w-full py-3 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">{t('enterMatch', 'Start Match')}</button>
+                <button onClick={handleStartOnlineMatch} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  {t('enterMatch', 'START MATCH')}
+                </button>
             ) : (
-              <div className="w-full py-3 bg-white/10 text-white/60 text-center font-sans font-bold text-sm tracking-widest uppercase rounded-xl border border-white/5">Waiting for Host...</div>
+                <div className="w-full py-4 bg-white/5 text-white/60 flex items-center justify-center gap-2 font-sans font-bold text-sm tracking-widest uppercase rounded-xl border border-white/5">
+                  <svg className="animate-spin h-5 w-5 text-white/60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Waiting for Host...
+                </div>
             )}
-            <button onClick={() => window.location.href = '/'} className="w-full py-3 bg-transparent text-white/50 hover:text-white font-sans text-sm font-semibold rounded-xl transition-colors">Leave Lobby</button>
-          </>
+              <button onClick={() => window.location.href = '/'} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
+                Leave Lobby
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
