@@ -6,7 +6,7 @@ import RulesScreen from './RulesScreen';
 import { GameProvider, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously } from './firebaseSetup.js';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onIdTokenChanged } from 'firebase/auth';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
@@ -71,9 +71,20 @@ function App() {
 
     setLastOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
 
-    // Authenticate anonymously for Firebase
-    signInUserAnonymously();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
+    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser({
+          uid: currentUser.uid,
+          isAnonymous: currentUser.isAnonymous,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL
+        });
+      } else {
+        setUser(null);
+        // If no user is found in cache, sign in anonymously
+        signInUserAnonymously();
+      }
+    });
     return () => unsubscribe();
   }, []);
 

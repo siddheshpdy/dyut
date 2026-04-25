@@ -1,7 +1,7 @@
 import React, { createContext, useReducer, useContext, useEffect, useRef } from 'react';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from './firebaseSetup.js';
+import { db, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
@@ -440,6 +440,22 @@ export function GameProvider({ gameConfig, children }) {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
         localStorage.removeItem('dyut_player_count');
         
+        // Calculate and push stats for the local user if they are playing
+        if (state.localUid) {
+          const myPlayerId = Object.keys(state.playerUids).find(key => state.playerUids[key] === state.localUid);
+          if (myPlayerId && !state.bots.includes(myPlayerId)) {
+            let localUserWon = false;
+            if (state.isQuickGame) {
+              localUserWon = state.players[myPlayerId].pieces.some(pos => pos === 999);
+            } else if (state.isTeamMode) {
+              localUserWon = Object.values(state.players).filter(p => p.team === state.players[myPlayerId].team).every(p => p.pieces.every(pos => pos === 999));
+            } else {
+              localUserWon = state.players[myPlayerId].pieces.every(pos => pos === 999);
+            }
+            updateUserStats(state.localUid, localUserWon);
+          }
+        }
+
         if (state.isOnline) {
           localStorage.removeItem('dyut_last_online_id');
           if (state.gameId && state.localUid === state.hostUid) {

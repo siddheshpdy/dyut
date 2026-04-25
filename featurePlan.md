@@ -95,7 +95,7 @@
 * Signaling: Transmit WebRTC SDP tokens over Bluetooth to open a Data Channel.
 * State Syncing: Dispatch all `GameContext` actions as stringified JSON payloads across WebRTC to synchronize both screens perfectly.
 
-## Phase 17.1: Firebase Setup & Authentication (Pending)
+## Phase 17.1: Firebase Setup & Authentication (Completed)
 * Technology Stack: Utilize Firebase Firestore for NoSQL document storage and Firebase Anonymous Authentication to handle persistent reconnects.
 * State Architecture: Sync React `Context` with Firestore `onSnapshot` listeners.
 * Data Schema: Store the game session as one JSON-like document in a `games` collection.
@@ -112,6 +112,13 @@
 ## Phase 17.4: Firestore Cost Optimization & Bot Handling (Completed)
 * Cost Minimization (Read/Write Batching): Combine Roll & Auto-Move and Bot turns into single `updateDoc()` calls to drastically reduce Firestore usage and stay within the free tier.
 * Host-Only Bot Execution: Restrict the `useAIBot` hook so only the "Host" calculates and pushes bot moves, preventing multiple connected clients from writing simultaneously.
+
+## Phase 18: Persistent Authentication & Player Profiles (Pending)
+* Technology Stack: Firebase Authentication (Google Auth Provider, Email/Password), Firestore (for user stats).
+* Account Upgrades: Allow users to link their Firebase Anonymous Auth session to a Google account or Email/Password, preserving existing temporary game data.
+* Cross-Device Profiles: Create a `users` collection in Firestore to securely store persistent player profiles, tracking global stats like wins, games played, and preferred aesthetics.
+* UI Integration: Add a "Sign In / Profile" button to the `UnifiedLobby` overlay to trigger the authentication flow and display player stats.
+* Data Merging: Implement logic to sync and merge local offline progress or cached games with the newly authenticated cloud profile.
 
 
 
