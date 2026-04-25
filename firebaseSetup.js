@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // TODO: Replace this with your actual Firebase project configuration from the console
 // 1. Go to console.firebase.google.com
@@ -28,7 +27,6 @@ const app = initializeApp(firebaseConfig);
 // Export initialized services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
 export const signInUserAnonymously = async () => {
   try {
@@ -107,22 +105,6 @@ export const updateUserName = async (newName) => {
     await updateDoc(userRef, { displayName: newName });
   } catch (error) {
     console.error("Failed to update user name:", error);
-  }
-};
-
-export const updateUserAvatar = async (file) => {
-  const user = auth.currentUser;
-  if (!user || !file) return;
-  try {
-    const storageRef = ref(storage, `avatars/${user.uid}_${Date.now()}`);
-    await uploadBytes(storageRef, file);
-    const photoURL = await getDownloadURL(storageRef);
-    await updateProfile(user, { photoURL });
-    await user.getIdToken(true); // Force token refresh to sync App.jsx state
-    const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, { photoURL });
-  } catch (error) {
-    console.error("Failed to update user avatar:", error);
   }
 };
 

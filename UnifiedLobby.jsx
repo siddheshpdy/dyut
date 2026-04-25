@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import { doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { db, signInWithGoogle, logoutUser, updateUserName, updateUserAvatar } from './firebaseSetup.js';
+import { db, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 
 const ALL_COLORS = [
@@ -109,8 +109,6 @@ const PlayerProfile = ({ user }) => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef(null);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -173,50 +171,16 @@ const PlayerProfile = ({ user }) => {
     }
   };
 
-  const handleAvatarClick = () => {
-    if (fileInputRef.current) fileInputRef.current.click();
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(t('imageTooLarge', 'Image is too large. Max size is 5MB.'));
-        return;
-      }
-      setIsUploading(true);
-      await updateUserAvatar(file);
-      setIsUploading(false);
-    }
-  };
-
   return (
     <div className="mb-4 flex items-center justify-between gap-4 bg-black/20 border border-white/5 pl-4 pr-3 py-2 rounded-full z-20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] animate-fade-in">
       <div className="flex items-center gap-3">
-        <div className="relative group cursor-pointer" onClick={handleAvatarClick} title={t('changeAvatar', 'Change Avatar')}>
-          {isUploading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full z-30">
-              <svg className="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </div>
-          )}
-          {user.photoURL || stats?.photoURL ? (
-            <img src={user.photoURL || stats?.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/20 shadow-md group-hover:opacity-50 transition-opacity" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center text-charcoal font-bold text-sm shadow-md group-hover:opacity-50 transition-opacity">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
-            <svg className="w-4 h-4 text-white drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+        {user.photoURL || stats?.photoURL ? (
+          <img src={user.photoURL || stats?.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/20 shadow-md" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center text-charcoal font-bold text-sm shadow-md">
+            {displayName.charAt(0).toUpperCase()}
           </div>
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-        </div>
+        )}
         <div className="flex flex-col">
           {isEditing ? (
             <input 
