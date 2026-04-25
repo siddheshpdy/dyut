@@ -1,7 +1,7 @@
-import React, { createContext, useReducer, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useReducer, useContext, useEffect, useRef, useCallback } from 'react';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from './firebaseSetup.js';
+import { db, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
@@ -309,11 +309,15 @@ export function GameProvider({ gameConfig, children }) {
 
   const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
 
-  const stateRef = useRef(state);
-  useEffect(() => { stateRef.current = state; }, [state]);
+  // Keep track of the freshest state instantly, even between renders, to prevent rapid consecutive dispatch race conditions
+  const latestStateRef = useRef(state);
+  useEffect(() => { latestStateRef.current = state; }, [state]);
+
+  // Mutable ref to ensure dispatch always has the absolute latest closure without dependency arrays resetting hooks
+  const dispatchRef = useRef();
 
   const leaveGame = () => {
-    const currentState = stateRef.current;
+    const currentState = latestStateRef.current;
     if (currentState && currentState.isOnline && currentState.gameId) {
       const myPlayerId = Object.keys(currentState.playerUids).find(key => currentState.playerUids[key] === currentState.localUid);
       if (myPlayerId && !currentState.bots.includes(myPlayerId)) {
@@ -370,22 +374,27 @@ export function GameProvider({ gameConfig, children }) {
   };
 
   // Phase 17.3: The Action Interceptor (Middleware)
-  const dispatch = (action) => {
+  dispatchRef.current = (action) => {
+    const currentState = latestStateRef.current;
+
     // Block unauthorized actions in online mode
     const protectedActions = [
       ACTION_TYPES.ROLL_DICE, ACTION_TYPES.SPAWN_PIECE, ACTION_TYPES.MOVE_WITH_FULL_ROLL, 
       ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN
     ];
     
-    if (state.isOnline && protectedActions.includes(action.type) && !checkIsMyTurn(state)) {
+    if (currentState.isOnline && protectedActions.includes(action.type) && !checkIsMyTurn(currentState)) {
       return; // Ignore unauthorized action completely
     }
 
     baseDispatch(action);
 
-    if (state.isOnline && state.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
-      const nextState = gameReducer(state, action);
-      const gameRef = doc(db, 'games', state.gameId);
+    // Instantly calculate and cache the next state so consecutive rapid dispatches (like bots) stack properly!
+    const nextState = gameReducer(currentState, action);
+    latestStateRef.current = nextState;
+
+    if (currentState.isOnline && currentState.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
+      const gameRef = doc(db, 'games', currentState.gameId);
       
       updateDoc(gameRef, {
         currentPlayer: nextState.currentPlayer,
@@ -396,6 +405,10 @@ export function GameProvider({ gameConfig, children }) {
       }).catch(e => console.error("Firestore sync failed:", e));
     }
   };
+
+  const dispatch = useCallback((action) => {
+    if (dispatchRef.current) dispatchRef.current(action);
+  }, []);
 
   useEffect(() => {
     if (state.isOnline && state.gameId) {
@@ -440,6 +453,22 @@ export function GameProvider({ gameConfig, children }) {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
         localStorage.removeItem('dyut_player_count');
         
+        // Calculate and push stats for the local user if they are playing
+        if (state.localUid) {
+          const myPlayerId = Object.keys(state.playerUids).find(key => state.playerUids[key] === state.localUid);
+          if (myPlayerId && !state.bots.includes(myPlayerId)) {
+            let localUserWon = false;
+            if (state.isQuickGame) {
+              localUserWon = state.players[myPlayerId].pieces.some(pos => pos === 999);
+            } else if (state.isTeamMode) {
+              localUserWon = Object.values(state.players).filter(p => p.team === state.players[myPlayerId].team).every(p => p.pieces.every(pos => pos === 999));
+            } else {
+              localUserWon = state.players[myPlayerId].pieces.every(pos => pos === 999);
+            }
+            updateUserStats(state.localUid, localUserWon);
+          }
+        }
+
         if (state.isOnline) {
           localStorage.removeItem('dyut_last_online_id');
           if (state.gameId && state.localUid === state.hostUid) {
