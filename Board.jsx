@@ -334,7 +334,7 @@ const Board = ({ onGoToMenu }) => {
 
     // Can only select pieces if it's your turn and you have rolls in the queue
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
+    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
 
     if (!isMyTurn || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
       setSelectedPiece(null);
