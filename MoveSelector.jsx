@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onInitiatePairAttack, possiblePairAttacks, onNextRoll, hasMultipleRolls }) => {
+const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onInitiatePairAttack, possiblePairAttacks, onNextRoll, hasMultipleRolls, title }) => {
   const { t } = useTranslation();
   if (!roll) return null;
 
@@ -14,7 +14,7 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
         <div className="glass-panel border-[1.5px] border-white/20 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-6 flex flex-col gap-3 min-w-[260px] animate-hop" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-gold font-display font-bold text-xl text-center border-b border-white/10 pb-3 tracking-widest uppercase">{t('moveRemaining')}</h3>
+          <h3 className="text-gold font-display font-bold text-xl text-center border-b border-white/10 pb-3 tracking-widest uppercase">{title || t('moveRemaining')}</h3>
           <button
             onClick={() => onFullMove(roll.d1)}
             disabled={!validMoves.sum} // We use 'sum' to check validity for the single move
@@ -37,7 +37,7 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="glass-panel border-[1.5px] border-white/20 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-6 flex flex-col gap-3 min-w-[260px] animate-hop" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-gold font-display font-bold text-xl text-center border-b border-white/10 pb-3 tracking-widest uppercase">{t('selectMove')}</h3>
+        <h3 className="text-gold font-display font-bold text-xl text-center border-b border-white/10 pb-3 tracking-widest uppercase">{title || t('selectMove')}</h3>
         <button
           onClick={() => onFullMove(roll.sum)}
           disabled={!validMoves.sum}
