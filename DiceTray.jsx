@@ -29,7 +29,7 @@ const DiceTray = () => {
   const isBotPlaying = state.bots?.includes(state.currentPlayer);
 
   const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-  const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+  const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
 
   // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
   useEffect(() => {

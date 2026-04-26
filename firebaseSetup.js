@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile } from 'firebase/auth';
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, signInWithRedirect, linkWithRedirect, getRedirectResult } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 // TODO: Replace this with your actual Firebase project configuration from the console
@@ -108,30 +108,62 @@ export const updateUserName = async (newName) => {
   }
 };
 
+export const checkAuthRedirect = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      await initializeUserProfile(result.user);
+    }
+  } catch (error) {
+    console.error("Error resolving redirect sign-in: ", error);
+    if (error.code === 'auth/credential-already-in-use') {
+      const credential = GoogleAuthProvider.credentialFromError(error);
+      if (credential) {
+        try {
+          const result = await signInWithCredential(auth, credential);
+          await initializeUserProfile(result.user);
+        } catch (err) {
+          console.error("Failed to sign in with credential: ", err);
+        }
+      }
+    }
+  }
+};
+
 export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
+  // Use redirect on mobile to prevent popup blocking issues, use popup on desktop for better UX
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   try {
     if (auth.currentUser && auth.currentUser.isAnonymous) {
-      try {
-        const result = await linkWithPopup(auth.currentUser, provider);
-        await initializeUserProfile(result.user);
-      } catch (error) {
-        if (error.code === 'auth/credential-already-in-use') {
-          // The Google account is already tied to a persistent user. Sign in normally using the credential to avoid a second popup block.
-          const credential = GoogleAuthProvider.credentialFromError(error);
-          if (credential) {
-            const result = await signInWithCredential(auth, credential);
-            await initializeUserProfile(result.user);
+      if (isMobile) {
+        await linkWithRedirect(auth.currentUser, provider);
+      } else {
+        try {
+          const result = await linkWithPopup(auth.currentUser, provider);
+          await initializeUserProfile(result.user);
+        } catch (error) {
+          if (error.code === 'auth/credential-already-in-use') {
+            const credential = GoogleAuthProvider.credentialFromError(error);
+            if (credential) {
+              const result = await signInWithCredential(auth, credential);
+              await initializeUserProfile(result.user);
+            }
+          } else {
+            throw error;
           }
-        } else {
-          throw error;
         }
       }
     } else {
-      const result = await signInWithPopup(auth, provider);
-      await initializeUserProfile(result.user);
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        const result = await signInWithPopup(auth, provider);
+        await initializeUserProfile(result.user);
+      }
     }
   } catch (error) {
     console.error("Error with Google Sign-In: ", error);

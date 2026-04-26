@@ -746,7 +746,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
                   Waiting for Host...
                 </div>
             )}
-              <button onClick={() => window.location.href = '/'} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
+              <button onClick={() => window.location.href = window.location.pathname} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
                 Leave Lobby
               </button>
             </div>

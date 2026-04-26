@@ -286,8 +286,8 @@ const initGameState = (initialState) => {
       const parsedState = JSON.parse(savedState);
       // Validate that the saved state has the same number of players
       if (Object.keys(parsedState.players).length === Object.keys(initialState.players).length) {
-        // Provide fallback for older saves to prevent crashes
-        return { rollingPhaseComplete: false, ...parsedState };
+        // Spread initialState first to provide fallback defaults for older saves to prevent crashes
+        return { ...initialState, rollingPhaseComplete: false, ...parsedState };
       }
     }
   } catch (error) {
@@ -319,12 +319,12 @@ export function GameProvider({ gameConfig, children }) {
   const leaveGame = () => {
     const currentState = latestStateRef.current;
     if (currentState && currentState.isOnline && currentState.gameId) {
-      const myPlayerId = Object.keys(currentState.playerUids).find(key => currentState.playerUids[key] === currentState.localUid);
-      if (myPlayerId && !currentState.bots.includes(myPlayerId)) {
-        const newBots = [...new Set([...currentState.bots, myPlayerId])];
+      const myPlayerId = Object.keys(currentState.playerUids || {}).find(key => currentState.playerUids[key] === currentState.localUid);
+      if (myPlayerId && !currentState.bots?.includes(myPlayerId)) {
+        const newBots = [...new Set([...(currentState.bots || []), myPlayerId])];
         let newHostUid = currentState.hostUid;
         
-        const activeHumans = Object.keys(currentState.playerUids).filter(key => currentState.playerUids[key] && !newBots.includes(key));
+        const activeHumans = Object.keys(currentState.playerUids || {}).filter(key => currentState.playerUids[key] && !newBots.includes(key));
         
         if (currentState.localUid === currentState.hostUid) {
           if (activeHumans.length > 0) {
@@ -369,8 +369,8 @@ export function GameProvider({ gameConfig, children }) {
   const checkIsMyTurn = (currentState) => {
     if (!currentState.isOnline) return true;
     const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
-    if (currentState.bots.includes(activeId)) return currentState.localUid === currentState.hostUid;
-    return currentState.playerUids[activeId] === currentState.localUid;
+    if (currentState.bots?.includes(activeId)) return currentState.localUid === currentState.hostUid;
+    return currentState.playerUids?.[activeId] === currentState.localUid;
   };
 
   // Phase 17.3: The Action Interceptor (Middleware)
@@ -455,8 +455,8 @@ export function GameProvider({ gameConfig, children }) {
         
         // Calculate and push stats for the local user if they are playing
         if (state.localUid) {
-          const myPlayerId = Object.keys(state.playerUids).find(key => state.playerUids[key] === state.localUid);
-          if (myPlayerId && !state.bots.includes(myPlayerId)) {
+          const myPlayerId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid);
+          if (myPlayerId && !state.bots?.includes(myPlayerId)) {
             let localUserWon = false;
             if (state.isQuickGame) {
               localUserWon = state.players[myPlayerId].pieces.some(pos => pos === 999);
