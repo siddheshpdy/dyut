@@ -9,7 +9,7 @@ import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
 // The individual Square component
-const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
+const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
   const isCenter = cell.id === 'CENTER';
   
   // Apply the calculated grid row and column to perfectly position the square
@@ -61,16 +61,23 @@ const Square = ({ cell, occupants, children, isCapturing, finishedPieces }) => {
       {/* Render Occupying Pieces */}
       {occupants && occupants.length > 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {occupants.map((occ, i) => (
-            <div key={i} className={`absolute w-[80%] h-[80%] flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${i > 0 ? 'ml-2 mt-2 z-20' : 'z-10'}`} style={{ pointerEvents: 'auto' }} onClick={occ.onClick}>
-              <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
-            </div>
-          ))}
+          {occupants.map((occ, i) => {
+            let offsetClass = '';
+            if (occupants.length === 2) {
+              offsetClass = i === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
+            } else if (occupants.length === 3) {
+              offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
+            } else if (occupants.length >= 4) {
+              offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : i === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
+            }
+            return (
+              <div key={i} className={`absolute w-[80%] h-[80%] flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${offsetClass}`} style={{ pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); occ.onClick(); }}>
+                <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {/* For rendering the MoveSelector popup */}
-      {children}
     </div>
   );
 };
@@ -92,7 +99,9 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
   }[color];
 
   let ringClass = '';
-  if (isMovable) {
+  if (isMovable && isHomeStretch) {
+    ringClass = 'animate-pulse ring-[3px] ring-cyan-300 ring-offset-2 ring-offset-black/50 shadow-[0_0_10px_rgba(34,211,238,0.6)]';
+  } else if (isMovable) {
     ringClass = 'animate-pulse ring-[3px] ring-white/90 ring-offset-2 ring-offset-black/50';
   } else if (isHomeStretch) {
     ringClass = 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-black/50';
@@ -101,50 +110,35 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
   // Assign a unique view-transition-name to each piece so the browser can animate its movement
   const transitionName = playerId != null && pieceIndex != null ? `piece-${playerId}-${pieceIndex}` : undefined;
 
+  const shapeClass = isHomeStretch
+    ? 'w-[75%] h-[85%] rounded-t-full rounded-b-[10px] shadow-[inset_-2px_-4px_8px_rgba(0,0,0,0.5),0_5px_8px_rgba(0,0,0,0.6)]'
+    : 'w-[80%] aspect-square rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]';
+
+  const innerShapeClass = isHomeStretch
+    ? 'w-[35%] aspect-square bg-white/90 shadow-[inset_0_-2px_3px_rgba(0,0,0,0.4)] -translate-y-[15%]'
+    : 'w-[35%] h-[35%] bg-white/80 shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)]';
+
   return (
     <div style={transitionName ? { viewTransitionName: transitionName } : {}} 
-         className={`flex items-center justify-center w-[80%] aspect-square rounded-full border-[1.5px] border-white/60 shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)] ${bgClass} ${ringClass}`}>
-      <div className="w-[35%] h-[35%] bg-white/80 rounded-full shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)] pointer-events-none"></div>
+         className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass}`}>
+      <div className={`rounded-full pointer-events-none ${innerShapeClass}`}></div>
     </div>
   );
 };
 
 // The Player's Yard/Base for locked pieces
-const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => {
-  const { state, dispatch } = useGame();
+const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpawnClick }) => {
+  const { state } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
   const isActive = state.currentPlayer === playerId;
 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
-  const doubleRoll = state.turnQueue.find(r => r.d1 === r.d2);
-  const canSpawn = state.currentPlayer === playerId && doubleRoll && !pairAttackState && !isRollingPhaseActive && canSpawnPiece(playerId, doubleRoll.sum, state);
-
-  const dispatchWithTransition = (action) => {
-    if (!document.startViewTransition) {
-      dispatch(action);
-      return;
-    }
-    document.startViewTransition(() => {
-      flushSync(() => {
-        dispatch(action);
-      });
-    });
-  };
-
-  const handleSpawnClick = (pieceIndex) => {
-    // Only active player (or proxy) can spawn
-    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    if (activePlayerId !== playerId || isRollingPhaseActive) return;
-    const doubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2);
-    if (doubleIndex !== -1) {
-      dispatchWithTransition({
-        type: ACTION_TYPES.SPAWN_PIECE,
-        payload: { playerId, pieceIndex, rollIndex: doubleIndex }
-      });
-    }
-  };
+  
+  const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+  const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
+  const canSpawn = activePlayerId === playerId && hasValidSpawn && !pairAttackState && !isRollingPhaseActive;
 
   const baseColorClass = {
     yellow: 'bg-piece-yellow',
@@ -191,7 +185,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState }) => 
       {/* Base Container - A 2x2 grid for the locked pieces */}
       <div className={`w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 rounded-xl transition-all duration-500 ${isActive ? 'bg-black/60 shadow-[0_0_20px_rgba(251,191,36,0.3),inset_0_4px_12px_rgba(0,0,0,0.6)] border border-gold/70 scale-105' : 'bg-black/40 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5'}`}>
         {lockedIndices.map((pieceIndex) => (
-          <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => handleSpawnClick(pieceIndex)}>
+          <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}>
             <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
           </div>
         ))}
@@ -367,17 +361,40 @@ const Board = ({ onGoToMenu }) => {
     setSelectedPiece(null); // Close the move selector
   };
 
+  let isHomeStretchSelected = false;
+  if (selectedPiece && !selectedPiece.isLocked) {
+    const logicalId = PLAYER_PATHS[selectedPiece.playerId][state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex]];
+    isHomeStretchSelected = logicalId && logicalId.includes('_HOME');
+  }
+
+  const handleSpawnClick = (playerId, pieceIndex) => {
+    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+    if (activePlayerId !== playerId || isRollingPhaseActive) return;
+    
+    const validDoubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
+    if (validDoubleIndex !== -1) {
+      setSelectedPiece({ playerId, pieceIndex, rollIndex: validDoubleIndex, isLocked: true });
+    }
+  };
+
   const handleFullMove = (distance) => {
     if (!selectedPiece) return;
-    dispatchWithTransition({
-      type: ACTION_TYPES.MOVE_WITH_FULL_ROLL,
-      payload: { ...selectedPiece, distance }
-    });
-    setSelectedPiece(null); // Close the selector after moving
+    if (selectedPiece.isLocked) {
+      dispatchWithTransition({
+        type: ACTION_TYPES.SPAWN_PIECE,
+        payload: { playerId: selectedPiece.playerId, pieceIndex: selectedPiece.pieceIndex, rollIndex: selectedPiece.rollIndex }
+      });
+    } else {
+      dispatchWithTransition({
+        type: ACTION_TYPES.MOVE_WITH_FULL_ROLL,
+        payload: { ...selectedPiece, distance }
+      });
+    }
+    setSelectedPiece(null); 
   };
 
   const handleSplitMove = (distanceUsed) => {
-    if (!selectedPiece) return;
+    if (!selectedPiece || selectedPiece.isLocked) return;
     dispatchWithTransition({
       type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL,
       payload: { ...selectedPiece, distanceUsed }
@@ -389,6 +406,10 @@ const Board = ({ onGoToMenu }) => {
 
   const validMoves = useMemo(() => {
     if (!selectedPiece || !activeRoll) return null;
+    if (selectedPiece.isLocked) {
+      const canSpawn = activeRoll.d1 === activeRoll.d2 && canSpawnPiece(selectedPiece.playerId, activeRoll.sum, state);
+      return { sum: canSpawn, high: false, low: false };
+    }
     const pieceCurrentPos = state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex];
     return getValidMoves(pieceCurrentPos, activeRoll, selectedPiece.playerId, state);
   }, [selectedPiece, activeRoll, state]);
@@ -486,22 +507,7 @@ const Board = ({ onGoToMenu }) => {
         )}
 
         {cells.map(cell => (
-          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces}>
-            {/* Render the MoveSelector inside the square of the selected piece */}
-            {selectedPiece && activeRoll && PLAYER_PATHS[selectedPiece.playerId][state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex]]?.replace('_HOME', '') === cell.id && (
-              <MoveSelector
-                roll={activeRoll}
-                validMoves={validMoves}
-                possiblePairAttacks={possiblePairAttacks}
-                onFullMove={handleFullMove}
-                onSplitMove={handleSplitMove}
-                onInitiatePairAttack={handleInitiatePairAttack}
-                onClose={() => setSelectedPiece(null)}
-                onNextRoll={handleNextRoll}
-                hasMultipleRolls={state.turnQueue.length > 1}
-              />
-            )}
-          </Square>
+          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces} />
         ))}
         
         {/* Render the 4 player bases */}
@@ -513,8 +519,24 @@ const Board = ({ onGoToMenu }) => {
             gridRow={base.row}
             gridCol={base.col}
             pairAttackState={pairAttackState}
+            onSpawnClick={handleSpawnClick}
           />
         ))}
+        
+        {selectedPiece && activeRoll && (
+          <MoveSelector
+            title={selectedPiece.isLocked ? "Spawn Piece" : isHomeStretchSelected ? "Home Stretch Move" : null}
+            roll={activeRoll}
+            validMoves={validMoves}
+            possiblePairAttacks={possiblePairAttacks}
+            onFullMove={handleFullMove}
+            onSplitMove={handleSplitMove}
+            onInitiatePairAttack={handleInitiatePairAttack}
+            onClose={() => setSelectedPiece(null)}
+            onNextRoll={handleNextRoll}
+            hasMultipleRolls={state.turnQueue.length > 1}
+          />
+        )}
       </div>
     </div>
   );
