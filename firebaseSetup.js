@@ -113,6 +113,7 @@ export const checkAuthRedirect = async () => {
     const result = await getRedirectResult(auth);
     if (result && result.user) {
       await initializeUserProfile(result.user);
+      return result.user;
     }
   } catch (error) {
     console.error("Error resolving redirect sign-in: ", error);
@@ -122,12 +123,14 @@ export const checkAuthRedirect = async () => {
         try {
           const result = await signInWithCredential(auth, credential);
           await initializeUserProfile(result.user);
+          return result.user;
         } catch (err) {
           console.error("Failed to sign in with credential: ", err);
         }
       }
     }
   }
+  return null;
 };
 
 export const signInWithGoogle = async () => {

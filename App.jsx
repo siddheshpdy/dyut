@@ -71,24 +71,43 @@ function App() {
 
     setLastOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
 
-    // Check if the app just loaded from a mobile Google Sign-In redirect
-    checkAuthRedirect();
+    const initializeAuth = async () => {
+      // First, check for a redirect result. This needs to be awaited to prevent
+      // the onIdTokenChanged listener from firing with a stale anonymous user first.
+      const redirectedUser = await checkAuthRedirect();
 
-    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
-      if (currentUser) {
+      // If we get a user from the redirect, we can set it immediately.
+      if (redirectedUser) {
         setUser({
-          uid: currentUser.uid,
-          isAnonymous: currentUser.isAnonymous,
-          displayName: currentUser.displayName,
-          photoURL: currentUser.photoURL
+          uid: redirectedUser.uid,
+          isAnonymous: redirectedUser.isAnonymous,
+          displayName: redirectedUser.displayName,
+          photoURL: redirectedUser.photoURL
         });
-      } else {
-        setUser(null);
-        // If no user is found in cache, sign in anonymously
-        signInUserAnonymously();
       }
-    });
-    return () => unsubscribe();
+
+      // Now, set up the canonical listener for all subsequent auth changes.
+      const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+        if (currentUser) {
+          setUser({
+            uid: currentUser.uid,
+            isAnonymous: currentUser.isAnonymous,
+            displayName: currentUser.displayName,
+            photoURL: currentUser.photoURL
+          });
+        } else {
+          // If there's no user and we didn't just come from a redirect, sign in anonymously.
+          if (!redirectedUser) {
+            signInUserAnonymously();
+          }
+          setUser(null);
+        }
+      });
+      return unsubscribe;
+    };
+
+    const unsubscribePromise = initializeAuth();
+    return () => { unsubscribePromise.then(unsub => unsub && unsub()); };
   }, []);
 
   const handleStartNewGame = (config) => {
