@@ -303,16 +303,23 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
       setTimeLeft(null);
       return;
     }
-    const interval = setInterval(() => {
+    
+    const updateTimer = () => {
       const remaining = Math.floor((lobbyExpiresAt - Date.now()) / 1000);
       if (remaining <= 0) {
         setTimeLeft(0);
-        clearInterval(interval);
-      } else {
-        setTimeLeft(remaining);
+        return false;
       }
-    }, 1000);
-    return () => clearInterval(interval);
+      setTimeLeft(remaining);
+      return true;
+    };
+
+    if (updateTimer()) {
+      const interval = setInterval(() => {
+        if (!updateTimer()) clearInterval(interval);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
   }, [lobbyExpiresAt, activeLobbyId, lobbyStatus]);
 
   const isStartingRef = useRef(false);
@@ -324,7 +331,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     const claimedSeats = humanSeats.filter(s => s.uid);
     const isFull = humanSeats.length > 0 && humanSeats.length === claimedSeats.length;
 
-    if (isFull || (timeLeft === 0 && claimedSeats.length >= 2)) {
+    if (isFull || timeLeft === 0) {
       if (isStartingRef.current) return;
       isStartingRef.current = true;
 
@@ -333,7 +340,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
         const finalSeats = { ...seats };
         Object.keys(finalSeats).forEach(k => {
           if (finalSeats[k].type === 'human' && !finalSeats[k].uid) {
-            finalSeats[k] = { ...finalSeats[k], type: 'closed' };
+            finalSeats[k] = { ...finalSeats[k], type: 'bot' };
           }
         });
         try {
