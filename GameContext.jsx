@@ -42,6 +42,7 @@ const createInitialState = (gameConfig) => {
     hostUid,
     localUid,
     isPublic,
+    lastPing: null,
   };
 };
 
@@ -365,6 +366,45 @@ export function GameProvider({ gameConfig, children }) {
     return () => window.removeEventListener('beforeunload', handleUnload);
   }, []);
 
+  // Host: Send Heartbeat during gameplay
+  useEffect(() => {
+    if (!state.isOnline || !state.gameId || state.localUid !== state.hostUid) return;
+
+    const pushPing = () => {
+      updateDoc(doc(db, 'games', state.gameId), { lastPing: Date.now() }).catch(() => {});
+    };
+
+    pushPing();
+    const pingInterval = setInterval(pushPing, 10000);
+    return () => clearInterval(pingInterval);
+  }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
+
+  // Client: Monitor Host Heartbeat and migrate if dead
+  useEffect(() => {
+    if (!state.isOnline || !state.gameId || state.localUid === state.hostUid || !state.lastPing) return;
+
+    const monitorInterval = setInterval(() => {
+      if (Date.now() - state.lastPing > 25000) {
+        const activeHumans = Object.keys(state.playerUids || {})
+          .filter(key => state.playerUids[key] && !state.bots?.includes(key) && state.playerUids[key] !== state.hostUid)
+          .sort(); // Deterministic sorting ensures all clients agree on who is next in line
+          
+        if (activeHumans.length > 0 && state.playerUids[activeHumans[0]] === state.localUid) {
+          const deadHostId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.hostUid);
+          const newBots = [...new Set([...(state.bots || []), deadHostId].filter(Boolean))];
+          const updates = { hostUid: state.localUid, bots: newBots, lastPing: Date.now() };
+          
+          if (state.isPublic && activeHumans.length === 1) {
+            const newPlayers = { ...state.players, [activeHumans[0]]: { ...state.players[activeHumans[0]], pieces: [999, 999, 999, 999] } };
+            updates.players = newPlayers; updates.status = 'finished';
+          }
+          updateDoc(doc(db, 'games', state.gameId), updates).catch(console.error);
+        }
+      }
+    }, 5000);
+    return () => clearInterval(monitorInterval);
+  }, [state.isOnline, state.gameId, state.localUid, state.hostUid, state.lastPing, state.playerUids, state.bots, state.isPublic, state.players]);
+
   // Check if the local client has authority over the current active turn
   const checkIsMyTurn = (currentState) => {
     if (!currentState.isOnline) return true;
@@ -425,7 +465,8 @@ export function GameProvider({ gameConfig, children }) {
             hasRolledThisTurn: state.hasRolledThisTurn,
             rollingPhaseComplete: state.rollingPhaseComplete,
             isPublic: gameConfig.isPublic || false,
-            status: gameConfig.status || 'playing'
+            status: gameConfig.status || 'playing',
+            lastPing: Date.now()
           }).catch(console.error);
         }
       });
