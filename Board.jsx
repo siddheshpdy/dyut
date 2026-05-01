@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { generateBoardCells, PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { useGame, ACTION_TYPES } from './GameContext';
@@ -22,7 +22,7 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
     <div
       style={style}
       className={`
-        relative flex items-center justify-center transition-colors border border-black/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]
+        relative flex items-center justify-center transition-colors border border-white/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]
         ${cell.isSafe ? 'bg-dyut-safe' : 'bg-dyut-board'}
       `}
     >
@@ -127,7 +127,7 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 };
 
 // The Player's Yard/Base for locked pieces
-const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpawnClick }) => {
+const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpawnClick, isAnimating }) => {
   const { state } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
@@ -138,7 +138,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpa
   
   const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
   const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
-  const canSpawn = activePlayerId === playerId && hasValidSpawn && !pairAttackState && !isRollingPhaseActive;
+  const canSpawn = activePlayerId === playerId && hasValidSpawn && !pairAttackState && !isRollingPhaseActive && !isAnimating;
 
   const baseColorClass = {
     yellow: 'bg-piece-yellow',
@@ -197,7 +197,8 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpa
 // The main Board container
 const Board = ({ onGoToMenu }) => {
   const { state, dispatch } = useGame();
-  const prevState = usePrevious(state);
+  const [visualPlayers, setVisualPlayers] = useState(state.players);
+  const prevVisualPlayers = usePrevious(visualPlayers);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
   const [pairAttackState, setPairAttackState] = useState(null); // { firstPieceIndex, roll, rollIndex, targetCellId }
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
@@ -214,15 +215,93 @@ const Board = ({ onGoToMenu }) => {
     { id: 'Player4', row: '2 / span 6', col: '2 / span 6' },   // North-West (Blue)
   ];
 
-  const activeBases = allBases.filter(base => state.players[base.id]);
+  const activeBases = allBases.filter(base => visualPlayers[base.id]);
+
+  // --- Animation Engine ---
+  // Steps visual state forward until it matches the true GameContext state
+  useEffect(() => {
+    let timeoutId;
+    let needsAnotherStep = false;
+    let hasChanges = false;
+    
+    const next = JSON.parse(JSON.stringify(visualPlayers));
+
+    for (const pId in state.players) {
+      if (!next[pId]) {
+        next[pId] = state.players[pId];
+        hasChanges = true;
+        continue;
+      }
+      // Sync high-level data instantly
+      next[pId].color = state.players[pId].color;
+      next[pId].name = state.players[pId].name;
+      next[pId].hasKilled = state.players[pId].hasKilled;
+      next[pId].team = state.players[pId].team;
+      
+      for (let i = 0; i < 4; i++) {
+        const actual = state.players[pId].pieces[i];
+        const visual = next[pId].pieces[i];
+
+        if (actual !== visual) {
+          hasChanges = true;
+          if (visual !== -1 && visual !== 999 && actual !== -1) {
+            const isGoal = actual === 999;
+            const target = isGoal ? PLAYER_PATHS[pId].length - 1 : actual;
+            
+            if (visual < target) {
+              next[pId].pieces[i] = visual + 1;
+              needsAnotherStep = true;
+            } else if (isGoal && visual === target) {
+              next[pId].pieces[i] = 999;
+            } else {
+              next[pId].pieces[i] = actual; // Fallback snap 
+            }
+          } else {
+            next[pId].pieces[i] = actual; // Instantly snap captures and spawns
+          }
+        }
+      }
+    }
+
+    if (hasChanges) {
+      const applyUpdate = () => {
+        if (document.startViewTransition) {
+          document.startViewTransition(() => {
+            flushSync(() => setVisualPlayers(next));
+          });
+        } else {
+          setVisualPlayers(next);
+        }
+      };
+
+      // Allow 150ms per square for the browser to interpolate the CSS geometric difference
+      if (needsAnotherStep) {
+        timeoutId = setTimeout(applyUpdate, 150);
+      } else {
+        timeoutId = setTimeout(applyUpdate, 10); // Final snap delay to prevent overlapping transitions
+      }
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [state.players, visualPlayers]);
+
+  const isAnimating = useMemo(() => {
+    for (const pId in state.players) {
+      if (!visualPlayers[pId]) continue;
+      for (let i = 0; i < 4; i++) {
+        if (state.players[pId].pieces[i] !== visualPlayers[pId].pieces[i]) return true;
+      }
+    }
+    return false;
+  }, [state.players, visualPlayers]);
 
   const winnerInfo = useMemo(() => {
     if (state.isQuickGame) {
-      const winnerEntry = Object.entries(state.players).find(([id, player]) => player.pieces.some(p => p === 999));
+      const winnerEntry = Object.entries(visualPlayers).find(([id, player]) => player.pieces.some(p => p === 999));
       if (winnerEntry) {
         if (state.isTeamMode) {
           const winningTeam = winnerEntry[1].team;
-          const teamPlayers = Object.entries(state.players).filter(([id, p]) => p.team === winningTeam).map(e => e[1].name || e[0]);
+          const teamPlayers = Object.entries(visualPlayers).filter(([id, p]) => p.team === winningTeam).map(e => e[1].name || e[0]);
           return { id: `Team ${winningTeam} (${teamPlayers.join(' & ')})`, data: {} };
         }
         return { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] };
@@ -232,40 +311,40 @@ const Board = ({ onGoToMenu }) => {
 
     if (state.isTeamMode) {
       const teams = {};
-      for (const [id, player] of Object.entries(state.players)) {
+      for (const [id, player] of Object.entries(visualPlayers)) {
         if (!teams[player.team]) teams[player.team] = { allFinished: true, players: [] };
         teams[player.team].players.push(id);
         if (!player.pieces.every(p => p === 999)) teams[player.team].allFinished = false;
       }
       const winningTeam = Object.entries(teams).find(([team, data]) => data.allFinished);
       if (winningTeam) {
-        const teamNames = winningTeam[1].players.map(id => state.players[id].name || id);
+        const teamNames = winningTeam[1].players.map(id => visualPlayers[id].name || id);
         return { id: `Team ${winningTeam[0]} (${teamNames.join(' & ')})`, data: {} };
       }
       return null;
     }
 
-    const winnerEntry = Object.entries(state.players).find(([id, player]) => player.pieces.every(p => p === 999));
+    const winnerEntry = Object.entries(visualPlayers).find(([id, player]) => player.pieces.every(p => p === 999));
     return winnerEntry ? { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] } : null;
-  }, [state.players, state.isQuickGame, state.isTeamMode]);
+  }, [visualPlayers, state.isQuickGame, state.isTeamMode]);
 
   const finishedPieces = useMemo(() => {
     const counts = [];
-    Object.entries(state.players).forEach(([playerId, player]) => {
+    Object.entries(visualPlayers).forEach(([playerId, player]) => {
       const count = player.pieces.filter(p => p === 999).length;
       if (count > 0) {
         counts.push({ playerId, count, color: player.color });
       }
     });
     return counts;
-  }, [state.players]);
+  }, [visualPlayers]);
 
   useEffect(() => {
-    if (!prevState || !state) return;
+    if (!prevVisualPlayers || !visualPlayers) return;
 
-    for (const playerId in state.players) {
-        const prevPlayer = prevState.players[playerId];
-        const currentPlayer = state.players[playerId];
+    for (const playerId in visualPlayers) {
+        const prevPlayer = prevVisualPlayers[playerId];
+        const currentPlayer = visualPlayers[playerId];
 
         if (prevPlayer && currentPlayer) {
             // Check for captures
@@ -293,25 +372,13 @@ const Board = ({ onGoToMenu }) => {
             }
         }
     }
-  }, [state.players, prevState]);
+  }, [visualPlayers, prevVisualPlayers]);
 
   // Clear selected piece and attack state when the turn changes to prevent stale UI
   useEffect(() => {
     setSelectedPiece(null);
     setPairAttackState(null);
   }, [state.currentPlayer]);
-
-  const dispatchWithTransition = (action) => {
-    if (!document.startViewTransition) {
-      dispatch(action);
-      return;
-    }
-    document.startViewTransition(() => {
-      flushSync(() => {
-        dispatch(action);
-      });
-    });
-  };
 
   const handlePieceClick = (playerId, pieceIndex) => {
     // If we are in the second step of a pair attack, this click is the selection of the second piece.
@@ -323,7 +390,7 @@ const Board = ({ onGoToMenu }) => {
 
       // Check if this piece is a valid partner for the attack
       if (pieceIndex !== firstPieceIndex && (currentPos + moveDistance === targetPathIndex)) {
-        dispatchWithTransition({
+        dispatch({
           type: ACTION_TYPES.EXECUTE_PAIR_ATTACK,
           payload: { playerId, rollIndex, firstPieceIndex, secondPieceIndex: pieceIndex, targetCellId }
         });
@@ -336,7 +403,7 @@ const Board = ({ onGoToMenu }) => {
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
     const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
 
-    if (!isMyTurn || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive) {
+    if (!isMyTurn || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive || isAnimating) {
       setSelectedPiece(null);
       return;
     }
@@ -380,12 +447,12 @@ const Board = ({ onGoToMenu }) => {
   const handleFullMove = (distance) => {
     if (!selectedPiece) return;
     if (selectedPiece.isLocked) {
-      dispatchWithTransition({
+      dispatch({
         type: ACTION_TYPES.SPAWN_PIECE,
         payload: { playerId: selectedPiece.playerId, pieceIndex: selectedPiece.pieceIndex, rollIndex: selectedPiece.rollIndex }
       });
     } else {
-      dispatchWithTransition({
+      dispatch({
         type: ACTION_TYPES.MOVE_WITH_FULL_ROLL,
         payload: { ...selectedPiece, distance }
       });
@@ -395,7 +462,7 @@ const Board = ({ onGoToMenu }) => {
 
   const handleSplitMove = (distanceUsed) => {
     if (!selectedPiece || selectedPiece.isLocked) return;
-    dispatchWithTransition({
+    dispatch({
       type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL,
       payload: { ...selectedPiece, distanceUsed }
     });
@@ -452,7 +519,7 @@ const Board = ({ onGoToMenu }) => {
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
     const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
 
-    Object.entries(state.players).forEach(([playerId, player]) => {
+    Object.entries(visualPlayers).forEach(([playerId, player]) => {
       const isCurrentPlayer = state.currentPlayer === playerId;
       const isActiveOrProxy = playerId === activePlayerId;
       const hasRolls = state.turnQueue.length > 0;
@@ -461,12 +528,13 @@ const Board = ({ onGoToMenu }) => {
         const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
 
         if (pos !== -1 && pos < 999 && visualId === cellId) {
-          let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !pairAttackState && !isRollingPhaseActive;
+          let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !pairAttackState && !isRollingPhaseActive && !isAnimating;
           // If in a pair attack, only highlight valid partners
           if (pairAttackState && isActiveOrProxy && pieceIndex !== pairAttackState.firstPieceIndex) {
             const moveDistance = pairAttackState.roll.d1;
             const targetPathIndex = PLAYER_PATHS[playerId].indexOf(pairAttackState.targetCellId);
-            if (pos !== -1 && (pos + moveDistance === targetPathIndex)) {
+            const actualPos = state.players[playerId].pieces[pieceIndex]; // MUST USE ACTUAL POS
+            if (actualPos !== -1 && (actualPos + moveDistance === targetPathIndex)) {
               isMovable = true;
             } else {
               isMovable = false;
@@ -515,11 +583,12 @@ const Board = ({ onGoToMenu }) => {
           <PlayerBase 
             key={base.id}
             playerId={base.id}
-            player={state.players[base.id]}
+            player={visualPlayers[base.id]}
             gridRow={base.row}
             gridCol={base.col}
             pairAttackState={pairAttackState}
             onSpawnClick={handleSpawnClick}
+            isAnimating={isAnimating}
           />
         ))}
         

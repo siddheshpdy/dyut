@@ -341,6 +341,10 @@ export function GameProvider({ gameConfig, children }) {
   // Mutable ref to ensure dispatch always has the absolute latest closure without dependency arrays resetting hooks
   const dispatchRef = useRef();
 
+const dispatch = useCallback((action) => {
+    if (dispatchRef.current) dispatchRef.current(action);
+  }, []);
+
   const leaveGame = () => {
     const currentState = latestStateRef.current;
     if (currentState && currentState.isOnline && currentState.gameId) {
@@ -501,10 +505,6 @@ export function GameProvider({ gameConfig, children }) {
       }).catch(e => console.error("Firestore sync failed:", e));
     }
   };
-
-  const dispatch = useCallback((action) => {
-    if (dispatchRef.current) dispatchRef.current(action);
-  }, []);
 
   useEffect(() => {
     if (state.isOnline && state.gameId) {

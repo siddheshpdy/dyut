@@ -110,15 +110,7 @@ const DiceTray = () => {
     // Automatically dispatch a move if the player only has exactly 1 valid option
     if (autoMoveAction) {
       const timer = setTimeout(() => {
-        if (document.startViewTransition) {
-          document.startViewTransition(() => {
-            flushSync(() => {
-              dispatch(autoMoveAction);
-            });
-          });
-        } else {
-          dispatch(autoMoveAction);
-        }
+        dispatch(autoMoveAction);
       }, 600); // 600ms delay to let the user visually track the move
       return () => clearTimeout(timer);
     }
