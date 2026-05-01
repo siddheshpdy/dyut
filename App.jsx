@@ -143,9 +143,14 @@ function App() {
 
   const handleGameSetupComplete = (config) => {
     localStorage.setItem(PLAYER_COUNT_KEY, config.playerCount);
-    if (config.isOnline && config.gameId && !config.isPublic) {
-      localStorage.setItem(ONLINE_GAME_ID_KEY, config.gameId);
-      setLastOnlineGameId(config.gameId);
+    if (config.isOnline && config.gameId) {
+      if (!config.isPublic) {
+        localStorage.setItem(ONLINE_GAME_ID_KEY, config.gameId);
+        setLastOnlineGameId(config.gameId);
+      } else {
+        // Strip the URL so users don't accidentally auto-rejoin a public game on refresh
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     }
     setGameConfig(config);
     setView('game');
