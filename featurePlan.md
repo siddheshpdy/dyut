@@ -65,6 +65,10 @@
 * Stale State Fix: Forced `selectedPiece` and `pairAttackState` to clear automatically upon turn transitions to prevent cross-turn UI bleed.
 * Theme Cohesion: Unified all remaining modals (Move Selector, Void Roll, Victory) to use the core `charcoal`, `gold`, and `ruby` glassmorphic design system.
 
+## Phase 12.6: Gameplay Bug Fixes (Pending)
+* Pair Shield vs. Assassin Override: Fix an issue where a spawning piece (e.g., rolling 6+6 and landing on the 12th square) instantly kills an opponent's Pair Shield. The Pair Shield rule should strictly require a coordinated two-piece Pair Attack to be broken, overriding the Assassin spawn capture.
+* Mobile Piece Highlight Fix: Adjust the highlighted pieces in mobile view so the pulse/ring effect doesn't get clipped or look wonky due to overflowing outside the square container.
+
 ---
 
 ## Phase 13: Rule-Based AI Bot (Single-Player Mode) (Completed)
