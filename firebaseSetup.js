@@ -108,29 +108,36 @@ export const updateUserName = async (newName) => {
   }
 };
 
-export const checkAuthRedirect = async () => {
-  try {
-    const result = await getRedirectResult(auth);
-    if (result && result.user) {
-      await initializeUserProfile(result.user);
-      return result.user;
-    }
-  } catch (error) {
-    console.error("Error resolving redirect sign-in: ", error);
-    if (error.code === 'auth/credential-already-in-use') {
-      const credential = GoogleAuthProvider.credentialFromError(error);
-      if (credential) {
-        try {
-          const result = await signInWithCredential(auth, credential);
+let redirectCheckPromise = null;
+
+export const checkAuthRedirect = () => {
+  if (!redirectCheckPromise) {
+    redirectCheckPromise = (async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
           await initializeUserProfile(result.user);
           return result.user;
-        } catch (err) {
-          console.error("Failed to sign in with credential: ", err);
+        }
+      } catch (error) {
+        console.error("Error resolving redirect sign-in: ", error);
+        if (error.code === 'auth/credential-already-in-use') {
+          const credential = GoogleAuthProvider.credentialFromError(error);
+          if (credential) {
+            try {
+              const result = await signInWithCredential(auth, credential);
+              await initializeUserProfile(result.user);
+              return result.user;
+            } catch (err) {
+              console.error("Failed to sign in with credential: ", err);
+            }
+          }
         }
       }
-    }
+      return null;
+    })();
   }
-  return null;
+  return redirectCheckPromise;
 };
 
 export const signInWithGoogle = async () => {
@@ -141,32 +148,28 @@ export const signInWithGoogle = async () => {
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   try {
-    if (auth.currentUser && auth.currentUser.isAnonymous) {
-      if (isMobile) {
-        await linkWithRedirect(auth.currentUser, provider);
-      } else {
-        try {
-          const result = await linkWithPopup(auth.currentUser, provider);
-          await initializeUserProfile(result.user);
-        } catch (error) {
-          if (error.code === 'auth/credential-already-in-use') {
-            const credential = GoogleAuthProvider.credentialFromError(error);
-            if (credential) {
-              const result = await signInWithCredential(auth, credential);
-              await initializeUserProfile(result.user);
-            }
-          } else {
-            throw error;
+    if (isMobile) {
+      // Mobile browsers often lose anonymous session state during redirects, causing linkWithRedirect to fail.
+      // Using signInWithRedirect directly is much more robust and guarantees a successful login.
+      await signInWithRedirect(auth, provider);
+    } else if (auth.currentUser && auth.currentUser.isAnonymous) {
+      try {
+        const result = await linkWithPopup(auth.currentUser, provider);
+        await initializeUserProfile(result.user);
+      } catch (error) {
+        if (error.code === 'auth/credential-already-in-use') {
+          const credential = GoogleAuthProvider.credentialFromError(error);
+          if (credential) {
+            const result = await signInWithCredential(auth, credential);
+            await initializeUserProfile(result.user);
           }
+        } else {
+          throw error;
         }
       }
     } else {
-      if (isMobile) {
-        await signInWithRedirect(auth, provider);
-      } else {
-        const result = await signInWithPopup(auth, provider);
-        await initializeUserProfile(result.user);
-      }
+      const result = await signInWithPopup(auth, provider);
+      await initializeUserProfile(result.user);
     }
   } catch (error) {
     console.error("Error with Google Sign-In: ", error);

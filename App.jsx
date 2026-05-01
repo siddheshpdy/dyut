@@ -71,10 +71,14 @@ function App() {
 
     setLastOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
 
+    let isMounted = true;
+
     const initializeAuth = async () => {
       // First, check for a redirect result. This needs to be awaited to prevent
       // the onIdTokenChanged listener from firing with a stale anonymous user first.
       const redirectedUser = await checkAuthRedirect();
+
+      if (!isMounted) return;
 
       // If we get a user from the redirect, we can set it immediately.
       if (redirectedUser) {
@@ -88,6 +92,8 @@ function App() {
 
       // Now, set up the canonical listener for all subsequent auth changes.
       const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+        if (!isMounted) return;
+
         if (currentUser) {
           setUser({
             uid: currentUser.uid,
@@ -106,8 +112,13 @@ function App() {
       return unsubscribe;
     };
 
-    const unsubscribePromise = initializeAuth();
-    return () => { unsubscribePromise.then(unsub => unsub && unsub()); };
+    let unsubFunc = null;
+    initializeAuth().then(unsub => { unsubFunc = unsub; });
+    
+    return () => {
+      isMounted = false;
+      if (unsubFunc) unsubFunc();
+    };
   }, []);
 
   const handleStartNewGame = (config) => {
