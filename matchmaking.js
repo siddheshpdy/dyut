@@ -11,27 +11,34 @@ export async function findRandomPublicGame(config = {}) {
     const lobbiesRef = collection(db, 'lobbies');
     
     // Query for a lobby that is explicitly public and currently waiting
+    // We fetch a small batch and filter the fine-grained settings (quick game, void rule) 
+    // locally to prevent Firestore from demanding extremely complex composite indexes.
     const q = query(
       lobbiesRef,
       where('isPublic', '==', true),
       where('status', '==', 'waiting'),
-      where('matchType', '==', config.matchType || 'ffa'),
-      where('isQuickGame', '==', !!config.isQuickGame),
-      where('isTeamMode', '==', !!config.isTeamMode),
-      where('isVoidRuleEnabled', '==', !!config.isVoidRuleEnabled),
       where('version', '==', 2),
       where('openSeats', '>', 0),
-      limit(1) // We only need to find one available game
+      limit(20) 
     );
 
     const querySnapshot = await getDocs(q);
 
-    if (!querySnapshot.empty) {
-      // Found an open lobby! Return its document ID
-      return querySnapshot.docs[0].id;
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data();
+      
+      // Perform exact configuration matching locally
+      if (
+        data.matchType === (config.matchType || 'ffa') &&
+        !!data.isQuickGame === !!config.isQuickGame &&
+        !!data.isTeamMode === !!config.isTeamMode &&
+        !!data.isVoidRuleEnabled === !!config.isVoidRuleEnabled
+      ) {
+        return docSnap.id;
+      }
     }
 
-    // No public lobbies available right now
+    // No public lobbies with the exact requested config are available right now
     return null;
   } catch (error) {
     console.error("Error finding random game:", error);

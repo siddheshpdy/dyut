@@ -23,10 +23,11 @@ const DiceTray = () => {
   const [showVoidGif, setShowVoidGif] = useState(false);
   const { t } = useTranslation();
 
+  const activeBots = state.isAfkTurn ? [...(state.bots || []), state.currentPlayer] : (state.bots || []);
   // Activate AI hook (it safely idles if the current player is not in state.bots)
-  useAIBot(state.bots || [], state.botDifficulty || 'hard');
+  useAIBot(activeBots, state.botDifficulty || 'hard');
 
-  const isBotPlaying = state.bots?.includes(state.currentPlayer);
+  const isBotPlaying = activeBots.includes(state.currentPlayer);
 
   const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
   const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);

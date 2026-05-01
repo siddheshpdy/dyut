@@ -43,6 +43,9 @@ const createInitialState = (gameConfig) => {
     localUid,
     isPublic,
     lastPing: null,
+    lastActionTime: Date.now(),
+    afkStrikes: {},
+    isAfkTurn: false,
   };
 };
 
@@ -57,6 +60,7 @@ export const ACTION_TYPES = {
   RESET_GAME: 'RESET_GAME',
   EXECUTE_PAIR_ATTACK: 'EXECUTE_PAIR_ATTACK',
   SYNC_FROM_CLOUD: 'SYNC_FROM_CLOUD',
+  TRIGGER_AFK_INTERVENTION: 'TRIGGER_AFK_INTERVENTION',
 };
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
@@ -270,6 +274,18 @@ function gameReducer(state, action) {
     case ACTION_TYPES.CLEAR_QUEUE:
       return { ...state, turnQueue: [], hasRolledThisTurn: true, rollingPhaseComplete: true };
 
+    case ACTION_TYPES.TRIGGER_AFK_INTERVENTION: {
+      const { playerId } = action.payload;
+      const strikes = (state.afkStrikes?.[playerId] || 0) + 1;
+      
+      if (strikes >= 6) {
+        const newBots = [...new Set([...(state.bots || []), playerId])];
+        return { ...state, bots: newBots, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
+      } else {
+        return { ...state, isAfkTurn: true, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
+      }
+    }
+
     default:
       return state;
   }
@@ -305,7 +321,15 @@ export function GameProvider({ gameConfig, children }) {
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       return getInitialState();
     }
-    return gameReducer(state, action);
+    
+    let nextState = gameReducer(state, action);
+    if (action._updateActivity) {
+      nextState = { ...nextState, lastActionTime: Date.now() };
+      if (action.type === ACTION_TYPES.END_TURN) {
+        nextState.isAfkTurn = false;
+      }
+    }
+    return nextState;
   };
 
   const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
@@ -379,6 +403,26 @@ export function GameProvider({ gameConfig, children }) {
     return () => clearInterval(pingInterval);
   }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
 
+  // Host: AFK Idle Timer
+  useEffect(() => {
+    if (!state.isOnline || !state.gameId || state.localUid !== state.hostUid) return;
+
+    const afkInterval = setInterval(() => {
+      const currentState = latestStateRef.current;
+      if (!currentState || currentState.status === 'finished') return;
+
+      const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
+      if (currentState.bots?.includes(activeId)) return; // Bots don't AFK
+
+      if (currentState.lastActionTime && Date.now() - currentState.lastActionTime > 30000) {
+        if (!currentState.isAfkTurn) {
+          dispatch({ type: ACTION_TYPES.TRIGGER_AFK_INTERVENTION, payload: { playerId: activeId } });
+        }
+      }
+    }, 1000);
+    return () => clearInterval(afkInterval);
+  }, [state.isOnline, state.gameId, state.localUid, state.hostUid, dispatch]);
+
   // Client: Monitor Host Heartbeat and migrate if dead
   useEffect(() => {
     if (!state.isOnline || !state.gameId || state.localUid === state.hostUid || !state.lastPing) return;
@@ -420,17 +464,25 @@ export function GameProvider({ gameConfig, children }) {
     // Block unauthorized actions in online mode
     const protectedActions = [
       ACTION_TYPES.ROLL_DICE, ACTION_TYPES.SPAWN_PIECE, ACTION_TYPES.MOVE_WITH_FULL_ROLL, 
-      ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN
+      ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN,
+      ACTION_TYPES.TRIGGER_AFK_INTERVENTION
     ];
     
-    if (currentState.isOnline && protectedActions.includes(action.type) && !checkIsMyTurn(currentState)) {
+    if (action.type === ACTION_TYPES.TRIGGER_AFK_INTERVENTION) {
+      if (currentState.localUid !== currentState.hostUid) return;
+    } else if (currentState.isOnline && protectedActions.includes(action.type) && !checkIsMyTurn(currentState)) {
       return; // Ignore unauthorized action completely
     }
 
-    baseDispatch(action);
+    const actionToDispatch = { ...action };
+    if (protectedActions.includes(action.type)) {
+      actionToDispatch._updateActivity = true;
+    }
+
+    baseDispatch(actionToDispatch);
 
     // Instantly calculate and cache the next state so consecutive rapid dispatches (like bots) stack properly!
-    const nextState = gameReducer(currentState, action);
+    const nextState = enhancedReducer(currentState, actionToDispatch);
     latestStateRef.current = nextState;
 
     if (currentState.isOnline && currentState.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
@@ -441,7 +493,11 @@ export function GameProvider({ gameConfig, children }) {
         turnQueue: nextState.turnQueue,
         players: nextState.players,
         hasRolledThisTurn: nextState.hasRolledThisTurn,
-        rollingPhaseComplete: nextState.rollingPhaseComplete
+        rollingPhaseComplete: nextState.rollingPhaseComplete,
+        lastActionTime: nextState.lastActionTime,
+        afkStrikes: nextState.afkStrikes || {},
+        isAfkTurn: nextState.isAfkTurn || false,
+        bots: nextState.bots || []
       }).catch(e => console.error("Firestore sync failed:", e));
     }
   };
@@ -455,7 +511,19 @@ export function GameProvider({ gameConfig, children }) {
       const gameRef = doc(db, 'games', state.gameId);
       const unsubscribe = onSnapshot(gameRef, (docSnap) => {
         if (docSnap.exists()) {
-          baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: docSnap.data() });
+          const data = docSnap.data();
+          
+          // Public game drop-rejoin prevention
+          if (data.isPublic && state.localUid) {
+            const myPlayerId = Object.keys(data.playerUids || {}).find(key => data.playerUids[key] === state.localUid);
+            if (myPlayerId && data.bots?.includes(myPlayerId)) {
+              alert("You have disconnected from this public match and cannot rejoin. You have been replaced by a bot.");
+              window.location.href = window.location.pathname;
+              return;
+            }
+          }
+          
+          baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: data });
         } else if (state.localUid === state.hostUid) {
           // Host initializes the game document
           setDoc(gameRef, {
@@ -466,7 +534,11 @@ export function GameProvider({ gameConfig, children }) {
             rollingPhaseComplete: state.rollingPhaseComplete,
             isPublic: gameConfig.isPublic || false,
             status: gameConfig.status || 'playing',
-            lastPing: Date.now()
+            lastPing: Date.now(),
+            lastActionTime: Date.now(),
+            afkStrikes: {},
+            isAfkTurn: false,
+            bots: state.bots || []
           }).catch(console.error);
         }
       });
