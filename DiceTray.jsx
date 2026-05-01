@@ -70,7 +70,7 @@ const DiceTray = () => {
         if (Math.random() < 0.25) {
           setShowVoidGif(true);
         }
-        dispatch({ type: ACTION_TYPES.CLEAR_QUEUE, skipSync: true });
+        dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
       } else {
         // Projected state for cost optimization (Batching Roll + AutoMove)
         const projectedQueue = [...state.turnQueue, { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }];
@@ -80,13 +80,10 @@ const DiceTray = () => {
         const hasMovesNext = hasAnyPlayableMove(state.currentPlayer, projectedState);
         const isStuckNext = projectedState.turnQueue.length > 0 && !hasMovesNext && projectedState.rollingPhaseComplete;
 
-        const shouldSkipSync = isBotPlaying || !!autoMoveNext || isStuckNext;
-
         // Dispatch the roll to the global state to be added to the queue
         dispatch({
           type: ACTION_TYPES.ROLL_DICE,
-          payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 },
-          skipSync: shouldSkipSync
+          payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }
         });
       }
       

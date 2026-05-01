@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
-import { doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 
@@ -90,7 +90,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         })}
       </div>
 
-      {isOnline && !seat.uid && !hasClaimedSeat && lobbyStatus === 'waiting' && !isLobbyPublic && (
+      {isOnline && !seat.uid && !hasClaimedSeat && lobbyStatus === 'waiting' && !isLobbyPublic && seat.type !== 'closed' && (
         <button onClick={() => onClaim(id)} className="w-full mt-2 py-1 bg-emerald/20 text-emerald border border-emerald/30 rounded text-[10px] uppercase font-bold tracking-widest hover:bg-emerald/30 transition-colors">
           {t('claimSeat', 'Claim Seat')}
         </button>
@@ -245,6 +245,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   const [lobbyExpiresAt, setLobbyExpiresAt] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('Waiting...');
+  const [hostLastPing, setHostLastPing] = useState(null);
 
   const { t } = useTranslation();
 
@@ -276,6 +277,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
         if (data.status !== undefined) setLobbyStatus(data.status);
         if (data.hostUid !== undefined) setLobbyHostUid(data.hostUid);
         if (data.expiresAt !== undefined) setLobbyExpiresAt(data.expiresAt);
+        if (data.matchType !== undefined) setMatchType(data.matchType);
+        if (data.lastPing !== undefined) setHostLastPing(data.lastPing);
+        if (data.status === 'abandoned' && !isHost) {
+          alert(t('hostOffline', 'The host has disconnected. Lobby closed.'));
+          window.location.href = window.location.pathname;
+        }
 
         // If the host starts the game, instantly pull joiners into the match
         if (data.gameStarted && joinGameId) {
@@ -330,7 +337,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
           }
         });
         try {
-          await updateDoc(doc(db, 'lobbies', activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats });
+          await updateDoc(doc(db, 'lobbies', activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
         } catch (e) {
           console.error("AutoStart sync error:", e);
         }
@@ -343,7 +350,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   const pushUpdate = async (field, value) => {
     if (activeLobbyId) {
       try { 
-        await updateDoc(doc(db, 'lobbies', activeLobbyId), { [field]: value }); 
+        const updates = { [field]: value };
+        if (field === 'seats') {
+          updates.openSeats = Object.values(value).filter(s => s.type === 'human' && !s.uid).length;
+        }
+        await updateDoc(doc(db, 'lobbies', activeLobbyId), updates); 
       } catch (e) { 
         console.error("Sync error:", e); 
         alert(`Failed to sync ${field}. Check console for details.`);
@@ -375,14 +386,56 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
   useEffect(() => {
     // Auto-assign random matchmaking players to an open seat without needing to click
     if (isLobbyPublic && activeLobbyId && user && lobbyStatus === 'waiting' && !hasClaimedSeat) {
-      const preferredOrder = ['Player1', 'Player2', 'Player3', 'Player4'];
-      let targetSeat = preferredOrder.find(id => seats[id].type === 'human' && !seats[id].uid);
-      if (!targetSeat) targetSeat = preferredOrder.find(id => seats[id].type === 'bot' && !seats[id].uid);
-      if (!targetSeat) targetSeat = preferredOrder.find(id => seats[id].type === 'closed' && !seats[id].uid);
+      let validSeatIds = ['Player1', 'Player2', 'Player3', 'Player4'];
+      if (matchType === '1v1') validSeatIds = ['Player1', 'Player3'];
       
-      if (targetSeat) handleClaimSeat(targetSeat);
+      let targetSeat = validSeatIds.find(id => seats[id].type === 'human' && !seats[id].uid);
+      if (!targetSeat) targetSeat = validSeatIds.find(id => seats[id].type === 'bot' && !seats[id].uid);
+      
+      if (targetSeat) {
+        handleClaimSeat(targetSeat);
+      } else {
+        alert(t('lobbyFullOrCorrupt', 'This lobby is full. Redirecting to menu...'));
+        window.location.href = window.location.pathname;
+      }
     }
-  }, [isLobbyPublic, activeLobbyId, user, seats, lobbyStatus, hasClaimedSeat]);
+  }, [isLobbyPublic, activeLobbyId, user, seats, lobbyStatus, hasClaimedSeat, matchType, t]);
+
+  // Host: Send Heartbeat to keep lobby alive and setup beforeunload
+  useEffect(() => {
+    if (!isHost || !activeLobbyId || lobbyStatus !== 'waiting') return;
+
+    const pushPing = () => {
+      updateDoc(doc(db, 'lobbies', activeLobbyId), { lastPing: Date.now() }).catch(() => {});
+    };
+
+    pushPing();
+    const pingInterval = setInterval(pushPing, 10000);
+
+    const handleUnload = () => {
+      updateDoc(doc(db, 'lobbies', activeLobbyId), { status: 'abandoned', openSeats: 0 }).catch(() => {});
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(pingInterval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [isHost, activeLobbyId, lobbyStatus]);
+
+  // Client: Monitor Host Heartbeat
+  useEffect(() => {
+    if (isHost || !activeLobbyId || lobbyStatus !== 'waiting' || !hostLastPing) return;
+
+    const monitorInterval = setInterval(() => {
+      if (Date.now() - hostLastPing > 25000) {
+        alert(t('hostOffline', 'The host has disconnected. Lobby closed.'));
+        window.location.href = window.location.pathname;
+      }
+    }, 5000);
+
+    return () => clearInterval(monitorInterval);
+  }, [isHost, activeLobbyId, lobbyStatus, hostLastPing, t]);
 
   useEffect(() => {
     if (playerCount !== 4) setIsTeamMode(false); // Team mode strictly 2v2
@@ -465,7 +518,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     try {
       await setDoc(doc(db, 'lobbies', newGameId), {
         seats: newSeats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
-        isPublic, status: 'waiting', expiresAt, matchType
+        isPublic, status: 'waiting', expiresAt, matchType,
+        version: 2,
+        lastPing: Date.now(),
+        openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length
       });
   
       setSeats(newSeats);
@@ -489,6 +545,20 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     });
 
     if (availableGameId) {
+      try {
+        const lobbySnap = await getDoc(doc(db, 'lobbies', availableGameId));
+        if (lobbySnap.exists()) {
+          const data = lobbySnap.data();
+          if (data.matchType !== matchType || (data.lastPing && Date.now() - data.lastPing > 25000)) {
+            await handleHostOnlineClick(true);
+            setIsSearching(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Lobby validation failed", e);
+      }
+
       window.history.pushState({}, '', `?join=${availableGameId}`);
       onReconnectOnline(availableGameId);
     } else {
@@ -513,7 +583,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
     }
 
     setLobbyStatus('playing');
-    const updates = { status: 'playing', gameStarted: true };
+    const updates = { status: 'playing', gameStarted: true, openSeats: 0 };
     if (finalSeats) updates.seats = finalSeats;
     try {
       await updateDoc(doc(db, 'lobbies', activeLobbyId), updates);

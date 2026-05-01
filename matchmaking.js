@@ -19,6 +19,8 @@ export async function findRandomPublicGame(config = {}) {
       where('isQuickGame', '==', !!config.isQuickGame),
       where('isTeamMode', '==', !!config.isTeamMode),
       where('isVoidRuleEnabled', '==', !!config.isVoidRuleEnabled),
+      where('version', '==', 2),
+      where('openSeats', '>', 0),
       limit(1) // We only need to find one available game
     );
 
