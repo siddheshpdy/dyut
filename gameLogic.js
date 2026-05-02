@@ -52,7 +52,7 @@ export function getOccupantsOfPathIndex(targetPathIndex, checkingPlayerId, allPl
 /**
  * Checks if a target path index is a pair shield.
  * @param {number} targetPathIndex - The destination index on the player's path.
- * @param {string} movingPlayerId - The ID of the player attempting to move.
+ * @param {string}  movingPlayerId - The ID of the player attempting to move.
  * @param {object} state - The entire global game state.
  * @returns {string|null} - The ID of the defending player if it's a pair shield, otherwise null.
  */
@@ -170,6 +170,21 @@ export function canSpawnPiece(playerId, spawnPos, state) {
 
     const enemyPieces = occupants.filter(o => !isFriendly(o.playerId));
     if (enemyPieces.length > 0) {
+        // Cannot spawn onto an enemy pair shield
+        if (enemyPieces.length === 2) {
+            // Check for Dual Spawn Attack opportunity
+            const proxyId = getProxyPlayerId(playerId, state);
+            const lockedCount = state.players[proxyId].pieces.filter(p => p === -1).length;
+            if (lockedCount >= 2 && (spawnPos === 8 || spawnPos === 12)) {
+                // Needs at least 2 identical double rolls in the queue to execute a dual spawn
+                const doubleRolls = state.turnQueue.filter(r => r.sum === spawnPos && r.d1 === r.d2 && r.d2 !== null);
+                if (doubleRolls.length >= 2) {
+                    return 'DUAL_SPAWN';
+                }
+            }
+            return false;
+        }
+
         let isTargetSafe = false;
         const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
         if (parts) {
@@ -207,11 +222,31 @@ export function hasAnyPlayableMove(originalPlayerId, state) {
         }
 
         // 2. Check if any piece on the board can move
-        for (const piecePos of player.pieces) {
+        for (let pieceIndex = 0; pieceIndex < player.pieces.length; pieceIndex++) {
+            const piecePos = player.pieces[pieceIndex];
             if (piecePos !== -1 && piecePos !== 999) { // Piece is on the board and not finished
                 const validMoves = getValidMoves(piecePos, roll, proxyId, state);
                 if (validMoves.sum || validMoves.high || validMoves.low) {
                     return true; // Found a valid move
+                }
+
+                // 3. Check for Pair Attack
+                if (roll.d1 === roll.d2 && roll.d2 !== null) {
+                    const moveDistance = roll.d1;
+                    const targetPos = piecePos + moveDistance;
+                    if (getPairShieldTarget(targetPos, proxyId, state)) {
+                        const targetCellId = PLAYER_PATHS[proxyId][targetPos];
+                        const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
+                        let isTargetSafe = false;
+                        if (parts) {
+                            const [, , col, row] = parts.map(Number);
+                            isTargetSafe = isCellVisuallySafe(col, row);
+                        }
+                        if (!isTargetSafe) {
+                            const hasPartner = player.pieces.some((pos, i) => i !== pieceIndex && pos !== -1 && (pos + moveDistance === targetPos));
+                            if (hasPartner) return true;
+                        }
+                    }
                 }
             }
         }
@@ -259,8 +294,9 @@ export function getAutoMove(originalPlayerId, state) {
 
         player.pieces.forEach((pos, pieceIndex) => {
             if (pos === -1) {
-                if (isDouble && !lockedPieceAdded && canSpawnPiece(proxyId, activeRoll.sum, state)) {
-                    movablePieces.push({ pieceIndex, type: 'SPAWN' });
+                const spawnResult = isDouble ? canSpawnPiece(proxyId, activeRoll.sum, state) : false;
+                if (spawnResult && !lockedPieceAdded) {
+                    movablePieces.push({ pieceIndex, type: spawnResult === 'DUAL_SPAWN' ? 'DUAL_SPAWN' : 'SPAWN' });
                     lockedPieceAdded = true; // Group identical locked pieces as 1 choice
                 }
             } else if (pos !== 999) {
@@ -273,7 +309,11 @@ export function getAutoMove(originalPlayerId, state) {
 
         if (movablePieces.length === 1) {
             const move = movablePieces[0];
-            if (move.type === 'SPAWN') {
+            if (move.type === 'DUAL_SPAWN') {
+                const lockedIndices = player.pieces.map((p, i) => p === -1 ? i : -1).filter(i => i !== -1);
+                const doubleRollIndices = state.turnQueue.map((r, i) => r.sum === activeRoll.sum && r.d1 === r.d2 && r.d2 !== null ? i : -1).filter(i => i !== -1);
+                return { type: 'DUAL_SPAWN_ATTACK', payload: { playerId: proxyId, pieceIndices: [lockedIndices[0], lockedIndices[1]], rollIndices: [doubleRollIndices[0], doubleRollIndices[1]] } };
+            } else if (move.type === 'SPAWN') {
                 return { type: 'SPAWN_PIECE', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex } };
             } else {
                 const { pos, validMoves } = move;
