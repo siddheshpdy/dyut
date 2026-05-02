@@ -5,7 +5,7 @@ import UnifiedLobby from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
 import { GameProvider, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
-import { auth, signInUserAnonymously, checkAuthRedirect } from './firebaseSetup.js';
+import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
@@ -91,10 +91,14 @@ function App() {
       }
 
       // Now, set up the canonical listener for all subsequent auth changes.
-      const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+      const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
         if (!isMounted) return;
 
         if (currentUser) {
+          if (!currentUser.isAnonymous) {
+            await initializeUserProfile(currentUser);
+          }
+          
           setUser({
             uid: currentUser.uid,
             isAnonymous: currentUser.isAnonymous,

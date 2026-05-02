@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, signInWithRedirect, linkWithRedirect, getRedirectResult } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, deleteDoc } from 'firebase/firestore';
 
 // TODO: Replace this with your actual Firebase project configuration from the console
 // 1. Go to console.firebase.google.com
@@ -108,6 +108,44 @@ export const updateUserName = async (newName) => {
   }
 };
 
+export const mergeUserStats = async (oldUid, newUser) => {
+  if (!oldUid || !newUser || oldUid === newUser.uid) return;
+  
+  try {
+    const oldRef = doc(db, 'users', oldUid);
+    const oldSnap = await getDoc(oldRef);
+    
+    if (oldSnap.exists()) {
+      const oldData = oldSnap.data();
+      const newRef = doc(db, 'users', newUser.uid);
+      const newSnap = await getDoc(newRef);
+      
+      if (newSnap.exists()) {
+        // Add old stats to the permanent account's stats
+        await updateDoc(newRef, {
+          gamesPlayed: increment(oldData.gamesPlayed || 0),
+          wins: increment(oldData.wins || 0)
+        });
+      } else {
+        // If the new user doesn't have a doc yet, create it populated with the old stats
+        await setDoc(newRef, {
+          uid: newUser.uid,
+          displayName: newUser.displayName || 'Player',
+          photoURL: newUser.photoURL || null,
+          gamesPlayed: oldData.gamesPlayed || 0,
+          wins: oldData.wins || 0,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp()
+        });
+      }
+      // Cleanup the abandoned anonymous document
+      await deleteDoc(oldRef);
+    }
+  } catch (e) {
+    console.error("Error merging user stats:", e);
+  }
+};
+
 let redirectCheckPromise = null;
 
 export const checkAuthRedirect = () => {
@@ -146,11 +184,13 @@ export const signInWithGoogle = async () => {
 
   // Use redirect on mobile to prevent popup blocking issues, use popup on desktop for better UX
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const currentAnonUid = auth.currentUser?.isAnonymous ? auth.currentUser.uid : null;
 
   try {
     if (isMobile) {
       // Mobile browsers often lose anonymous session state during redirects, causing linkWithRedirect to fail.
       // Using signInWithRedirect directly is much more robust and guarantees a successful login.
+      if (currentAnonUid) localStorage.setItem('pending_merge_anon_uid', currentAnonUid);
       await signInWithRedirect(auth, provider);
     } else if (auth.currentUser && auth.currentUser.isAnonymous) {
       try {

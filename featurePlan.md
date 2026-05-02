@@ -117,12 +117,12 @@
 * Cost Minimization (Read/Write Batching): Combine Roll & Auto-Move and Bot turns into single `updateDoc()` calls to drastically reduce Firestore usage and stay within the free tier.
 * Host-Only Bot Execution: Restrict the `useAIBot` hook so only the "Host" calculates and pushes bot moves, preventing multiple connected clients from writing simultaneously.
 
-## Phase 18: Persistent Authentication & Player Profiles (Pending)
-* Technology Stack: Firebase Authentication (Google Auth Provider, Email/Password), Firestore (for user stats).
-* Account Upgrades: Allow users to link their Firebase Anonymous Auth session to a Google account or Email/Password, preserving existing temporary game data.
-* Cross-Device Profiles: Create a `users` collection in Firestore to securely store persistent player profiles, tracking global stats like wins, games played, and preferred aesthetics.
-* UI Integration: Add a "Sign In / Profile" button to the `UnifiedLobby` overlay to trigger the authentication flow and display player stats.
-* Data Merging: Implement logic to sync and merge local offline progress or cached games with the newly authenticated cloud profile.
+## Phase 18: Persistent Authentication & Player Profiles (Completed)
+* Technology Stack: Implemented Firebase Authentication (Google Auth Provider) and Firestore (for user stats).
+* Account Upgrades: Allowed users to link their Firebase Anonymous Auth session to a Google account, preserving their identity.
+* Cross-Device Profiles: Created a `users` collection in Firestore to securely store persistent player profiles, tracking global stats like wins and games played.
+* UI Integration: Added an interactive `PlayerProfile` glassmorphic component to the `UnifiedLobby` overlay to trigger the authentication flow, display player stats, and edit display names.
+* Data Merging: Implemented robust `mergeUserStats` logic. If an anonymous user signs into an existing Google account, their offline progress is cleanly merged into their cloud profile before the anonymous ghost document is deleted.
 
 ## Phase 19: Interactive Tutorial Overlay (Pending)
 * Custom Animated Tutorial: Implement a first-time user experience (FTUE) overlay for new players.
