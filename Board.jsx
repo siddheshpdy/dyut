@@ -127,7 +127,7 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 };
 
 // The Player's Yard/Base for locked pieces
-const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpawnClick, isAnimating }) => {
+const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating }) => {
   const { state } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
@@ -138,7 +138,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, pairAttackState, onSpa
   
   const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
   const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
-  const canSpawn = activePlayerId === playerId && hasValidSpawn && !pairAttackState && !isRollingPhaseActive && !isAnimating;
+  const canSpawn = activePlayerId === playerId && hasValidSpawn && !isRollingPhaseActive && !isAnimating;
 
   const baseColorClass = {
     yellow: 'bg-piece-yellow',
@@ -200,7 +200,6 @@ const Board = ({ onGoToMenu }) => {
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
-  const [pairAttackState, setPairAttackState] = useState(null); // { firstPieceIndex, roll, rollIndex, targetCellId }
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
@@ -377,28 +376,9 @@ const Board = ({ onGoToMenu }) => {
   // Clear selected piece and attack state when the turn changes to prevent stale UI
   useEffect(() => {
     setSelectedPiece(null);
-    setPairAttackState(null);
   }, [state.currentPlayer]);
 
   const handlePieceClick = (playerId, pieceIndex) => {
-    // If we are in the second step of a pair attack, this click is the selection of the second piece.
-    if (pairAttackState) {
-      const { firstPieceIndex, roll, rollIndex, targetCellId } = pairAttackState;
-      const moveDistance = roll.d1;
-      const currentPos = state.players[playerId].pieces[pieceIndex];
-      const targetPathIndex = PLAYER_PATHS[playerId].indexOf(targetCellId);
-
-      // Check if this piece is a valid partner for the attack
-      if (pieceIndex !== firstPieceIndex && (currentPos + moveDistance === targetPathIndex)) {
-        dispatch({
-          type: ACTION_TYPES.EXECUTE_PAIR_ATTACK,
-          payload: { playerId, rollIndex, firstPieceIndex, secondPieceIndex: pieceIndex, targetCellId }
-        });
-        setPairAttackState(null); // Reset attack state
-      }
-      return;
-    }
-
     // Can only select pieces if it's your turn and you have rolls in the queue
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
     const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
@@ -419,13 +399,42 @@ const Board = ({ onGoToMenu }) => {
 
   const handleInitiatePairAttack = (targetCellId) => {
     if (!selectedPiece) return;
-    setPairAttackState({
-      firstPieceIndex: selectedPiece.pieceIndex,
-      roll: activeRoll,
-      rollIndex: selectedPiece.rollIndex,
-      targetCellId,
-    });
+
+    const playerId = selectedPiece.playerId;
+    const pieceCurrentPos = state.players[playerId].pieces[selectedPiece.pieceIndex];
+    const secondPieceIndex = state.players[playerId].pieces.findIndex((pos, i) => i !== selectedPiece.pieceIndex && pos === pieceCurrentPos);
+
+    if (secondPieceIndex !== -1) {
+      dispatch({
+        type: ACTION_TYPES.EXECUTE_PAIR_ATTACK,
+        payload: { playerId, rollIndex: selectedPiece.rollIndex, firstPieceIndex: selectedPiece.pieceIndex, secondPieceIndex, targetCellId }
+      });
+    }
+
     setSelectedPiece(null); // Close the move selector
+  };
+
+  const handleDualSpawnAttack = () => {
+    if (!selectedPiece || !selectedPiece.isLocked) return;
+    
+    const playerId = selectedPiece.playerId;
+    const player = state.players[playerId];
+    
+    // Find two locked pieces
+    const lockedIndices = player.pieces.map((p, i) => p === -1 ? i : -1).filter(i => i !== -1);
+    
+    // Find two identical double rolls in the queue
+    const activeRoll = state.turnQueue[selectedPiece.rollIndex];
+    const sum = activeRoll.sum;
+    const doubleRollIndices = state.turnQueue.map((r, i) => r.sum === sum && r.d1 === r.d2 && r.d2 !== null ? i : -1).filter(i => i !== -1);
+    
+    if (lockedIndices.length >= 2 && doubleRollIndices.length >= 2) {
+      dispatch({
+        type: ACTION_TYPES.DUAL_SPAWN_ATTACK,
+        payload: { playerId, pieceIndices: [lockedIndices[0], lockedIndices[1]], rollIndices: [doubleRollIndices[0], doubleRollIndices[1]] }
+      });
+    }
+    setSelectedPiece(null);
   };
 
   let isHomeStretchSelected = false;
@@ -475,7 +484,7 @@ const Board = ({ onGoToMenu }) => {
     if (!selectedPiece || !activeRoll) return null;
     if (selectedPiece.isLocked) {
       const canSpawn = activeRoll.d1 === activeRoll.d2 && canSpawnPiece(selectedPiece.playerId, activeRoll.sum, state);
-      return { sum: canSpawn, high: false, low: false };
+      return { sum: canSpawn === true, high: false, low: false, dualSpawn: canSpawn === 'DUAL_SPAWN' };
     }
     const pieceCurrentPos = state.players[selectedPiece.playerId].pieces[selectedPiece.pieceIndex];
     return getValidMoves(pieceCurrentPos, activeRoll, selectedPiece.playerId, state);
@@ -528,18 +537,7 @@ const Board = ({ onGoToMenu }) => {
         const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
 
         if (pos !== -1 && pos < 999 && visualId === cellId) {
-          let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !pairAttackState && !isRollingPhaseActive && !isAnimating;
-          // If in a pair attack, only highlight valid partners
-          if (pairAttackState && isActiveOrProxy && pieceIndex !== pairAttackState.firstPieceIndex) {
-            const moveDistance = pairAttackState.roll.d1;
-            const targetPathIndex = PLAYER_PATHS[playerId].indexOf(pairAttackState.targetCellId);
-            const actualPos = state.players[playerId].pieces[pieceIndex]; // MUST USE ACTUAL POS
-            if (actualPos !== -1 && (actualPos + moveDistance === targetPathIndex)) {
-              isMovable = true;
-            } else {
-              isMovable = false;
-            }
-          }
+          let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
 
           occupants.push({
             playerId,
@@ -568,12 +566,6 @@ const Board = ({ onGoToMenu }) => {
       >
         {winnerInfo && <VictoryScreen winnerId={winnerInfo.id} onNewGame={onGoToMenu} />}
 
-        {pairAttackState && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-700 text-white px-4 py-2 rounded-lg shadow-lg text-center z-30 animate-pulse">
-            Select a second piece to attack the pair!
-          </div>
-        )}
-
         {cells.map(cell => (
           <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces} />
         ))}
@@ -586,7 +578,6 @@ const Board = ({ onGoToMenu }) => {
             player={visualPlayers[base.id]}
             gridRow={base.row}
             gridCol={base.col}
-            pairAttackState={pairAttackState}
             onSpawnClick={handleSpawnClick}
             isAnimating={isAnimating}
           />
@@ -601,6 +592,7 @@ const Board = ({ onGoToMenu }) => {
             onFullMove={handleFullMove}
             onSplitMove={handleSplitMove}
             onInitiatePairAttack={handleInitiatePairAttack}
+            onDualSpawnAttack={handleDualSpawnAttack}
             onClose={() => setSelectedPiece(null)}
             onNextRoll={handleNextRoll}
             hasMultipleRolls={state.turnQueue.length > 1}

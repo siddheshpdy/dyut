@@ -61,6 +61,7 @@ export const ACTION_TYPES = {
   EXECUTE_PAIR_ATTACK: 'EXECUTE_PAIR_ATTACK',
   SYNC_FROM_CLOUD: 'SYNC_FROM_CLOUD',
   TRIGGER_AFK_INTERVENTION: 'TRIGGER_AFK_INTERVENTION',
+  DUAL_SPAWN_ATTACK: 'DUAL_SPAWN_ATTACK',
 };
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
@@ -261,6 +262,45 @@ function gameReducer(state, action) {
       }
 
       const newQueue = state.turnQueue.filter((_, i) => i !== rollIndex);
+      return { ...state, players: newPlayers, turnQueue: newQueue };
+    }
+
+    case ACTION_TYPES.DUAL_SPAWN_ATTACK: {
+      const { playerId, pieceIndices, rollIndices } = action.payload;
+      const spawnPosition = state.turnQueue[rollIndices[0]].sum;
+      const targetCellId = PLAYER_PATHS[playerId][spawnPosition];
+
+      let newPlayers = { ...state.players };
+      const attackerPieces = [...newPlayers[playerId].pieces];
+
+      // Move both attackers to the spawn position
+      attackerPieces[pieceIndices[0]] = spawnPosition;
+      attackerPieces[pieceIndices[1]] = spawnPosition;
+      newPlayers[playerId] = { ...newPlayers[playerId], pieces: attackerPieces, hasKilled: true };
+      
+      // Share blood debt for the team
+      if (state.isTeamMode) {
+        for (const pId in newPlayers) {
+          if (newPlayers[pId].team === newPlayers[playerId].team) {
+            newPlayers[pId] = { ...newPlayers[pId], hasKilled: true };
+          }
+        }
+      }
+
+      // Find and kill the defending pair
+      for (const [pId, pData] of Object.entries(newPlayers)) {
+        if (pId === playerId || (state.isTeamMode && pData.team === newPlayers[playerId].team)) continue;
+        const defendingPieceIndices = pData.pieces.map((pos, i) => (pos !== -1 && PLAYER_PATHS[pId][pos] === targetCellId) ? i : -1).filter(i => i !== -1);
+        
+        if (defendingPieceIndices.length === 2) {
+          const defenderPieces = [...pData.pieces];
+          defenderPieces[defendingPieceIndices[0]] = -1;
+          defenderPieces[defendingPieceIndices[1]] = -1;
+          newPlayers[pId] = { ...pData, pieces: defenderPieces };
+        }
+      }
+
+      const newQueue = state.turnQueue.filter((_, i) => !rollIndices.includes(i));
       return { ...state, players: newPlayers, turnQueue: newQueue };
     }
 
@@ -469,7 +509,7 @@ const dispatch = useCallback((action) => {
     const protectedActions = [
       ACTION_TYPES.ROLL_DICE, ACTION_TYPES.SPAWN_PIECE, ACTION_TYPES.MOVE_WITH_FULL_ROLL, 
       ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN,
-      ACTION_TYPES.TRIGGER_AFK_INTERVENTION
+      ACTION_TYPES.TRIGGER_AFK_INTERVENTION, ACTION_TYPES.DUAL_SPAWN_ATTACK
     ];
     
     if (action.type === ACTION_TYPES.TRIGGER_AFK_INTERVENTION) {

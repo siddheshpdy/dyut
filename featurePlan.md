@@ -129,11 +129,11 @@
 * Highlight Safe Zones: Use targeted spotlights or SVG masks to visually emphasize the golden 'X' safe zones and explain their mechanics.
 * Pair Shield Explanation: Add an animated sequence or interactive step demonstrating how two pieces of the same color form a Pair Shield and how it can only be broken by a coordinated Pair Attack.
 
-## Phase 20: Advanced Blockade Breaching (Pending)
-* Synchronized Dual Spawn Attack: Implement logic to allow a player to break an enemy Pair Shield on the 8th or 12th square by simultaneously spawning two pieces. This requires the player to have at least two identical valid rolls (e.g., two `4`s) in their queue and two locked pieces.
-* Dual Spawn UI & Action: Add a `DUAL_SPAWN_ATTACK` action to the global state and update `Board.jsx`/`MoveSelector.jsx` to present this explosive option when the exact conditions are met.
-* Combat Engine Update: Modify `applyCombat` to properly process the simultaneous removal of the enemy pair and the placement of the two newly spawned attacking pieces.
-* Active Pair Attack Refinement: Ensure standard Pair Attacks (using a double roll to move an existing pair) strictly validate that the path for *both* pieces is completely clear of other blockades before allowing them to strike an enemy blockade.
+## Phase 20: Advanced Blockade Breaching (Completed)
+* Synchronized Dual Spawn Attack: Implemented logic to allow a player to break an enemy Pair Shield on the 8th or 12th square by simultaneously spawning two pieces. This requires the player to have at least two identical valid rolls (e.g., two `4`s) in their queue and two locked pieces.
+* Dual Spawn UI & Action: Added a `DUAL_SPAWN_ATTACK` action to the global state and updated `Board.jsx`/`MoveSelector.jsx` to present this explosive option when the exact conditions are met.
+* Combat Engine Update: Modified `applyCombat` to properly process the simultaneous removal of the enemy pair and the placement of the two newly spawned attacking pieces.
+* Active Pair Attack Refinement: Ensured standard Pair Attacks (using a double roll to move an existing pair) strictly validate that the path for *both* pieces is completely clear of other blockades before allowing them to strike an enemy blockade.
 
 
 ## Suggested State Architecture Example
