@@ -170,6 +170,11 @@ export function canSpawnPiece(playerId, spawnPos, state) {
 
     const enemyPieces = occupants.filter(o => !isFriendly(o.playerId));
     if (enemyPieces.length > 0) {
+        // Cannot spawn onto an enemy pair shield
+        if (enemyPieces.length === 2) {
+            return false;
+        }
+
         let isTargetSafe = false;
         const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
         if (parts) {

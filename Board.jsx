@@ -100,19 +100,19 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 
   let ringClass = '';
   if (isMovable && isHomeStretch) {
-    ringClass = 'animate-pulse ring-[3px] ring-cyan-300 ring-offset-2 ring-offset-black/50 shadow-[0_0_10px_rgba(34,211,238,0.6)]';
+    ringClass = 'animate-pulse ring-2 sm:ring-[3px] ring-cyan-300 ring-offset-1 sm:ring-offset-2 ring-offset-black/50 shadow-[0_0_10px_rgba(34,211,238,0.6)]';
   } else if (isMovable) {
-    ringClass = 'animate-pulse ring-[3px] ring-white/90 ring-offset-2 ring-offset-black/50';
+    ringClass = 'animate-pulse ring-2 sm:ring-[3px] ring-white/90 ring-offset-1 sm:ring-offset-2 ring-offset-black/50';
   } else if (isHomeStretch) {
-    ringClass = 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-black/50';
+    ringClass = 'ring-2 sm:ring-4 ring-cyan-400 ring-offset-1 sm:ring-offset-2 ring-offset-black/50';
   }
 
   // Assign a unique view-transition-name to each piece so the browser can animate its movement
   const transitionName = playerId != null && pieceIndex != null ? `piece-${playerId}-${pieceIndex}` : undefined;
 
   const shapeClass = isHomeStretch
-    ? 'w-[75%] h-[85%] rounded-t-full rounded-b-[10px] shadow-[inset_-2px_-4px_8px_rgba(0,0,0,0.5),0_5px_8px_rgba(0,0,0,0.6)]'
-    : 'w-[80%] aspect-square rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]';
+    ? 'w-[70%] sm:w-[75%] h-[80%] sm:h-[85%] rounded-t-full rounded-b-[10px] shadow-[inset_-2px_-4px_8px_rgba(0,0,0,0.5),0_5px_8px_rgba(0,0,0,0.6)]'
+    : 'w-[70%] sm:w-[80%] aspect-square rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]';
 
   const innerShapeClass = isHomeStretch
     ? 'w-[35%] aspect-square bg-white/90 shadow-[inset_0_-2px_3px_rgba(0,0,0,0.4)] -translate-y-[15%]'

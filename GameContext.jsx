@@ -101,8 +101,8 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
         continue;
       }
 
-      // Pair Shield check: Only a spawning piece can break a pair in normal combat flow
-      if (opponentPiecesOnSquare === 2 && !isSpawning) {
+      // Pair Shield check: A pair shield can only be broken by a coordinated Pair Attack, never by a single piece (even spawning).
+      if (opponentPiecesOnSquare === 2) {
         continue;
       }
 

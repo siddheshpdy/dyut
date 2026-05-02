@@ -65,9 +65,9 @@
 * Stale State Fix: Forced `selectedPiece` and `pairAttackState` to clear automatically upon turn transitions to prevent cross-turn UI bleed.
 * Theme Cohesion: Unified all remaining modals (Move Selector, Void Roll, Victory) to use the core `charcoal`, `gold`, and `ruby` glassmorphic design system.
 
-## Phase 12.6: Gameplay Bug Fixes (Pending)
-* Pair Shield vs. Assassin Override: Fix an issue where a spawning piece (e.g., rolling 6+6 and landing on the 12th square) instantly kills an opponent's Pair Shield. The Pair Shield rule should strictly require a coordinated two-piece Pair Attack to be broken, overriding the Assassin spawn capture.
-* Mobile Piece Highlight Fix: Adjust the highlighted pieces in mobile view so the pulse/ring effect doesn't get clipped or look wonky due to overflowing outside the square container.
+## Phase 12.6: Gameplay Bug Fixes (Completed)
+* Pair Shield vs. Assassin Override: Fixed an issue where a spawning piece instantly kills an opponent's Pair Shield. The Pair Shield rule strictly requires a coordinated two-piece Pair Attack to be broken, overriding the Assassin spawn capture.
+* Mobile Piece Highlight Fix: Adjusted the highlighted pieces in mobile view so the pulse/ring effect doesn't get clipped or look wonky due to overflowing outside the square container.
 
 ---
 
@@ -124,6 +124,16 @@
 * UI Integration: Add a "Sign In / Profile" button to the `UnifiedLobby` overlay to trigger the authentication flow and display player stats.
 * Data Merging: Implement logic to sync and merge local offline progress or cached games with the newly authenticated cloud profile.
 
+## Phase 19: Interactive Tutorial Overlay (Pending)
+* Custom Animated Tutorial: Implement a first-time user experience (FTUE) overlay for new players.
+* Highlight Safe Zones: Use targeted spotlights or SVG masks to visually emphasize the golden 'X' safe zones and explain their mechanics.
+* Pair Shield Explanation: Add an animated sequence or interactive step demonstrating how two pieces of the same color form a Pair Shield and how it can only be broken by a coordinated Pair Attack.
+
+## Phase 20: Advanced Blockade Breaching (Pending)
+* Synchronized Dual Spawn Attack: Implement logic to allow a player to break an enemy Pair Shield on the 8th or 12th square by simultaneously spawning two pieces. This requires the player to have at least two identical valid rolls (e.g., two `4`s) in their queue and two locked pieces.
+* Dual Spawn UI & Action: Add a `DUAL_SPAWN_ATTACK` action to the global state and update `Board.jsx`/`MoveSelector.jsx` to present this explosive option when the exact conditions are met.
+* Combat Engine Update: Modify `applyCombat` to properly process the simultaneous removal of the enemy pair and the placement of the two newly spawned attacking pieces.
+* Active Pair Attack Refinement: Ensure standard Pair Attacks (using a double roll to move an existing pair) strictly validate that the path for *both* pieces is completely clear of other blockades before allowing them to strike an enemy blockade.
 
 
 ## Suggested State Architecture Example
