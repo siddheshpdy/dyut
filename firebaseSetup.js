@@ -182,17 +182,10 @@ export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
-  // Use redirect on mobile to prevent popup blocking issues, use popup on desktop for better UX
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const currentAnonUid = auth.currentUser?.isAnonymous ? auth.currentUser.uid : null;
 
   try {
-    if (isMobile) {
-      // Mobile browsers often lose anonymous session state during redirects, causing linkWithRedirect to fail.
-      // Using signInWithRedirect directly is much more robust and guarantees a successful login.
-      if (currentAnonUid) localStorage.setItem('pending_merge_anon_uid', currentAnonUid);
-      await signInWithRedirect(auth, provider);
-    } else if (auth.currentUser && auth.currentUser.isAnonymous) {
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
       try {
         const result = await linkWithPopup(auth.currentUser, provider);
         await initializeUserProfile(result.user);
