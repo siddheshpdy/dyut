@@ -125,13 +125,11 @@ const PlayerProfile = ({ user }) => {
   if (!user) return <div className="h-10 mb-4"></div>;
 
   if (user.isAnonymous) {
-    const handleSignIn = async () => {
+    const handleSignIn = () => {
       setIsSigningIn(true);
-      try {
-        await signInWithGoogle();
-      } finally {
+      signInWithGoogle().finally(() => {
         setIsSigningIn(false);
-      }
+      });
     };
 
     return (
