@@ -135,6 +135,13 @@
 * Combat Engine Update: Modified `applyCombat` to properly process the simultaneous removal of the enemy pair and the placement of the two newly spawned attacking pieces.
 * Active Pair Attack Refinement: Ensured standard Pair Attacks (using a double roll to move an existing pair) strictly validate that the path for *both* pieces is completely clear of other blockades before allowing them to strike an enemy blockade.
 
+## Phase 21: Lighthouse, Accessibility, and SEO Improvements (Completed)
+* Accessibility (Landmarks): Converted the root layout wrapper in `App.jsx` from a `<div>` to a `<main>` tag to satisfy HTML5 landmark requirements for screen readers.
+* Accessibility (Contrast): Upgraded the opacity of the "Empty" queue text in the Dice Tray from 30% to 60% (`text-white/60`) to meet the minimum 4.5:1 contrast ratio.
+* SEO (Robots Directive): Created a standard `robots.txt` file in the `public/` directory to prevent Vite SPA routing from serving HTML to crawlers requesting standard txt directives.
+* SEO (Meta Data): Added a comprehensive `<meta name="description">` tag to `index.html` to improve search engine result snippets.
+* Performance (Audit Validation): Validated that "Unminified JavaScript" and "Unused JavaScript" penalties in Lighthouse are artifacts of the local Vite dev server and will be resolved by running a production build with proper Firebase v9 modular tree-shaking.
+
 
 ## Suggested State Architecture Example
 ```javascript

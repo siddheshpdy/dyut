@@ -201,7 +201,7 @@ const DiceTray = () => {
                 );
               })
             ) : (
-              <span className="text-white/30 text-[10px] sm:text-xs italic">{t('empty')}</span>
+              <span className="text-white/60 text-[10px] sm:text-xs italic">{t('empty')}</span>
             )}
             </div>
           </div>

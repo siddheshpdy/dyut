@@ -41,6 +41,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
       
       <div className="relative w-full">
         <select 
+          aria-label={`Select type for ${label}`}
           value={seat.type} 
           onChange={(e) => onTypeChange(e.target.value)}
           disabled={(isOnline && !isHost) || isLobbyPublic}
