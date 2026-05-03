@@ -35,12 +35,14 @@ export function getOccupantsOfPathIndex(targetPathIndex, checkingPlayerId, allPl
     const targetCellId = PLAYER_PATHS[checkingPlayerId][targetPathIndex];
     if (!targetCellId || targetCellId.startsWith('CENTER')) return occupants; // Don't check center goal
 
+    const targetVisualId = targetCellId.replace('_HOME', '');
+
     // Now, check all players to see if any of their pieces map to the same visual cell ID
     for (const [playerId, player] of Object.entries(allPlayersState)) {
         for (const [pieceIndex, piecePos] of player.pieces.entries()) {
-            if (piecePos !== -1) {
+            if (piecePos !== -1 && piecePos !== 999) {
                 const occupantCellId = PLAYER_PATHS[playerId][piecePos];
-                if (occupantCellId === targetCellId) {
+                if (occupantCellId && occupantCellId.replace('_HOME', '') === targetVisualId) {
                     occupants.push({ playerId, pieceIndex });
                 }
             }

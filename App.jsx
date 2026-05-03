@@ -219,7 +219,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#3e3e3e] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none">
+    <main className="min-h-screen w-full bg-[#3e3e3e] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
@@ -230,7 +230,7 @@ function App() {
         </div>
       )}
       {renderView()}
-    </div>
+    </main>
   )
 }
 

@@ -10,4 +10,8 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
   },
+  esbuild: {
+    // Automatically drop console.logs and debuggers in the minified production build
+    drop: ['console', 'debugger'],
+  },
 })

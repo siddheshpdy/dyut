@@ -11,6 +11,7 @@ const LanguageSwitcher = () => {
   return (
     <div className="absolute top-6 left-6 z-20">
       <select
+        aria-label="Select Language"
         onChange={handleLanguageChange}
         value={i18n.language}
         className="appearance-none bg-black/40 text-white/80 font-sans text-sm font-semibold py-1.5 px-3 pr-8 rounded-lg border border-white/10 hover:border-white/30 focus:outline-none focus:ring-2 focus:ring-gold/50 cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-all"
