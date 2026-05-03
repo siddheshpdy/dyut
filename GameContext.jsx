@@ -93,7 +93,12 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
 
     if (state.isTeamMode && player.team === newPlayers[playerId].team) continue; // No friendly fire
 
-    const opponentPieceIndices = player.pieces.map((p, i) => p !== -1 && PLAYER_PATHS[otherPlayerId][p] === targetCellId ? i : -1).filter(i => i !== -1);
+    const targetVisualId = targetCellId.replace('_HOME', '');
+    const opponentPieceIndices = player.pieces.map((p, i) => {
+      if (p === -1 || p === 999) return -1;
+      const occLogical = PLAYER_PATHS[otherPlayerId][p];
+      return (occLogical && occLogical.replace('_HOME', '') === targetVisualId) ? i : -1;
+    }).filter(i => i !== -1);
     const opponentPiecesOnSquare = opponentPieceIndices.length;
     
     if (opponentPiecesOnSquare > 0) {
@@ -229,12 +234,16 @@ function gameReducer(state, action) {
       // Find the defending player and their pieces on the target square
       let defendingPlayerId = null;
       const defendingPieceIndices = [];
+      const targetVisualId = targetCellId.replace('_HOME', '');
       for (const [pId, pData] of Object.entries(newPlayers)) {
         if (pId === playerId) continue;
         pData.pieces.forEach((pos, i) => {
-          if (pos !== -1 && PLAYER_PATHS[pId][pos] === targetCellId) {
+          if (pos !== -1 && pos !== 999) {
+            const occLogical = PLAYER_PATHS[pId][pos];
+            if (occLogical && occLogical.replace('_HOME', '') === targetVisualId) {
             defendingPlayerId = pId;
             defendingPieceIndices.push(i);
+            }
           }
         });
       }
@@ -288,9 +297,14 @@ function gameReducer(state, action) {
       }
 
       // Find and kill the defending pair
+      const targetVisualId = targetCellId.replace('_HOME', '');
       for (const [pId, pData] of Object.entries(newPlayers)) {
         if (pId === playerId || (state.isTeamMode && pData.team === newPlayers[playerId].team)) continue;
-        const defendingPieceIndices = pData.pieces.map((pos, i) => (pos !== -1 && PLAYER_PATHS[pId][pos] === targetCellId) ? i : -1).filter(i => i !== -1);
+        const defendingPieceIndices = pData.pieces.map((pos, i) => {
+          if (pos === -1 || pos === 999) return -1;
+          const occLogical = PLAYER_PATHS[pId][pos];
+          return (occLogical && occLogical.replace('_HOME', '') === targetVisualId) ? i : -1;
+        }).filter(i => i !== -1);
         
         if (defendingPieceIndices.length === 2) {
           const defenderPieces = [...pData.pieces];
