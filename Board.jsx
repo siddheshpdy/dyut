@@ -216,6 +216,8 @@ const Board = ({ onGoToMenu }) => {
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
 
+  const isTransitioningRef = useRef(false);
+
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
   useEffect(() => {
@@ -264,11 +266,24 @@ const Board = ({ onGoToMenu }) => {
 
     if (hasChanges) {
       const applyUpdate = () => {
-        if (document.startViewTransition) {
-          document.startViewTransition(() => {
-            flushSync(() => setVisualPlayers(next));
-          });
-        } else {
+        try {
+          if (document.startViewTransition) {
+            if (isTransitioningRef.current) {
+              setVisualPlayers(next); // Fallback snap to prevent overlapping transition crash
+            } else {
+              isTransitioningRef.current = true;
+              const transition = document.startViewTransition(() => {
+                flushSync(() => setVisualPlayers(next));
+              });
+              transition.finished.catch(() => {}).finally(() => {
+                isTransitioningRef.current = false;
+              });
+            }
+          } else {
+            setVisualPlayers(next);
+          }
+        } catch (e) {
+          isTransitioningRef.current = false;
           setVisualPlayers(next);
         }
       };
@@ -293,6 +308,10 @@ const Board = ({ onGoToMenu }) => {
     }
     return false;
   }, [state.players, visualPlayers]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('dyut-animating', { detail: isAnimating }));
+  }, [isAnimating]);
 
   const winnerInfo = useMemo(() => {
     if (state.isQuickGame) {

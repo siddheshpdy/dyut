@@ -21,7 +21,14 @@ const DiceTray = () => {
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
   const [showVoidGif, setShowVoidGif] = useState(false);
+  const [isBoardAnimating, setIsBoardAnimating] = useState(false);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const handleAnim = (e) => setIsBoardAnimating(e.detail);
+    window.addEventListener('dyut-animating', handleAnim);
+    return () => window.removeEventListener('dyut-animating', handleAnim);
+  }, []);
 
   const activeBots = state.isAfkTurn ? [...(state.bots || []), state.currentPlayer] : (state.bots || []);
   // Activate AI hook (it safely idles if the current player is not in state.bots)
@@ -107,6 +114,9 @@ const DiceTray = () => {
     // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
     if (canRoll || isRolling || showVoidGif || !isMyTurn) return;
 
+    // Pause all logic progression while pieces are actively moving on the board to prevent overlaps
+    if (isBoardAnimating) return;
+
     // Automatically dispatch a move if the player only has exactly 1 valid option
     if (autoMoveAction) {
       const timer = setTimeout(() => {
@@ -122,11 +132,11 @@ const DiceTray = () => {
       const timer = setTimeout(() => {
         dispatch({ type: ACTION_TYPES.END_TURN });
         setLastRoll({ d1: null, d2: null });
-      }, 1200); // 1.2-second delay for the player to see the result.
+      }, 600); // 0.6-second delay, perfectly safe now because we wait for the board animation to finish.
 
       return () => clearTimeout(timer);
     }
-  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, showVoidGif, dispatch, autoMoveAction]);
+  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating]);
 
 
   return (
