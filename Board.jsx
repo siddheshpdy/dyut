@@ -627,21 +627,4 @@ const Board = ({ onGoToMenu }) => {
   );
 };
 
-export default Board;iveRoll}
-            validMoves={validMoves}
-            possiblePairAttacks={possiblePairAttacks}
-            onFullMove={handleFullMove}
-            onSplitMove={handleSplitMove}
-            onInitiatePairAttack={handleInitiatePairAttack}
-            onDualSpawnAttack={handleDualSpawnAttack}
-            onClose={() => setSelectedPiece(null)}
-            onNextRoll={handleNextRoll}
-            hasMultipleRolls={state.turnQueue.length > 1}
-          />
-        )}
-      </div>
-    </div>
-  );
-};
-
 export default Board;
