@@ -220,7 +220,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowHistory, onShowAbout, hasCachedGame, joinGameId, user, lastOnlineGameId, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, joinGameId, user, lastOnlineGameId, onReconnectOnline }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -639,6 +639,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowHistory, o
       
       <button onClick={onShowRules} className="absolute top-6 right-6 px-4 py-1.5 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title="Rules">
         Rules
+      </button>
+      <button onClick={onShowTutorial} className="absolute top-6 right-24 px-4 py-1.5 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-emerald transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('howToPlay', 'How to Play')}>
+        {t('howToPlay', 'How to Play')}
       </button>
       
       <PlayerProfile user={user} />

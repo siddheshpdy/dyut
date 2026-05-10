@@ -136,7 +136,7 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
 }
 
 // Central Game Reducer
-function gameReducer(state, action) {
+export function gameReducer(state, action) {
   switch (action.type) {
     case ACTION_TYPES.SYNC_FROM_CLOUD:
       if (!state.isOnline) return state;
@@ -346,7 +346,7 @@ function gameReducer(state, action) {
 }
 
 // Context Setup
-const GameContext = createContext();
+export const GameContext = createContext();
 
 const LOCAL_STORAGE_KEY = 'dyut_game_state';
 

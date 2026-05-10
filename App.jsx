@@ -3,6 +3,7 @@ import Board from './Board';
 import DiceTray from './DiceTray';
 import UnifiedLobby from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
+import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
 import { GameProvider, useGame } from './GameContext';
@@ -193,6 +194,12 @@ function App() {
             <HistoryScreen onBack={() => setView('menu')} />
           </div>
         );
+      case 'tutorial':
+        return (
+          <div className="relative z-10 w-full flex justify-center">
+            <TutorialScreen onBack={() => setView('menu')} />
+          </div>
+        );
       case 'about':
         return (
           <div className="relative z-10 w-full flex justify-center">
@@ -220,6 +227,7 @@ function App() {
           onStartGame={handleStartNewGame} 
           onResumeGame={handleResumeGame} 
           onShowRules={() => setView('rules')} 
+          onShowTutorial={() => setView('tutorial')}
           onShowHistory={() => setView('history')}
           onShowAbout={() => setView('about')}
           hasCachedGame={hasCachedGame} 
