@@ -124,10 +124,10 @@
 * UI Integration: Added an interactive `PlayerProfile` glassmorphic component to the `UnifiedLobby` overlay to trigger the authentication flow, display player stats, and edit display names.
 * Data Merging: Implemented robust `mergeUserStats` logic. If an anonymous user signs into an existing Google account, their offline progress is cleanly merged into their cloud profile before the anonymous ghost document is deleted.
 
-## Phase 19: Interactive Tutorial Overlay (Pending)
-* Custom Animated Tutorial: Implement a first-time user experience (FTUE) overlay for new players.
-* Highlight Safe Zones: Use targeted spotlights or SVG masks to visually emphasize the golden 'X' safe zones and explain their mechanics.
-* Pair Shield Explanation: Add an animated sequence or interactive step demonstrating how two pieces of the same color form a Pair Shield and how it can only be broken by a coordinated Pair Attack.
+## Phase 19: Interactive "How to Play" Scenarios (Pending)
+* Scenario-Based Tutorial: Implement a dedicated "How to Play" menu to make game rules easy to understand.
+* Predefined Game States: Drive the tutorial using a JSON configuration containing predefined board positions, locked pieces, and dice rolls.
+* Interactive Demonstrations: Walk the user through isolated, playable examples showing exactly how to execute spawns, basic moves, captures, Safe Zone blocking, and Pair Shield attacks.
 
 ## Phase 20: Advanced Blockade Breaching (Completed)
 * Synchronized Dual Spawn Attack: Implemented logic to allow a player to break an enemy Pair Shield on the 8th or 12th square by simultaneously spawning two pieces. This requires the player to have at least two identical valid rolls (e.g., two `4`s) in their queue and two locked pieces.
@@ -142,6 +142,20 @@
 * SEO (Meta Data): Added a comprehensive `<meta name="description">` tag to `index.html` to improve search engine result snippets.
 * Performance (Audit Validation): Validated that "Unminified JavaScript" and "Unused JavaScript" penalties in Lighthouse are artifacts of the local Vite dev server and will be resolved by running a production build with proper Firebase v9 modular tree-shaking.
 
+## Phase 22: Informational Pages & History (Pending)
+* About the Game: Create a dedicated view detailing a brief history and the cultural origins of the game (Chaupar/Pachisi/Dyut).
+* About Us & Contact Us: Implement pages providing developer information, credits, and a contact form or support links.
+* Navigation: Integrate these informational pages cleanly into the main menu or a site-wide footer.
+
+## Phase 23: Localization Polish & Dynamic Metadata (Pending)
+* Translation Audit: Fix missing or incorrect translations across all pages, components, and overlays.
+* Dynamic Page Title: Add an event listener to the i18n configuration (e.g., `i18n.on('languageChanged')`) to dynamically update `document.title` (the browser tab name) whenever the user changes the language.
+
+## Phase 24: Stability & Edge Case Fixes (Pending)
+* Animation Interruption Fix: Resolve the occasional reload/crash issue that occurs when the game state updates while pieces are actively moving.
+* State Snap Fallback: Ensure robust handling or cancellation of `document.startViewTransition` so the app gracefully snaps to the final state instead of crashing when interrupted.
+
+---
 
 ## Suggested State Architecture Example
 ```javascript

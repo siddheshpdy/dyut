@@ -216,7 +216,7 @@ const Board = ({ onGoToMenu }) => {
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
 
-  const isTransitioningRef = useRef(false);
+  const activeTransitionRef = useRef(null);
 
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
@@ -267,23 +267,28 @@ const Board = ({ onGoToMenu }) => {
     if (hasChanges) {
       const applyUpdate = () => {
         try {
+          // Cancel any ongoing transition to prevent browser crashes from overlapping DOM paints
+          if (activeTransitionRef.current && activeTransitionRef.current.skipTransition) {
+            try { activeTransitionRef.current.skipTransition(); } catch (e) {}
+          }
+
           if (document.startViewTransition) {
-            if (isTransitioningRef.current) {
-              setVisualPlayers(next); // Fallback snap to prevent overlapping transition crash
-            } else {
-              isTransitioningRef.current = true;
-              const transition = document.startViewTransition(() => {
+            const transition = document.startViewTransition(() => {
+              try {
                 flushSync(() => setVisualPlayers(next));
-              });
-              transition.finished.catch(() => {}).finally(() => {
-                isTransitioningRef.current = false;
-              });
-            }
+              } catch (err) {
+                setVisualPlayers(next); // Fallback if flushSync throws
+              }
+            });
+            activeTransitionRef.current = transition;
+            transition.finished.catch(() => {}).finally(() => {
+              if (activeTransitionRef.current === transition) activeTransitionRef.current = null;
+            });
           } else {
             setVisualPlayers(next);
           }
         } catch (e) {
-          isTransitioningRef.current = false;
+          activeTransitionRef.current = null;
           setVisualPlayers(next);
         }
       };
@@ -606,6 +611,23 @@ const Board = ({ onGoToMenu }) => {
           <MoveSelector
             title={selectedPiece.isLocked ? "Spawn Piece" : isHomeStretchSelected ? "Home Stretch Move" : null}
             roll={activeRoll}
+            validMoves={validMoves}
+            possiblePairAttacks={possiblePairAttacks}
+            onFullMove={handleFullMove}
+            onSplitMove={handleSplitMove}
+            onInitiatePairAttack={handleInitiatePairAttack}
+            onDualSpawnAttack={handleDualSpawnAttack}
+            onClose={() => setSelectedPiece(null)}
+            onNextRoll={handleNextRoll}
+            hasMultipleRolls={state.turnQueue.length > 1}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Board;iveRoll}
             validMoves={validMoves}
             possiblePairAttacks={possiblePairAttacks}
             onFullMove={handleFullMove}
