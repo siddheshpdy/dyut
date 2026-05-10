@@ -213,8 +213,8 @@ function App() {
         return (
           <GameProvider gameConfig={gameConfig}>
             {/* Game Header */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-              <h1 className="dyut-title text-3xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
+            <div className="absolute top-5 sm:top-6 left-4 sm:left-1/2 translate-x-0 sm:-translate-x-1/2 z-50 pointer-events-none">
+              <h1 className="dyut-title text-2xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
             </div>
             {/* Minimalist Top-Right Action Menu */}
             <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} />
