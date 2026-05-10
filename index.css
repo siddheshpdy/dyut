@@ -4,6 +4,24 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Board & Backgrounds */
+  --color-charcoal: #161616; /* Page background */
+  --color-panel-bg: #242424; /* Elevated cards */
+  --color-board-path: #6b241c; /* Main cross tiles */
+  --color-board-safe: #c26214; /* Safe zone tiles */
+  --color-board-goal: #421410; /* Center tile */
+
+  /* Typography & Accents */
+  --color-gold: #eab308;
+  --color-ruby: #dc2626; /* For kill icons */
+  --color-text-muted: #a1a1aa; /* For secondary nav links */
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) rotate(-5deg); }
@@ -40,9 +58,13 @@
 }
 
 @layer components {
+  .dyut-title {
+    font-family: 'Cinzel', serif !important;
+  }
+
   /* Glassmorphism utility for panels */
   .glass-panel {
-    @apply bg-neutral-900/60 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)];
+    @apply bg-[#242424]/80 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)];
   }
   
   /* Text glow for goal and safe zones */
@@ -58,6 +80,27 @@
   .jewel-shadow {
     box-shadow: inset -3px -6px 8px rgba(0,0,0,0.5), inset 3px 6px 8px rgba(255,255,255,0.4), 0 6px 12px rgba(0,0,0,0.8);
   }
+}
+
+/* Board View Updates for floating tiles */
+.board-bounding-box {
+  background-color: transparent !important;
+}
+.board-path-tile {
+  background-color: var(--color-board-path) !important;
+}
+.board-safe-tile {
+  background-color: var(--color-board-safe) !important;
+}
+.board-goal-tile {
+  background-color: var(--color-board-goal) !important;
+}
+.player-gold-text {
+  color: var(--color-gold) !important;
+}
+.ruby-kill-icon {
+  color: var(--color-ruby) !important;
+  fill: var(--color-ruby) !important;
 }
 
 /* Smooth sliding for piece movements */

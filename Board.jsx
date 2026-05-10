@@ -23,7 +23,7 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
       style={style}
       className={`
         relative flex items-center justify-center transition-colors border border-white/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]
-        ${cell.isSafe ? 'bg-dyut-safe' : 'bg-dyut-board'}
+        ${isCenter ? 'board-goal-tile' : cell.isSafe ? 'board-safe-tile' : 'board-path-tile'}
       `}
     >
       {/* Geometric Glowing Safe Zone Symbol */}
@@ -162,7 +162,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
           <div className={`w-2 h-2 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
-          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-gold'}`}>{player.name || playerId}</span>
+          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'player-gold-text'}`}>{player.name || playerId}</span>
           {state.isTeamMode && (
             <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[6px] sm:text-[8px] font-sans font-bold uppercase tracking-widest rounded border ${player.team === 1 ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30' : 'bg-rose-500/20 text-rose-200 border-rose-500/30'}`} title={`Team ${player.team}`}>
               T{player.team}
@@ -170,7 +170,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
           )}
         </div>
         <div className="flex gap-1 sm:gap-2 mt-0.5 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'text-ruby drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'ruby-kill-icon drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
             <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
             <path d="M13 19l6-6"></path>
             <path d="M16 16l4 4"></path>
@@ -582,7 +582,7 @@ const Board = ({ onGoToMenu }) => {
   return (
     <div className="w-full max-w-[98vw] lg:max-w-none lg:w-auto lg:h-[80vh] aspect-square mx-auto sm:p-2">
       <div 
-        className="w-full h-full grid shadow-[0_20px_50px_rgba(0,0,0,0.7)] bg-[#373737] border-[3px] sm:border-8 border-[#1a0101] rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
+        className="w-full h-full grid board-bounding-box rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
         style={{ 
           gridTemplateColumns: 'repeat(19, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'

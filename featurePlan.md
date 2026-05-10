@@ -147,13 +147,24 @@
 * About Us & Contact Us: Implement pages providing developer information, credits, and a contact form or support links.
 * Navigation: Integrate these informational pages cleanly into the main menu or a site-wide footer.
 
-## Phase 23: Localization Polish & Dynamic Metadata (Pending)
+## Phase 23: Localization Polish & Dynamic Metadata (Completed)
 * Translation Audit: Fix missing or incorrect translations across all pages, components, and overlays.
 * Dynamic Page Title: Add an event listener to the i18n configuration (e.g., `i18n.on('languageChanged')`) to dynamically update `document.title` (the browser tab name) whenever the user changes the language.
 
 ## Phase 24: Stability & Edge Case Fixes (Pending)
 * Animation Interruption Fix: Resolve the occasional reload/crash issue that occurs when the game state updates while pieces are actively moving.
 * State Snap Fallback: Ensure robust handling or cancellation of `document.startViewTransition` so the app gracefully snaps to the final state instead of crashing when interrupted.
+
+## Phase 25: UI/UX Modernization & Layout Refinement (Pending)
+* Global Theme & Typography: Update global variables with the new refined palette (`charcoal`, `panel-bg`, `board-path`, `board-safe`, `board-goal`, `gold`, `ruby`, `text-muted`). Set base font to Sans-Serif, reserving Serif strictly for the main "DYUT" title.
+* Global Header Component: Create a fixed top navigation bar with a transparent background.
+  * Left Section: Minimal language dropdown.
+  * Right Section (Desktop): Flat text links (How to Play, Rules, History, About Us) and a Profile icon.
+  * Right Section (Mobile): Hamburger menu for hidden links.
+  * Cleanup: Remove floating action buttons/links from the main page body.
+* Main Menu Card: Center the card and redesign buttons by removing heavy glows. Apply a clean Sans-Serif font, letter spacing, and a solid/outline theme using accent colors minimally.
+* Board View Redesign: Remove the parent bounding box background to create a floating cross effect against the charcoal background. Apply specific colors to standard paths, safe zones, and the center goal. Update player text and kill icons to use gold and ruby.
+* Responsive Alignment: Ensure the board scales properly on mobile and adjust central card padding. Add a `max-width` constraint to the desktop menu card to maintain proportions.
 
 ---
 

@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Board from './Board';
 import DiceTray from './DiceTray';
 import UnifiedLobby from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
+import TutorialScreen from './TutorialScreen';
+import HistoryScreen from './HistoryScreen';
+import AboutScreen from './AboutScreen';
 import { GameProvider, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile } from './firebaseSetup.js';
@@ -13,12 +17,13 @@ const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 
 const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
+  const { t } = useTranslation();
   const { state, leaveGame } = useGame();
   
   const handleMenuClick = () => {
     const msg = state.isPublic && state.isOnline
-      ? "Leave the match? You will be replaced by a bot and cannot rejoin."
-      : "Return to main menu? Progress will be saved.";
+      ? t('leavePublicMatchConfirm', "Leave the match? You will be replaced by a bot and cannot rejoin.")
+      : t('returnToMenuConfirm', "Return to main menu? Progress will be saved.");
     if (window.confirm(msg)) {
       if (state.isOnline && leaveGame) leaveGame();
       onReturnToMenu();
@@ -27,10 +32,10 @@ const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
 
   return (
     <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-3 z-50">
-      <button onClick={onShowRules} className="px-4 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title="Rules">
-        Rules
+      <button onClick={onShowRules} className="px-4 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('rules', 'Rules')}>
+        {t('rules', 'Rules')}
       </button>
-      <button onClick={handleMenuClick} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-ruby transition-colors" title="Exit Game">
+      <button onClick={handleMenuClick} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-ruby transition-colors" title={t('exitGame', 'Exit Game')}>
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
       </button>
     </div>
@@ -38,6 +43,7 @@ const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
 };
 
 function App() {
+  const { t } = useTranslation();
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
@@ -127,7 +133,7 @@ function App() {
 
   const handleStartNewGame = (config) => {
     if (hasCachedGame) {
-      if (window.confirm("A saved game exists. Starting a new game will wipe your progress. Are you sure?")) {
+      if (window.confirm(t('wipeProgressConfirm', "A saved game exists. Starting a new game will wipe your progress. Are you sure?"))) {
         localStorage.removeItem(PLAYER_COUNT_KEY);
         localStorage.removeItem(GAME_STATE_KEY);
         handleGameSetupComplete(config);
@@ -185,12 +191,30 @@ function App() {
             <RulesScreen onBack={() => setView('menu')} />
           </div>
         );
+      case 'history':
+        return (
+          <div className="relative z-10 w-full flex justify-center">
+            <HistoryScreen onBack={() => setView('menu')} />
+          </div>
+        );
+      case 'tutorial':
+        return (
+          <div className="relative z-10 w-full flex justify-center">
+            <TutorialScreen onBack={() => setView('menu')} />
+          </div>
+        );
+      case 'about':
+        return (
+          <div className="relative z-10 w-full flex justify-center">
+            <AboutScreen onBack={() => setView('menu')} />
+          </div>
+        );
       case 'game':
         return (
           <GameProvider gameConfig={gameConfig}>
             {/* Game Header */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-widest text-glow-gold text-gold">DYUT</h1>
+            <div className="absolute top-5 sm:top-6 left-4 sm:left-1/2 translate-x-0 sm:-translate-x-1/2 z-50 pointer-events-none">
+              <h1 className="dyut-title text-2xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
             </div>
             {/* Minimalist Top-Right Action Menu */}
             <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} />
@@ -206,6 +230,9 @@ function App() {
           onStartGame={handleStartNewGame} 
           onResumeGame={handleResumeGame} 
           onShowRules={() => setView('rules')} 
+          onShowTutorial={() => setView('tutorial')}
+          onShowHistory={() => setView('history')}
+          onShowAbout={() => setView('about')}
           hasCachedGame={hasCachedGame} 
           joinGameId={joinGameId} 
           user={user} 
@@ -219,7 +246,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[#3e3e3e] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none">
+    <main className="min-h-screen w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
