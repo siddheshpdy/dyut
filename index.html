@@ -4,11 +4,54 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Play Dyut, a fast-paced, strategic cross-and-circle board game. Enjoy local play, online multiplayer, or challenge AI bots." />
-    <title>Dyut Board Game</title>
+    <meta name="keywords" content="Dyut, Chaupar, Chausar, Chopad, Pagade, Pachisi, Parcheesi, Pat, board game, cross and circle, Indian board game, online multiplayer, ludo alternative, strategy game, play dyut" />
+    <meta name="description" content="Play Dyut, a fast-paced, strategic cross-and-circle Indian board game similar to Chaupar and Chausar. Enjoy local play, online multiplayer, or challenge AI bots." />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://dyut.siddheshpadhye.co.in/" />
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dyut.siddheshpadhye.co.in/" />
+    <meta property="og:title" content="Dyut Board Game | Play Online Chaupar & Pachisi" />
+    <meta property="og:description" content="Play Dyut, a fast-paced, strategic cross-and-circle Indian board game similar to Chaupar and Chausar. Enjoy local play, online multiplayer, or challenge AI bots." />
+    <meta property="og:image" content="https://dyut.siddheshpadhye.co.in/og-image.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://dyut.siddheshpadhye.co.in/" />
+    <meta property="twitter:title" content="Dyut Board Game | Play Online Chaupar & Pachisi" />
+    <meta property="twitter:description" content="Play Dyut, a fast-paced, strategic cross-and-circle Indian board game similar to Chaupar and Chausar. Enjoy local play, online multiplayer, or challenge AI bots." />
+    <meta property="twitter:image" content="https://dyut.siddheshpadhye.co.in/og-image.png" />
+
+    <!-- JSON-LD Structured Data for Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VideoGame",
+      "name": "Dyut Board Game",
+      "url": "https://dyut.siddheshpadhye.co.in/",
+      "description": "Play Dyut, a fast-paced, strategic cross-and-circle Indian board game similar to Chaupar and Chausar.",
+      "genre": ["Board Game", "Strategy", "Multiplayer"],
+      "playMode": ["SinglePlayer", "MultiPlayer"],
+      "applicationCategory": "Game"
+    }
+    </script>
+
+    <title>Dyut Board Game | Play Online Chaupar & Pachisi</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Static Fallback for Faster First Contentful Paint (FCP) -->
+      <div style="min-height: 100vh; width: 100vw; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #3e3e3e; font-family: system-ui, sans-serif;">
+        <h1 style="color: #fbbf24; font-size: 2.5rem; font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase; margin: 0; text-shadow: 0 0 10px rgba(251,191,36,0.4);">
+          DYUT
+        </h1>
+        <p style="color: rgba(255,255,255,0.6); font-size: 0.875rem; letter-spacing: 0.05em; margin-top: 1rem;">
+          Loading Game...
+        </p>
+      </div>
+    </div>
     <script type="module" src="/main.jsx"></script>
   </body>
 </html>
