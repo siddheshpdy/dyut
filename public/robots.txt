@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://dyut.siddheshpadhye.co.in/sitemap.xml
