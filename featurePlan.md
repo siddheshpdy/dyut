@@ -147,7 +147,7 @@
 * About Us & Contact Us: Implement pages providing developer information, credits, and a contact form or support links.
 * Navigation: Integrate these informational pages cleanly into the main menu or a site-wide footer.
 
-## Phase 23: Localization Polish & Dynamic Metadata (Pending)
+## Phase 23: Localization Polish & Dynamic Metadata (Completed)
 * Translation Audit: Fix missing or incorrect translations across all pages, components, and overlays.
 * Dynamic Page Title: Add an event listener to the i18n configuration (e.g., `i18n.on('languageChanged')`) to dynamically update `document.title` (the browser tab name) whenever the user changes the language.
 

@@ -243,7 +243,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [lobbyHostUid, setLobbyHostUid] = useState(null);
   const [lobbyExpiresAt, setLobbyExpiresAt] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState('Waiting...');
+  const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [hostLastPing, setHostLastPing] = useState(null);
 
   const { t } = useTranslation();
@@ -261,11 +261,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     // Wait until the anonymous authentication completes before attempting to listen to the secure database
     if (!activeLobbyId || !user) return; 
     
-    setConnectionStatus('Connecting...');
+    setConnectionStatus('connecting');
 
     const unsub = onSnapshot(doc(db, 'lobbies', activeLobbyId), (docSnap) => {
       if (docSnap.exists()) {
-        setConnectionStatus('Connected');
+        setConnectionStatus('connected');
         const data = docSnap.data();
         if (data.seats) setSeats(data.seats);
         if (data.botDifficulty !== undefined) setBotDifficulty(data.botDifficulty);
@@ -288,11 +288,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
           executeStart(true, activeLobbyId, data);
         }
       } else {
-        setConnectionStatus('Lobby not found');
+        setConnectionStatus('notFound');
       }
     }, (error) => {
       console.error("Lobby listener error:", error);
-      setConnectionStatus('Error: ' + error.message);
+      setConnectionStatus('error: ' + error.message);
     });
     return () => unsub();
   }, [activeLobbyId, joinGameId, user]);
@@ -454,7 +454,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
     
     if (!overrideData) { // Only validate if we are initiating the start locally
-      if (currentActiveSeats.length < 2) return alert("Need at least 2 players.");
+      if (currentActiveSeats.length < 2) return alert(t('needTwoPlayers', "Need at least 2 players."));
       if (isOnline) {
         const humanCount = currentActiveSeats.filter(([_, s]) => s.type === 'human').length;
         if (humanCount < 2) return alert(t('onlineHumansRequired', "Online games require at least 2 human players."));
@@ -462,9 +462,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         const unclaimedHumans = currentActiveSeats.filter(([_, s]) => s.type === 'human' && !s.uid).length;
         if (unclaimedHumans > 0) return alert(t('allHumansMustBeClaimed', "All human seats must be claimed before starting."));
       } else {
-        if (currentActiveSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert("Need at least 1 human player.");
+        if (currentActiveSeats.filter(([_, s]) => s.type === 'human').length === 0) return alert(t('needOneHuman', "Need at least 1 human player."));
       }
-      if (new Set(currentActiveColors).size !== currentActiveColors.length) return alert("Each active player must have a unique color.");
+      if (new Set(currentActiveColors).size !== currentActiveColors.length) return alert(t('uniqueColorsRequired', "Each active player must have a unique color."));
     }
 
     const activeSeatIds = currentActiveSeats.map(([id]) => id).sort();
@@ -535,7 +535,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       setPendingGameId(newGameId);
     } catch (error) {
       console.error("Firebase Error:", error);
-      alert("Failed to create online lobby. Please check your Firestore Security Rules in the Firebase Console!");
+      alert(t('failedToCreateLobby', "Failed to create online lobby. Please check your Firestore Security Rules in the Firebase Console!"));
     } finally {
       setIsHosting(false);
     }
@@ -628,7 +628,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 <span className="text-gold font-bold text-sm tracking-widest uppercase">{t('privateLobby', 'PRIVATE LOBBY')} - ID: {activeLobbyId}</span>
               </div>
             )}
-            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider self-start ${connectionStatus === 'Connected' ? 'bg-emerald/20 text-emerald' : 'bg-ruby/20 text-white'}`}>{connectionStatus}</span>
+            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider self-start ${connectionStatus === 'connected' ? 'bg-emerald/20 text-emerald' : 'bg-ruby/20 text-white'}`}>
+              {connectionStatus.startsWith('error') 
+                ? connectionStatus 
+                : t(`status_${connectionStatus}`, connectionStatus === 'waiting' ? 'Waiting...' : connectionStatus === 'connecting' ? 'Connecting...' : connectionStatus === 'connected' ? 'Connected' : 'Lobby not found')}
+            </span>
           </div>
           <div className="flex w-full gap-2">
             <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
@@ -637,8 +641,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       
-      <button onClick={onShowRules} className="absolute top-6 right-6 px-4 py-1.5 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title="Rules">
-        Rules
+      <button onClick={onShowRules} className="absolute top-6 right-6 px-4 py-1.5 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('rules', 'Rules')}>
+        {t('rules', 'Rules')}
       </button>
       <button onClick={onShowTutorial} className="absolute top-6 right-24 px-4 py-1.5 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-emerald transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('howToPlay', 'How to Play')}>
         {t('howToPlay', 'How to Play')}
@@ -652,19 +656,19 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
           <div className="w-full flex flex-col gap-3 animate-fade-in">
-            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-gold text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all" title={t('startNewGame', 'Local Play')}>
+            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-gold text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all" title={t('localPlayTitle', 'Local Play')}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('local', 'LOCAL PLAY')}</span>
+              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('localPlay', 'LOCAL PLAY')}</span>
             </button>
 
-            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-emerald text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] transition-all" title={t('findRandomMatch', 'Find Public Match')}>
+            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-emerald text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('public', 'PUBLIC MATCH')}</span>
+              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('publicMatch', 'PUBLIC MATCH')}</span>
             </button>
 
-            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-sapphire text-white font-display font-bold rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] transition-all" title={t('hostOnlineMatch', 'Host Private Match')}>
+            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-sapphire text-white font-display font-bold rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('private', 'PRIVATE MATCH')}</span>
+              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('privateMatch', 'PRIVATE MATCH')}</span>
             </button>
 
             {(hasCachedGame || lastOnlineGameId) && (
@@ -708,15 +712,15 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               <div className="flex gap-2 w-full max-w-[340px]">
                 <button onClick={() => setMatchType('1v1')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === '1v1' ? 'bg-sapphire/20 border-sapphire text-sapphire shadow-[0_0_15px_rgba(56,189,248,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
                   <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-sapphire"></div><div className="w-2.5 h-2.5 rounded-full bg-ruby"></div></div>
-                  1 vs 1
+                  {t('1v1', '1 vs 1')}
                 </button>
                 <button onClick={() => setMatchType('2v2')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === '2v2' ? 'bg-emerald/20 border-emerald text-emerald shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
                   <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-emerald"></div><div className="w-2.5 h-2.5 rounded-full bg-amber"></div></div>
-                  2 vs 2
+                  {t('2v2', '2 vs 2')}
                 </button>
                 <button onClick={() => setMatchType('ffa')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === 'ffa' ? 'bg-ruby/20 border-ruby text-ruby shadow-[0_0_15px_rgba(244,63,94,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
                   <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-ruby"></div><div className="w-2.5 h-2.5 rounded-full bg-sapphire"></div><div className="w-2.5 h-2.5 rounded-full bg-emerald"></div></div>
-                  FFA 4P
+                  {t('ffa4p', 'FFA 4P')}
                 </button>
               </div>
             </div>
@@ -726,11 +730,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               <div className="flex justify-center gap-3 w-full max-w-[340px]">
                 <button onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${isVoidRuleEnabled ? 'bg-gold/20 border-gold/40 text-gold shadow-[0_0_10px_rgba(251,191,36,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">1+3 Void</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('voidRule', '1+3 Void')}</span>
                 </button>
                 <button onClick={() => setIsQuickGame(!isQuickGame)} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${isQuickGame ? 'bg-sapphire/20 border-sapphire/40 text-sapphire shadow-[0_0_10px_rgba(56,189,248,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('quickGame', 'Quick')}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('quick', 'Quick')}</span>
                 </button>
               </div>
             </div>
@@ -763,8 +767,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');
                   setSetupStep('seats');
-                }} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
-                  NEXT
+                }} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg uppercase rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+                  {t('next', 'Next')}
                 </button>
               )}
               {setupMode === 'public' && (
@@ -823,16 +827,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             {isHost ? (
                 <button onClick={handleStartOnlineMatch} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  {t('enterMatch', 'START MATCH')}
+                  {t('startMatch', 'START MATCH')}
                 </button>
             ) : (
                 <div className="w-full py-4 bg-white/5 text-white/60 flex items-center justify-center gap-2 font-sans font-bold text-sm tracking-widest uppercase rounded-xl border border-white/5">
                   <svg className="animate-spin h-5 w-5 text-white/60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Waiting for Host...
+                  {t('waitingForHost', 'Waiting for Host...')}
                 </div>
             )}
               <button onClick={() => window.location.href = window.location.pathname} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
-                Leave Lobby
+                {t('leaveLobby', 'Leave Lobby')}
               </button>
             </div>
           </div>

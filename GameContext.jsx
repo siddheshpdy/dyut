@@ -1,4 +1,5 @@
 import React, { createContext, useReducer, useContext, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { db, updateUserStats } from './firebaseSetup.js';
@@ -368,6 +369,7 @@ const initGameState = (initialState) => {
 };
 
 export function GameProvider({ gameConfig, children }) {
+  const { t } = useTranslation();
   const getInitialState = () => createInitialState(gameConfig);
 
   const enhancedReducer = (state, action) => {
@@ -571,7 +573,7 @@ const dispatch = useCallback((action) => {
           if (data.isPublic && state.localUid) {
             const myPlayerId = Object.keys(data.playerUids || {}).find(key => data.playerUids[key] === state.localUid);
             if (myPlayerId && data.bots?.includes(myPlayerId)) {
-              alert("You have disconnected from this public match and cannot rejoin. You have been replaced by a bot.");
+                alert(t('publicMatchDisconnect', "You have disconnected from this public match and cannot rejoin. You have been replaced by a bot."));
               window.location.href = window.location.pathname;
               return;
             }

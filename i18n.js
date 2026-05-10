@@ -30,4 +30,9 @@ i18n
     }
   });
 
+i18n.on('languageChanged', (lng) => {
+  const t = i18n.getFixedT(lng);
+  document.title = t('pageTitle', 'Dyut Board Game | Play Online Chaupar & Pachisi');
+});
+
 export default i18n;
