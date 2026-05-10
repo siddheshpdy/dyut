@@ -220,7 +220,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, joinGameId, user, lastOnlineGameId, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowHistory, onShowAbout, hasCachedGame, joinGameId, user, lastOnlineGameId, onReconnectOnline }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -680,6 +680,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, hasCachedGame, j
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Footer Links */}
+        {!activeLobbyId && !setupMode && (
+          <div className="mt-8 flex justify-center gap-6 text-white/50 text-xs font-bold uppercase tracking-widest animate-fade-in">
+            <button onClick={onShowHistory} className="hover:text-gold transition-colors">{t('history', 'History')}</button>
+            <button onClick={onShowAbout} className="hover:text-gold transition-colors">{t('aboutUs', 'About Us')}</button>
           </div>
         )}
 

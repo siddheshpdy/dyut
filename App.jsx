@@ -3,6 +3,8 @@ import Board from './Board';
 import DiceTray from './DiceTray';
 import UnifiedLobby from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
+import HistoryScreen from './HistoryScreen';
+import AboutScreen from './AboutScreen';
 import { GameProvider, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile } from './firebaseSetup.js';
@@ -185,6 +187,18 @@ function App() {
             <RulesScreen onBack={() => setView('menu')} />
           </div>
         );
+      case 'history':
+        return (
+          <div className="relative z-10 w-full flex justify-center">
+            <HistoryScreen onBack={() => setView('menu')} />
+          </div>
+        );
+      case 'about':
+        return (
+          <div className="relative z-10 w-full flex justify-center">
+            <AboutScreen onBack={() => setView('menu')} />
+          </div>
+        );
       case 'game':
         return (
           <GameProvider gameConfig={gameConfig}>
@@ -206,6 +220,8 @@ function App() {
           onStartGame={handleStartNewGame} 
           onResumeGame={handleResumeGame} 
           onShowRules={() => setView('rules')} 
+          onShowHistory={() => setView('history')}
+          onShowAbout={() => setView('about')}
           hasCachedGame={hasCachedGame} 
           joinGameId={joinGameId} 
           user={user} 
