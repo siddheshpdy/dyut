@@ -8,7 +8,7 @@ const RulesScreen = ({ onBack }) => {
 
   return (
     <div className="glass-panel p-8 rounded-2xl text-white w-full max-w-2xl max-h-[85vh] overflow-y-auto">
-      <h1 className="font-display text-glow-gold text-gold text-4xl font-bold mb-6 text-center">{t('gameRules')}</h1>
+      <h1 className="dyut-title text-glow-gold text-[var(--color-gold)] text-4xl font-bold mb-6 text-center">{t('gameRules')}</h1>
       
       <div className="space-y-6 text-left text-sm font-sans text-white/90">
         <section>

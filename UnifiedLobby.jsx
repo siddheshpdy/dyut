@@ -245,6 +245,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [timeLeft, setTimeLeft] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [hostLastPing, setHostLastPing] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { t } = useTranslation();
 
@@ -600,26 +601,38 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   return (
     <>
       {/* Top Navigation Bar */}
-      <header className="absolute top-0 left-0 w-full glass-panel !rounded-none !border-x-0 !border-t-0 border-b border-white/10 px-3 py-3 sm:px-6 sm:py-4 flex flex-wrap justify-between items-center gap-3 z-50">
+      <header className="fixed top-0 left-0 w-full bg-transparent px-4 py-4 md:px-8 flex justify-between items-center z-50">
         <div className="flex items-center order-1">
           <LanguageSwitcher />
         </div>
         
-        <div className="flex items-center justify-center gap-2 sm:gap-3 order-3 w-full sm:w-auto sm:order-2">
-          <button onClick={onShowTutorial} className="flex-1 sm:flex-none px-3 sm:px-5 h-9 sm:h-10 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-emerald transition-all font-sans text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm" title={t('howToPlay', 'How to Play')}>
-            {t('howToPlay', 'How to Play')}
-          </button>
-          <button onClick={onShowRules} className="flex-1 sm:flex-none px-3 sm:px-5 h-9 sm:h-10 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-gold transition-all font-sans text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm" title={t('rules', 'Rules')}>
-            {t('rules', 'Rules')}
-          </button>
-        </div>
-
-        <div className="flex items-center order-2 sm:order-3">
+        <div className="flex items-center order-2 gap-4">
+          <nav className="hidden md:flex items-center gap-6 mr-4">
+            <button onClick={onShowTutorial} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('howToPlay', 'How to Play')}</button>
+            <button onClick={onShowRules} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('rules', 'Rules')}</button>
+            <button onClick={onShowHistory} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('history', 'History')}</button>
+            <button onClick={onShowAbout} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('aboutUs', 'About Us')}</button>
+          </nav>
+          
           <PlayerProfile user={user} />
+          
+          <div className="md:hidden relative flex items-center">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] p-2 ml-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            {isMobileMenuOpen && (
+              <div className="absolute right-0 top-12 glass-panel p-4 rounded-xl flex flex-col gap-4 min-w-[150px] shadow-2xl z-50 bg-[var(--color-panel-bg)]">
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowTutorial(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('howToPlay', 'How to Play')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowRules(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('rules', 'Rules')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowHistory(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('history', 'History')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowAbout(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('aboutUs', 'About Us')}</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-lg flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16">
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto">
         {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
@@ -660,25 +673,25 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       
-      <h1 className="font-display text-5xl font-bold mb-8 tracking-widest text-glow-gold text-gold">DYUT</h1>
+      <h1 className="dyut-title text-5xl font-bold mb-8 tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
       
       <div className="w-full">
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
           <div className="w-full flex flex-col gap-3 animate-fade-in">
-            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-gold text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all" title={t('localPlayTitle', 'Local Play')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('localPlay', 'LOCAL PLAY')}</span>
+            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--color-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
             </button>
 
-            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-emerald text-charcoal font-display font-bold rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('publicMatch', 'PUBLIC MATCH')}</span>
+            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+              <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
             </button>
 
-            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex flex-col items-center justify-center gap-1 bg-sapphire text-white font-display font-bold rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-              <span className="text-xs leading-none uppercase tracking-widest mt-1">{t('privateMatch', 'PRIVATE MATCH')}</span>
+            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
             </button>
 
             {(hasCachedGame || lastOnlineGameId) && (
@@ -697,14 +710,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 )}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Footer Links */}
-        {!activeLobbyId && !setupMode && (
-          <div className="mt-8 flex justify-center gap-6 text-white/50 text-xs font-bold uppercase tracking-widest animate-fade-in">
-            <button onClick={onShowHistory} className="hover:text-gold transition-colors">{t('history', 'History')}</button>
-            <button onClick={onShowAbout} className="hover:text-gold transition-colors">{t('aboutUs', 'About Us')}</button>
           </div>
         )}
 

@@ -214,7 +214,7 @@ function App() {
           <GameProvider gameConfig={gameConfig}>
             {/* Game Header */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-widest text-glow-gold text-gold">DYUT</h1>
+              <h1 className="dyut-title text-3xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
             </div>
             {/* Minimalist Top-Right Action Menu */}
             <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} />
@@ -246,7 +246,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[#3e3e3e] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none">
+    <main className="min-h-screen w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
