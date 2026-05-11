@@ -124,7 +124,7 @@
 * UI Integration: Added an interactive `PlayerProfile` glassmorphic component to the `UnifiedLobby` overlay to trigger the authentication flow, display player stats, and edit display names.
 * Data Merging: Implemented robust `mergeUserStats` logic. If an anonymous user signs into an existing Google account, their offline progress is cleanly merged into their cloud profile before the anonymous ghost document is deleted.
 
-## Phase 19: Interactive "How to Play" Scenarios (Pending)
+## Phase 19: Interactive "How to Play" Scenarios (Completed)
 * Scenario-Based Tutorial: Implement a dedicated "How to Play" menu to make game rules easy to understand.
 * Predefined Game States: Drive the tutorial using a JSON configuration containing predefined board positions, locked pieces, and dice rolls.
 * Interactive Demonstrations: Walk the user through isolated, playable examples showing exactly how to execute spawns, basic moves, captures, Safe Zone blocking, and Pair Shield attacks.
@@ -142,7 +142,7 @@
 * SEO (Meta Data): Added a comprehensive `<meta name="description">` tag to `index.html` to improve search engine result snippets.
 * Performance (Audit Validation): Validated that "Unminified JavaScript" and "Unused JavaScript" penalties in Lighthouse are artifacts of the local Vite dev server and will be resolved by running a production build with proper Firebase v9 modular tree-shaking.
 
-## Phase 22: Informational Pages & History (Pending)
+## Phase 22: Informational Pages & History (Completed)
 * About the Game: Create a dedicated view detailing a brief history and the cultural origins of the game (Chaupar/Pachisi/Dyut).
 * About Us & Contact Us: Implement pages providing developer information, credits, and a contact form or support links.
 * Navigation: Integrate these informational pages cleanly into the main menu or a site-wide footer.
@@ -151,11 +151,11 @@
 * Translation Audit: Fix missing or incorrect translations across all pages, components, and overlays.
 * Dynamic Page Title: Add an event listener to the i18n configuration (e.g., `i18n.on('languageChanged')`) to dynamically update `document.title` (the browser tab name) whenever the user changes the language.
 
-## Phase 24: Stability & Edge Case Fixes (Pending)
+## Phase 24: Stability & Edge Case Fixes (Completed)
 * Animation Interruption Fix: Resolve the occasional reload/crash issue that occurs when the game state updates while pieces are actively moving.
 * State Snap Fallback: Ensure robust handling or cancellation of `document.startViewTransition` so the app gracefully snaps to the final state instead of crashing when interrupted.
 
-## Phase 25: UI/UX Modernization & Layout Refinement (Pending)
+## Phase 25: UI/UX Modernization & Layout Refinement (Completed)
 * Global Theme & Typography: Update global variables with the new refined palette (`charcoal`, `panel-bg`, `board-path`, `board-safe`, `board-goal`, `gold`, `ruby`, `text-muted`). Set base font to Sans-Serif, reserving Serif strictly for the main "DYUT" title.
 * Global Header Component: Create a fixed top navigation bar with a transparent background.
   * Left Section: Minimal language dropdown.

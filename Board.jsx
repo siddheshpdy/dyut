@@ -277,10 +277,15 @@ const Board = ({ onGoToMenu }) => {
               try {
                 flushSync(() => setVisualPlayers(next));
               } catch (err) {
+                console.warn("flushSync interrupted, using state snap fallback", err);
                 setVisualPlayers(next); // Fallback if flushSync throws
               }
             });
             activeTransitionRef.current = transition;
+            
+            // Catch all promises to prevent Unhandled Promise Rejection crashes causing reloads
+            transition.ready.catch(() => {});
+            transition.updateCallbackDone.catch(() => {});
             transition.finished.catch(() => {}).finally(() => {
               if (activeTransitionRef.current === transition) activeTransitionRef.current = null;
             });

@@ -101,6 +101,28 @@ export const getTutorialScenarios = () => [
     successMessage: 'Notice how you cannot move your piece to the safe zone occupied by the opponent.'
   },
   {
+    id: 'pair_shield',
+    title: 'Pair Shield',
+    description: 'Two pieces of the same color on a single square form a Pair Shield. A single piece cannot capture them. Notice how your move is blocked.',
+    initialState: {
+      currentPlayer: 'Player1',
+      turnQueue: [{ d1: 3, d2: null, sum: 3 }],
+      players: {
+        Player1: { color: 'ruby', name: 'You', hasKilled: false, pieces: [21, -1, -1, -1], team: 0 },
+        Player2: { color: 'sapphire', name: 'Opponent', hasKilled: false, pieces: [p2(24), p2(24), -1, -1], team: 0 }, // Pair Shield on square 24
+        Player3: { color: 'emerald', name: '', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+        Player4: { color: 'amber', name: '', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 }
+      },
+      hasRolledThisTurn: true,
+      rollingPhaseComplete: true,
+      isTeamMode: false,
+      isOnline: false,
+      isQuickGame: false
+    },
+    expectedAction: null, // Just an observation scenario, user will click 'Next'
+    successMessage: 'Exactly! A single piece is powerless against a Pair Shield.'
+  },
+  {
     id: 'pair_attack',
     title: 'Pair Attack',
     description: 'To break an opponent\'s Pair Shield, you must form your own Pair Shield and land on them using a double roll.',
