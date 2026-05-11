@@ -208,6 +208,9 @@ export function canSpawnPiece(playerId, spawnPos, state) {
  * @returns {boolean} - True if at least one move is possible.
  */
 export function hasAnyPlayableMove(originalPlayerId, state) {
+    // Prevent the game from auto-skipping turns in tutorial mode so the user can observe blocked states
+    if (state.isTutorial) return true;
+
     const proxyId = getProxyPlayerId(originalPlayerId, state);
     const player = state.players[proxyId];
     if (!player || state.turnQueue.length === 0) {
@@ -279,6 +282,9 @@ export function willMoveKill(targetPathIndex, movingPlayerId, state) {
  * Triggers only if exactly one piece has any valid moves. Prioritizes splitting a roll to capture.
  */
 export function getAutoMove(originalPlayerId, state) {
+    // Disable auto-move in tutorial mode so the user is forced to interact and learn
+    if (state.isTutorial) return null;
+
     const proxyId = getProxyPlayerId(originalPlayerId, state);
     const player = state.players[proxyId];
     if (!player || state.turnQueue.length === 0) return null;
