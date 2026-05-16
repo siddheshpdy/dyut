@@ -5,7 +5,7 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
   const { t } = useTranslation();
   if (!roll) return null;
 
-  const isPartialRoll = roll.d2 === null;
+  const isPartialRoll = roll.d2 == null;
   const high = Math.max(roll.d1, roll.d2);
   const low = Math.min(roll.d1, roll.d2);
 

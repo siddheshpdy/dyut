@@ -234,10 +234,10 @@ const Board = ({ onGoToMenu }) => {
         continue;
       }
       // Sync high-level data instantly
-      next[pId].color = state.players[pId].color;
-      next[pId].name = state.players[pId].name;
-      next[pId].hasKilled = state.players[pId].hasKilled;
-      next[pId].team = state.players[pId].team;
+      if (next[pId].color !== state.players[pId].color) { next[pId].color = state.players[pId].color; hasChanges = true; }
+      if (next[pId].name !== state.players[pId].name) { next[pId].name = state.players[pId].name; hasChanges = true; }
+      if (next[pId].hasKilled !== state.players[pId].hasKilled) { next[pId].hasKilled = state.players[pId].hasKilled; hasChanges = true; }
+      if (next[pId].team !== state.players[pId].team) { next[pId].team = state.players[pId].team; hasChanges = true; }
       
       for (let i = 0; i < 4; i++) {
         const actual = state.players[pId].pieces[i];
@@ -267,23 +267,23 @@ const Board = ({ onGoToMenu }) => {
     if (hasChanges) {
       const applyUpdate = () => {
         try {
-          // Cancel any ongoing transition to prevent browser crashes from overlapping DOM paints
-          if (activeTransitionRef.current && activeTransitionRef.current.skipTransition) {
-            try { activeTransitionRef.current.skipTransition(); } catch (e) {}
-          }
-
           if (document.startViewTransition) {
+            // CRITICAL FIX: If a transition is already in flight, DO NOT start another one.
+            // Bypassing the API for intermediate rapid steps prevents mobile GPU OOM crashes (silent reloads).
+            if (activeTransitionRef.current) {
+              setVisualPlayers(next);
+              return;
+            }
+
             const transition = document.startViewTransition(() => {
               try {
                 flushSync(() => setVisualPlayers(next));
               } catch (err) {
-                console.warn("flushSync interrupted, using state snap fallback", err);
                 setVisualPlayers(next); // Fallback if flushSync throws
               }
             });
             activeTransitionRef.current = transition;
             
-            // Catch all promises to prevent Unhandled Promise Rejection crashes causing reloads
             transition.ready.catch(() => {});
             transition.updateCallbackDone.catch(() => {});
             transition.finished.catch(() => {}).finally(() => {
@@ -298,9 +298,9 @@ const Board = ({ onGoToMenu }) => {
         }
       };
 
-      // Allow 150ms per square for the browser to interpolate the CSS geometric difference
+      // Allow 200ms per square for the browser to perfectly sync with the CSS transition duration
       if (needsAnotherStep) {
-        timeoutId = setTimeout(applyUpdate, 150);
+        timeoutId = setTimeout(applyUpdate, 200);
       } else {
         timeoutId = setTimeout(applyUpdate, 10); // Final snap delay to prevent overlapping transitions
       }

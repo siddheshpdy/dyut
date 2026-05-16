@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
-import { doc, setDoc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
-import { db, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as rtdbGet } from 'firebase/database';
+import { db, rtdb, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 
 const ALL_COLORS = [
@@ -264,10 +265,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     
     setConnectionStatus('connecting');
 
-    const unsub = onSnapshot(doc(db, 'lobbies', activeLobbyId), (docSnap) => {
-      if (docSnap.exists()) {
+    const unsub = onValue(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), (snapshot) => {
+      if (snapshot.exists()) {
         setConnectionStatus('connected');
-        const data = docSnap.data();
+        const data = snapshot.val();
         if (data.seats) setSeats(data.seats);
         if (data.botDifficulty !== undefined) setBotDifficulty(data.botDifficulty);
         if (data.isVoidRuleEnabled !== undefined) setIsVoidRuleEnabled(data.isVoidRuleEnabled);
@@ -344,7 +345,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
           }
         });
         try {
-          await updateDoc(doc(db, 'lobbies', activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
+          await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
         } catch (e) {
           console.error("AutoStart sync error:", e);
         }
@@ -361,7 +362,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         if (field === 'seats') {
           updates.openSeats = Object.values(value).filter(s => s.type === 'human' && !s.uid).length;
         }
-        await updateDoc(doc(db, 'lobbies', activeLobbyId), updates); 
+        await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates); 
       } catch (e) { 
         console.error("Sync error:", e); 
         alert(`Failed to sync ${field}. Check console for details.`);
@@ -413,14 +414,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     if (!isHost || !activeLobbyId || lobbyStatus !== 'waiting') return;
 
     const pushPing = () => {
-      updateDoc(doc(db, 'lobbies', activeLobbyId), { lastPing: Date.now() }).catch(() => {});
+      rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { lastPing: Date.now() }).catch(() => {});
     };
 
     pushPing();
     const pingInterval = setInterval(pushPing, 10000);
 
     const handleUnload = () => {
-      updateDoc(doc(db, 'lobbies', activeLobbyId), { status: 'abandoned', openSeats: 0 }).catch(() => {});
+      rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'abandoned', openSeats: 0 }).catch(() => {});
     };
     window.addEventListener('beforeunload', handleUnload);
 
@@ -523,7 +524,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const isTeamModeLocal = (matchType === '2v2');
 
     try {
-      await setDoc(doc(db, 'lobbies', newGameId), {
+      await rtdbSet(rtdbRef(rtdb, 'lobbies/' + newGameId), {
         seats: newSeats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
         isPublic, status: 'waiting', expiresAt, matchType,
         version: 2,
@@ -553,9 +554,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
     if (availableGameId) {
       try {
-        const lobbySnap = await getDoc(doc(db, 'lobbies', availableGameId));
+        const lobbySnap = await rtdbGet(rtdbRef(rtdb, 'lobbies/' + availableGameId));
         if (lobbySnap.exists()) {
-          const data = lobbySnap.data();
+          const data = lobbySnap.val();
           if (data.matchType !== matchType || (data.lastPing && Date.now() - data.lastPing > 25000)) {
             await handleHostOnlineClick(true);
             setIsSearching(false);
@@ -593,7 +594,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const updates = { status: 'playing', gameStarted: true, openSeats: 0 };
     if (finalSeats) updates.seats = finalSeats;
     try {
-      await updateDoc(doc(db, 'lobbies', activeLobbyId), updates);
+      await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates);
     } catch (e) { console.error(e); }
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };

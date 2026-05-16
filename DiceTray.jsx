@@ -205,7 +205,7 @@ const DiceTray = () => {
             <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {
-                const rollText = roll.d2 === null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
+                const rollText = roll.d2 == null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
                 return (
                   <span key={i} className={`font-bold px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
                 );
