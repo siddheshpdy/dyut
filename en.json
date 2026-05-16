@@ -165,5 +165,7 @@
   "status_connecting": "Connecting...",
   "status_connected": "Connected",
   "status_notFound": "Lobby not found",
-  "quick": "Quick"
+  "quick": "Quick",
+  "mute": "Mute",
+  "unmute": "Unmute"
 }

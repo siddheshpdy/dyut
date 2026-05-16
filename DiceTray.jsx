@@ -23,6 +23,14 @@ const DiceTray = () => {
   const [showVoidGif, setShowVoidGif] = useState(false);
   const [isBoardAnimating, setIsBoardAnimating] = useState(false);
   const { t } = useTranslation();
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+
+  useEffect(() => {
+    const handler = (e) => setIsMuted(e.detail);
+    window.addEventListener('dyut-mute-change', handler);
+    return () => window.removeEventListener('dyut-mute-change', handler);
+  }, []);
 
   useEffect(() => {
     const handleAnim = (e) => setIsBoardAnimating(e.detail);
@@ -53,9 +61,9 @@ const DiceTray = () => {
   }, [showVoidGif, isBotPlaying, dispatch, isMyTurn]);
 
   const handleRoll = () => {
-    if (isRolling) return;
+    if (isRolling || isEvaluating) return;
     
-    const rollSound = playSound(`${import.meta.env.BASE_URL}sounds/dice-roll.mp3`);
+    if (!isMuted) playSound(`${import.meta.env.BASE_URL}sounds/dice-roll.mp3`);
     setIsRolling(true);
 
     const animationInterval = setInterval(() => {
@@ -72,30 +80,23 @@ const DiceTray = () => {
       const final_d2 = DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
       setLastRoll({ d1: final_d1, d2: final_d2 });
 
-      // CRITICAL: Check for Void Rule (1+3) before anything else
-      if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
-        // Randomly show the popup (25% chance) so it doesn't get repetitive
-        if (Math.random() < 0.25) {
-          setShowVoidGif(true);
-        }
-        dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
-      } else {
-        // Projected state for cost optimization (Batching Roll + AutoMove)
-        const projectedQueue = [...state.turnQueue, { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }];
-        const projectedState = { ...state, turnQueue: projectedQueue, hasRolledThisTurn: true, rollingPhaseComplete: final_d1 !== final_d2 };
-        
-        const autoMoveNext = getAutoMove(state.currentPlayer, projectedState);
-        const hasMovesNext = hasAnyPlayableMove(state.currentPlayer, projectedState);
-        const isStuckNext = projectedState.turnQueue.length > 0 && !hasMovesNext && projectedState.rollingPhaseComplete;
-
-        // Dispatch the roll to the global state to be added to the queue
-        dispatch({
-          type: ACTION_TYPES.ROLL_DICE,
-          payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }
-        });
-      }
-      
       setIsRolling(false);
+      setIsEvaluating(true);
+
+      // Introduce a 1200ms gap for the user to perceive the final dice result before the game reacts
+      setTimeout(() => {
+        // CRITICAL: Check for Void Rule (1+3) before anything else
+        if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
+          if (Math.random() < 0.25) setShowVoidGif(true);
+          dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
+        } else {
+          dispatch({
+            type: ACTION_TYPES.ROLL_DICE,
+            payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }
+          });
+        }
+        setIsEvaluating(false);
+      }, 1200);
     }, 800);
   };
 
@@ -108,11 +109,11 @@ const DiceTray = () => {
   // A player can roll if they haven't rolled this turn OR they are still in their rolling phase (doubles streak).
   const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
 
-  const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !showVoidGif;
+  const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !isEvaluating && !showVoidGif;
 
   useEffect(() => {
-    // Don't auto-end if the player can still roll, is rolling, or is viewing the Void Roll popup
-    if (canRoll || isRolling || showVoidGif || !isMyTurn) return;
+    // Don't auto-end if the player can still roll, is rolling, is evaluating, or is viewing the Void Roll popup
+    if (canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn) return;
 
     // Pause all logic progression while pieces are actively moving on the board to prevent overlaps
     if (isBoardAnimating) return;
@@ -121,7 +122,7 @@ const DiceTray = () => {
     if (autoMoveAction) {
       const timer = setTimeout(() => {
         dispatch(autoMoveAction);
-      }, 600); // 600ms delay to let the user visually track the move
+      }, 1200); // 1200ms delay to let the user visually track the move
       return () => clearTimeout(timer);
     }
 
@@ -132,11 +133,11 @@ const DiceTray = () => {
       const timer = setTimeout(() => {
         dispatch({ type: ACTION_TYPES.END_TURN });
         setLastRoll({ d1: null, d2: null });
-      }, 600); // 0.6-second delay, perfectly safe now because we wait for the board animation to finish.
+      }, 1200); // 1.2-second delay, perfectly safe now because we wait for the board animation to finish.
 
       return () => clearTimeout(timer);
     }
-  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating]);
+  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, isEvaluating, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating]);
 
 
   return (
@@ -194,7 +195,7 @@ const DiceTray = () => {
           <button
             onClick={handleRoll}
             id="dice-roll-btn"
-            disabled={!canRoll || isRolling || showVoidGif || !isMyTurn}
+            disabled={!canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn}
             className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             {isRolling ? t('rolling') : t('rollDice')}

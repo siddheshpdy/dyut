@@ -169,7 +169,7 @@
 ## Phase 26: Future Enhancements & Monetization
 * To see the roadmap for making the game publicly available, monetizable, and legally compliant, refer to the Future Enhancements & Monetization Plan.
 
-## Phase 31: Web Portal Integration (CrazyGames/Poki)
+## Phase 31: Web Portal Integration (Completed)
 * To see the roadmap for packaging the game for web portals, implementing their SDKs, and handling iframe data restrictions, refer to the `webPortalPlan.md` file.
 
 ---

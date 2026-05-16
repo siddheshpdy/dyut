@@ -22,10 +22,14 @@ const AboutScreen = ({ onBack }) => {
             {t('aboutContactText', "Have feedback, found a bug, or just want to say hi? We'd love to hear from you!")}
           </p>
           <div className="flex flex-col gap-3">
-             <a href="mailto:support@siddheshpadhye.co.in" className="inline-flex items-center gap-2 text-emerald hover:text-emerald-400 transition-colors font-bold tracking-wide">
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
-               support@siddheshpadhye.co.in
-             </a>
+            {import.meta.env.VITE_IS_PORTAL ? (
+              <p className="font-bold text-emerald tracking-wide">Thank you for playing!</p>
+            ) : (
+              <a href="mailto:support@siddheshpadhye.co.in" className="inline-flex items-center gap-2 text-emerald hover:text-emerald-400 transition-colors font-bold tracking-wide">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
+                support@siddheshpadhye.co.in
+              </a>
+            )}
           </div>
         </section>
       </div>

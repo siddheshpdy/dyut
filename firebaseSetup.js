@@ -86,6 +86,22 @@ export const initializeUserProfile = async (user) => {
 };
 
 export const updateUserStats = async (uid, isWin) => {
+  if (import.meta.env.VITE_IS_PORTAL) {
+    if (window.CrazyGames?.SDK) {
+      try {
+        let stats = await window.CrazyGames.SDK.data.getItem('dyut_stats');
+        if (typeof stats === 'string') stats = JSON.parse(stats);
+        if (!stats) stats = { gamesPlayed: 0, wins: 0 };
+        
+        stats.gamesPlayed = (stats.gamesPlayed || 0) + 1;
+        if (isWin) stats.wins = (stats.wins || 0) + 1;
+        
+        await window.CrazyGames.SDK.data.setItem('dyut_stats', stats);
+      } catch (e) { console.error("Failed to update portal stats:", e); }
+    }
+    return; // Bypass Firestore completely on Portals
+  }
+
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
   try {

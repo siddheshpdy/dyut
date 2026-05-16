@@ -203,6 +203,15 @@ const Board = ({ onGoToMenu }) => {
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const isMutedRef = useRef(isMuted);
+
+  useEffect(() => {
+    const handler = (e) => setIsMuted(e.detail);
+    window.addEventListener('dyut-mute-change', handler);
+    return () => window.removeEventListener('dyut-mute-change', handler);
+  }, []);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
 
@@ -379,7 +388,7 @@ const Board = ({ onGoToMenu }) => {
             const prevLockedCount = prevPlayer.pieces.filter(p => p === -1).length;
             const currentLockedCount = currentPlayer.pieces.filter(p => p === -1).length;
             if (currentLockedCount > prevLockedCount) {
-                playSound(`${import.meta.env.BASE_URL}sounds/capture.mp3`);
+                if (!isMutedRef.current) playSound(`${import.meta.env.BASE_URL}sounds/capture.mp3`);
                 // Find which piece was captured to trigger the animation
                 const capturedPieceIndex = prevPlayer.pieces.findIndex((prevPos, i) => prevPos !== -1 && currentPlayer.pieces[i] === -1);
                 if (capturedPieceIndex !== -1) {
@@ -396,7 +405,7 @@ const Board = ({ onGoToMenu }) => {
             const prevFinishedCount = prevPlayer.pieces.filter(p => p === 999).length;
             const currentFinishedCount = currentPlayer.pieces.filter(p => p === 999).length;
             if (currentFinishedCount > prevFinishedCount) {
-                playSound(`${import.meta.env.BASE_URL}sounds/goal.mp3`);
+                if (!isMutedRef.current) playSound(`${import.meta.env.BASE_URL}sounds/goal.mp3`);
             }
         }
     }

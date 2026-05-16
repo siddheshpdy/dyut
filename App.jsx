@@ -16,7 +16,7 @@ const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 
-const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
+const GameOverlay = ({ onShowRules, onReturnToMenu, isMuted, toggleMute }) => {
   const { t } = useTranslation();
   const { state, leaveGame } = useGame();
   
@@ -32,6 +32,13 @@ const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
 
   return (
     <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-3 z-50">
+      <button onClick={toggleMute} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+        {isMuted ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+        )}
+      </button>
       <button onClick={onShowRules} className="px-4 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('rules', 'Rules')}>
         {t('rules', 'Rules')}
       </button>
@@ -49,11 +56,26 @@ function App() {
   const [user, setUser] = useState(null);
   const [joinGameId, setJoinGameId] = useState(null);
   const [lastOnlineGameId, setLastOnlineGameId] = useState(null);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+
+  const toggleMute = () => {
+    setIsMuted(prev => {
+      const next = !prev;
+      localStorage.setItem('dyut_muted', next);
+      window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: next }));
+      return next;
+    });
+  };
 
   const hasCachedGame = !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
 
   // Preload heavy assets (sounds and gifs) in the background so they are instantly ready during gameplay
   useEffect(() => {
+    // CrazyGames SDK: Loading Tracking
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      try { window.CrazyGames.SDK.game.sdkGameLoadingStart(); } catch(e) {}
+    }
+
     const audioFiles = [
       `${import.meta.env.BASE_URL}sounds/dice-roll.mp3`,
       `${import.meta.env.BASE_URL}sounds/capture.mp3`,
@@ -123,13 +145,35 @@ function App() {
     };
 
     let unsubFunc = null;
-    initializeAuth().then(unsub => { unsubFunc = unsub; });
+    initializeAuth().then(unsub => { 
+      unsubFunc = unsub; 
+      if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+        try { window.CrazyGames.SDK.game.sdkGameLoadingStop(); } catch(e) {}
+      }
+    });
     
+    const handleMuteChange = (e) => setIsMuted(e.detail);
+    window.addEventListener('dyut-mute-change', handleMuteChange);
+
     return () => {
       isMounted = false;
       if (unsubFunc) unsubFunc();
+      window.removeEventListener('dyut-mute-change', handleMuteChange);
     };
   }, []);
+
+  // CrazyGames SDK: Gameplay Tracking
+  useEffect(() => {
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      try {
+        if (view === 'game') {
+          window.CrazyGames.SDK.game.gameplayStart();
+        } else {
+          window.CrazyGames.SDK.game.gameplayStop();
+        }
+      } catch (e) { console.error("CrazyGames event error:", e); }
+    }
+  }, [view]);
 
   const handleStartNewGame = (config) => {
     if (hasCachedGame) {
@@ -217,7 +261,7 @@ function App() {
               <h1 className="dyut-title text-2xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
             </div>
             {/* Minimalist Top-Right Action Menu */}
-            <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} />
+            <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} isMuted={isMuted} toggleMute={toggleMute} />
             <div className="flex flex-col lg:flex-row items-center justify-center gap-6 sm:gap-8 w-full z-10 relative pt-16 lg:pt-0 pb-8 lg:pb-0">
               <Board onGoToMenu={handleWipeAndGoToMenu} />
               <DiceTray />
