@@ -2,7 +2,7 @@ import React, { createContext, useReducer, useContext, useEffect, useRef, useCal
 import { useTranslation } from 'react-i18next';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { doc } from 'firebase/firestore';
-import { ref, onValue, set, update } from 'firebase/database';
+import { ref, onValue, set, update, remove } from 'firebase/database';
 import { db, rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 
@@ -421,6 +421,13 @@ const dispatch = useCallback((action) => {
         
         const activeHumans = Object.keys(currentState.playerUids || {}).filter(key => currentState.playerUids[key] && !newBots.includes(key));
         
+        // If the last human player leaves, completely wipe the game and lobby from the database to save space
+        if (activeHumans.length === 0) {
+          remove(ref(rtdb, 'games/' + currentState.gameId)).catch(() => {});
+          remove(ref(rtdb, 'lobbies/' + currentState.gameId)).catch(() => {});
+          return;
+        }
+
         if (currentState.localUid === currentState.hostUid) {
           if (activeHumans.length > 0) {
             newHostUid = currentState.playerUids[activeHumans[0]];
@@ -450,6 +457,9 @@ const dispatch = useCallback((action) => {
         }
 
         update(ref(rtdb, 'games/' + currentState.gameId), updates).catch(console.error);
+        if (updates.status === 'finished') {
+          remove(ref(rtdb, 'lobbies/' + currentState.gameId)).catch(() => {});
+        }
       }
     }
   };
@@ -653,6 +663,13 @@ const dispatch = useCallback((action) => {
           localStorage.removeItem('dyut_last_online_id');
           if (state.gameId && state.localUid === state.hostUid) {
             update(ref(rtdb, 'games/' + state.gameId), { status: 'finished' }).catch(console.error);
+            remove(ref(rtdb, 'lobbies/' + state.gameId)).catch(console.error);
+            
+            // Schedule automatic deletion of the game node after 10 seconds.
+            // This gives all connected clients enough time to receive the final move, complete their animations, and safely display the Victory Screen.
+            setTimeout(() => {
+              remove(ref(rtdb, 'games/' + state.gameId)).catch(() => {});
+            }, 10000);
           }
         }
       } else if (!state.isOnline) {

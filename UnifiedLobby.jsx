@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as rtdbGet } from 'firebase/database';
+import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as rtdbGet, remove as rtdbRemove } from 'firebase/database';
 import { db, rtdb, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 
@@ -114,6 +114,20 @@ const PlayerProfile = ({ user }) => {
   const { t } = useTranslation();
 
   useEffect(() => {
+    if (import.meta.env.VITE_IS_PORTAL) {
+      const fetchPortalStats = async () => {
+        if (window.CrazyGames?.SDK) {
+          try {
+            let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
+            if (typeof data === 'string') data = JSON.parse(data);
+            if (data) setStats(data);
+          } catch (e) { console.error(e); }
+        }
+      };
+      setTimeout(fetchPortalStats, 500); // Give SDK time to init
+      return;
+    }
+
     if (user && !user.isAnonymous) {
       const unsub = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
         if (docSnap.exists()) {
@@ -126,7 +140,7 @@ const PlayerProfile = ({ user }) => {
 
   if (!user) return <div className="h-10"></div>;
 
-  if (user.isAnonymous) {
+  if (user.isAnonymous && !import.meta.env.VITE_IS_PORTAL) {
     const handleSignIn = () => {
       setIsSigningIn(true);
       signInWithGoogle().finally(() => {
@@ -154,11 +168,19 @@ const PlayerProfile = ({ user }) => {
     );
   }
 
-  const displayName = stats?.displayName || user.displayName || 'Player';
+  const displayName = stats?.displayName || user.displayName || (import.meta.env.VITE_IS_PORTAL ? 'Portal Player' : 'Player');
 
   const handleEditSave = async () => {
     if (editName.trim() && editName.trim() !== displayName) {
-      await updateUserName(editName.trim());
+      if (import.meta.env.VITE_IS_PORTAL) {
+        const newStats = { ...stats, displayName: editName.trim() };
+        setStats(newStats);
+        if (window.CrazyGames?.SDK) {
+          window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+        }
+      } else {
+        await updateUserName(editName.trim());
+      }
     }
     setIsEditing(false);
   };
@@ -208,15 +230,17 @@ const PlayerProfile = ({ user }) => {
           )}
         </div>
       </div>
-      <button 
-        onClick={logoutUser} 
-        className="text-white/30 hover:text-ruby transition-colors ml-1 p-1.5 rounded-full hover:bg-white/5"
-        title={t('signOut', 'Sign Out')}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-      </button>
+      {!import.meta.env.VITE_IS_PORTAL && (
+        <button 
+          onClick={logoutUser} 
+          className="text-white/30 hover:text-ruby transition-colors ml-1 p-1.5 rounded-full hover:bg-white/5"
+          title={t('signOut', 'Sign Out')}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 };
@@ -247,8 +271,15 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [hostLastPing, setHostLastPing] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
 
   const { t } = useTranslation();
+
+  const toggleMute = () => {
+    const next = !isMuted;
+    localStorage.setItem('dyut_muted', next);
+    window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: next }));
+  };
 
   const activeLobbyId = joinGameId || pendingGameId;
   const isHost = (activeLobbyId && pendingGameId !== null) || (user && lobbyHostUid === user.uid);
@@ -258,6 +289,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const playerCount = activeSeats.length;
   const botCount = activeSeats.filter(([_, s]) => s.type === 'bot').length;
   const activeColors = activeSeats.map(([_, s]) => s.color);
+
+  useEffect(() => {
+    const handleMuteChange = (e) => setIsMuted(e.detail);
+    window.addEventListener('dyut-mute-change', handleMuteChange);
+    return () => window.removeEventListener('dyut-mute-change', handleMuteChange);
+  }, []);
 
   useEffect(() => {
     // Wait until the anonymous authentication completes before attempting to listen to the secure database
@@ -421,7 +458,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const pingInterval = setInterval(pushPing, 10000);
 
     const handleUnload = () => {
-      rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'abandoned', openSeats: 0 }).catch(() => {});
+      rtdbRemove(rtdbRef(rtdb, 'lobbies/' + activeLobbyId)).catch(() => {});
     };
     window.addEventListener('beforeunload', handleUnload);
 
@@ -599,6 +636,18 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };
 
+  let inviteUrl = '';
+  if (activeLobbyId) {
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      try {
+        inviteUrl = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
+      } catch(e) {}
+    }
+    if (!inviteUrl) {
+      inviteUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
+    }
+  }
+
   return (
     <>
       {/* Top Navigation Bar */}
@@ -608,6 +657,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
         
         <div className="flex items-center order-2 gap-4">
+          <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+            {isMuted ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+            )}
+          </button>
           <nav className="hidden md:flex items-center gap-6 mr-4">
             <button onClick={onShowTutorial} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('howToPlay', 'How to Play')}</button>
             <button onClick={onShowRules} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('rules', 'Rules')}</button>
@@ -668,8 +724,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             </span>
           </div>
           <div className="flex w-full gap-2">
-            <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
-            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
+            <input type="text" readOnly value={inviteUrl} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
+            <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
           </div>
         </div>
       )}
