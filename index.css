@@ -105,6 +105,6 @@ body {
 
 /* Smooth sliding for piece movements */
 ::view-transition-group(*) {
-  animation-duration: 0.5s;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-duration: 0.2s;
+  animation-timing-function: linear;
 }

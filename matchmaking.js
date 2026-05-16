@@ -1,40 +1,42 @@
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from './firebaseSetup.js';
+import { ref, query, orderByChild, equalTo, limitToFirst, get } from 'firebase/database';
+import { rtdb } from './firebaseSetup.js';
 
 /**
- * Searches Firestore for an open, public lobby.
+ * Searches Firebase Realtime Database for an open, public lobby.
  * @param {object} config - The lobby rules configuration.
  * @returns {Promise<string|null>} The lobby ID if found, or null if no lobbies are available.
  */
 export async function findRandomPublicGame(config = {}) {
   try {
-    const lobbiesRef = collection(db, 'lobbies');
-    
-    // Query for a lobby that is explicitly public and currently waiting
-    // We fetch a small batch and filter the fine-grained settings (quick game, void rule) 
-    // locally to prevent Firestore from demanding extremely complex composite indexes.
+    // RTDB only allows sorting/filtering on a single child key.
+    // We query by 'status' == 'waiting' and filter the rest locally.
+    const lobbiesRef = ref(rtdb, 'lobbies');
     const q = query(
       lobbiesRef,
-      where('isPublic', '==', true),
-      where('status', '==', 'waiting'),
-      where('version', '==', 2),
-      where('openSeats', '>', 0),
-      limit(20) 
+      orderByChild('status'),
+      equalTo('waiting'),
+      limitToFirst(50) 
     );
 
-    const querySnapshot = await getDocs(q);
+    const snapshot = await get(q);
+    if (!snapshot.exists()) return null;
 
-    for (const docSnap of querySnapshot.docs) {
-      const data = docSnap.data();
+    const lobbies = snapshot.val();
+    // Randomize the order so players don't all pile into the absolute oldest lobby simultaneously
+    const lobbyEntries = Object.entries(lobbies).sort(() => Math.random() - 0.5);
+
+    for (const [id, data] of lobbyEntries) {
       
-      // Perform exact configuration matching locally
       if (
+        data.isPublic === true &&
+        data.version === 2 &&
+        data.openSeats > 0 &&
         data.matchType === (config.matchType || 'ffa') &&
         !!data.isQuickGame === !!config.isQuickGame &&
         !!data.isTeamMode === !!config.isTeamMode &&
         !!data.isVoidRuleEnabled === !!config.isVoidRuleEnabled
       ) {
-        return docSnap.id;
+        return id;
       }
     }
 

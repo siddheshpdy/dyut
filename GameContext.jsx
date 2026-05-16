@@ -1,8 +1,9 @@
 import React, { createContext, useReducer, useContext, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
-import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { db, updateUserStats } from './firebaseSetup.js';
+import { doc } from 'firebase/firestore';
+import { ref, onValue, set, update } from 'firebase/database';
+import { db, rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
@@ -141,7 +142,16 @@ export function gameReducer(state, action) {
   switch (action.type) {
     case ACTION_TYPES.SYNC_FROM_CLOUD:
       if (!state.isOnline) return state;
-      return { ...state, ...action.payload };
+      // RTDB omits empty arrays and objects, so we must supply defaults for them to prevent state bleed
+      return { 
+        ...state, 
+        ...action.payload,
+        turnQueue: (action.payload.turnQueue || []).map(roll => ({ ...roll, d2: roll.d2 !== undefined ? roll.d2 : null })),
+        bots: action.payload.bots || [],
+        afkStrikes: action.payload.afkStrikes || {},
+        // Preserve playerUids from local state as they are injected via Lobby config and not stored in RTDB active games
+        playerUids: action.payload.playerUids || state.playerUids
+      };
     case ACTION_TYPES.ROLL_DICE: {
       const isDouble = action.payload.d1 === action.payload.d2 && action.payload.d2 !== null;
       // Add the new roll object to the turnQueue array
@@ -439,7 +449,7 @@ const dispatch = useCallback((action) => {
           }
         }
 
-        updateDoc(doc(db, 'games', currentState.gameId), updates).catch(console.error);
+        update(ref(rtdb, 'games/' + currentState.gameId), updates).catch(console.error);
       }
     }
   };
@@ -455,7 +465,7 @@ const dispatch = useCallback((action) => {
     if (!state.isOnline || !state.gameId || state.localUid !== state.hostUid) return;
 
     const pushPing = () => {
-      updateDoc(doc(db, 'games', state.gameId), { lastPing: Date.now() }).catch(() => {});
+      update(ref(rtdb, 'games/' + state.gameId), { lastPing: Date.now() }).catch(() => {});
     };
 
     pushPing();
@@ -502,7 +512,7 @@ const dispatch = useCallback((action) => {
             const newPlayers = { ...state.players, [activeHumans[0]]: { ...state.players[activeHumans[0]], pieces: [999, 999, 999, 999] } };
             updates.players = newPlayers; updates.status = 'finished';
           }
-          updateDoc(doc(db, 'games', state.gameId), updates).catch(console.error);
+          update(ref(rtdb, 'games/' + state.gameId), updates).catch(console.error);
         }
       }
     }, 5000);
@@ -513,7 +523,8 @@ const dispatch = useCallback((action) => {
   const checkIsMyTurn = (currentState) => {
     if (!currentState.isOnline) return true;
     const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
-    if (currentState.bots?.includes(activeId)) return currentState.localUid === currentState.hostUid;
+    const isBot = currentState.bots?.includes(activeId) || currentState.isAfkTurn;
+    if (isBot) return currentState.localUid === currentState.hostUid;
     return currentState.playerUids?.[activeId] === currentState.localUid;
   };
 
@@ -546,9 +557,9 @@ const dispatch = useCallback((action) => {
     latestStateRef.current = nextState;
 
     if (currentState.isOnline && currentState.gameId && action.type !== ACTION_TYPES.SYNC_FROM_CLOUD && action.type !== ACTION_TYPES.RESET_GAME && !action.skipSync) {
-      const gameRef = doc(db, 'games', currentState.gameId);
+      const gameRef = ref(rtdb, 'games/' + currentState.gameId);
       
-      updateDoc(gameRef, {
+      update(gameRef, {
         currentPlayer: nextState.currentPlayer,
         turnQueue: nextState.turnQueue,
         players: nextState.players,
@@ -564,10 +575,10 @@ const dispatch = useCallback((action) => {
 
   useEffect(() => {
     if (state.isOnline && state.gameId) {
-      const gameRef = doc(db, 'games', state.gameId);
-      const unsubscribe = onSnapshot(gameRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+      const gameRef = ref(rtdb, 'games/' + state.gameId);
+      const unsubscribe = onValue(gameRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
           
           // Public game drop-rejoin prevention
           if (data.isPublic && state.localUid) {
@@ -582,7 +593,7 @@ const dispatch = useCallback((action) => {
           baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: data });
         } else if (state.localUid === state.hostUid) {
           // Host initializes the game document
-          setDoc(gameRef, {
+          set(gameRef, {
             currentPlayer: state.currentPlayer,
             turnQueue: state.turnQueue,
             players: state.players,
@@ -641,7 +652,7 @@ const dispatch = useCallback((action) => {
         if (state.isOnline) {
           localStorage.removeItem('dyut_last_online_id');
           if (state.gameId && state.localUid === state.hostUid) {
-            updateDoc(doc(db, 'games', state.gameId), { status: 'finished' }).catch(console.error);
+            update(ref(rtdb, 'games/' + state.gameId), { status: 'finished' }).catch(console.error);
           }
         }
       } else if (!state.isOnline) {

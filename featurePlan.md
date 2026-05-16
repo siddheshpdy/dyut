@@ -166,6 +166,12 @@
 * Board View Redesign: Remove the parent bounding box background to create a floating cross effect against the charcoal background. Apply specific colors to standard paths, safe zones, and the center goal. Update player text and kill icons to use gold and ruby.
 * Responsive Alignment: Ensure the board scales properly on mobile and adjust central card padding. Add a `max-width` constraint to the desktop menu card to maintain proportions.
 
+## Phase 26: Future Enhancements & Monetization
+* To see the roadmap for making the game publicly available, monetizable, and legally compliant, refer to the Future Enhancements & Monetization Plan.
+
+## Phase 31: Web Portal Integration (CrazyGames/Poki)
+* To see the roadmap for packaging the game for web portals, implementing their SDKs, and handling iframe data restrictions, refer to the `webPortalPlan.md` file.
+
 ---
 
 ## Suggested State Architecture Example

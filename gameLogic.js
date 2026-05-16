@@ -135,7 +135,7 @@ export function getValidMoves(pieceCurrentPos, roll, playerId, state) {
     const low = Math.min(roll.d1, roll.d2);
 
     // Handle partial rolls (only one move possible)
-    if (roll.d2 === null) {
+    if (roll.d2 == null) {
         const isMoveValid = !isSquareBlocked(pieceCurrentPos + roll.d1, playerId, state);
         return { sum: isMoveValid, high: isMoveValid, low: isMoveValid }; // All flags map to the single move's validity
     }
@@ -219,7 +219,7 @@ export function hasAnyPlayableMove(originalPlayerId, state) {
 
     for (const roll of state.turnQueue) {
         // 1. Check if a locked piece can be spawned
-        if (roll.d1 === roll.d2 && roll.d2 !== null) { // It's a double, not a partial roll
+        if (roll.d1 === roll.d2 && roll.d2 != null) { // It's a double, not a partial roll
             const hasLockedPiece = player.pieces.some(p => p === -1);
             if (hasLockedPiece && canSpawnPiece(proxyId, roll.sum, state)) {
                 return true;
@@ -236,7 +236,7 @@ export function hasAnyPlayableMove(originalPlayerId, state) {
                 }
 
                 // 3. Check for Pair Attack
-                if (roll.d1 === roll.d2 && roll.d2 !== null) {
+                if (roll.d1 === roll.d2 && roll.d2 != null) {
                     const moveDistance = roll.d1;
                     const targetPos = piecePos + moveDistance;
                     if (getPairShieldTarget(targetPos, proxyId, state)) {
@@ -295,7 +295,7 @@ export function getAutoMove(originalPlayerId, state) {
     // Scan entire queue to find a playable roll if the first one is blocked
     for (let rollIndex = 0; rollIndex < state.turnQueue.length; rollIndex++) {
         const activeRoll = state.turnQueue[rollIndex];
-        const isDouble = activeRoll.d1 === activeRoll.d2 && activeRoll.d2 !== null;
+        const isDouble = activeRoll.d1 === activeRoll.d2 && activeRoll.d2 != null;
         
         let movablePieces = [];
         let lockedPieceAdded = false;
@@ -326,7 +326,7 @@ export function getAutoMove(originalPlayerId, state) {
             } else {
                 const { pos, validMoves } = move;
                 
-                if (activeRoll.d2 === null) { // Partial roll
+                if (activeRoll.d2 == null) { // Partial roll
                     if (validMoves.sum) return { type: 'MOVE_WITH_FULL_ROLL', payload: { playerId: proxyId, pieceIndex: move.pieceIndex, rollIndex, distance: activeRoll.d1 } };
                     continue; // This partial roll is blocked, check next roll
                 }
