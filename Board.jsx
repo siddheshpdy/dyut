@@ -365,6 +365,21 @@ const Board = ({ onGoToMenu }) => {
     return winnerEntry ? { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] } : null;
   }, [visualPlayers, state.isQuickGame, state.isTeamMode]);
 
+  // CrazyGames SDK: Granular Gameplay Tracking
+  useEffect(() => {
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK?.game) {
+      try {
+        if (winnerInfo) window.CrazyGames.SDK.game.gameplayStop();
+        else window.CrazyGames.SDK.game.gameplayStart();
+      } catch(e) {}
+    }
+    return () => {
+      if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK?.game) {
+        try { window.CrazyGames.SDK.game.gameplayStop(); } catch(e) {}
+      }
+    };
+  }, [winnerInfo]);
+
   const finishedPieces = useMemo(() => {
     const counts = [];
     Object.entries(visualPlayers).forEach(([playerId, player]) => {

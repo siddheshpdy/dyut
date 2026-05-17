@@ -71,11 +71,6 @@ function App() {
 
   // Preload heavy assets (sounds and gifs) in the background so they are instantly ready during gameplay
   useEffect(() => {
-    // CrazyGames SDK: Loading Tracking
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try { window.CrazyGames.SDK.game.sdkGameLoadingStart(); } catch(e) {}
-    }
-
     const audioFiles = [
       `${import.meta.env.BASE_URL}sounds/dice-roll.mp3`,
       `${import.meta.env.BASE_URL}sounds/capture.mp3`,
@@ -147,7 +142,7 @@ function App() {
     let unsubFunc = null;
     initializeAuth().then(unsub => { 
       unsubFunc = unsub; 
-      if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      if (import.meta.env.VITE_IS_PORTAL) {
         try { window.CrazyGames.SDK.game.sdkGameLoadingStop(); } catch(e) {}
       }
     });
@@ -161,19 +156,6 @@ function App() {
       window.removeEventListener('dyut-mute-change', handleMuteChange);
     };
   }, []);
-
-  // CrazyGames SDK: Gameplay Tracking
-  useEffect(() => {
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try {
-        if (view === 'game') {
-          window.CrazyGames.SDK.game.gameplayStart();
-        } else {
-          window.CrazyGames.SDK.game.gameplayStop();
-        }
-      } catch (e) { console.error("CrazyGames event error:", e); }
-    }
-  }, [view]);
 
   const handleStartNewGame = (config) => {
     if (hasCachedGame) {

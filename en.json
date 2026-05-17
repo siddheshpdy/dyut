@@ -167,5 +167,8 @@
   "status_notFound": "Lobby not found",
   "quick": "Quick",
   "mute": "Mute",
-  "unmute": "Unmute"
+  "unmute": "Unmute",
+  "playNow": "PLAY NOW",
+  "playOnline": "PLAY ONLINE",
+  "customGame": "CUSTOM GAME"
 }
