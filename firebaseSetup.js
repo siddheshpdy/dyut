@@ -89,6 +89,7 @@ export const updateUserStats = async (uid, isWin) => {
   if (import.meta.env.VITE_IS_PORTAL) {
     if (window.CrazyGames?.SDK) {
       try {
+        if (window.cgInitPromise) await window.cgInitPromise;
         let stats = await window.CrazyGames.SDK.data.getItem('dyut_stats');
         if (typeof stats === 'string') stats = JSON.parse(stats);
         if (!stats) stats = { gamesPlayed: 0, wins: 0 };

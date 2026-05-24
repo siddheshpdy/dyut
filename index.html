@@ -13,7 +13,19 @@
     <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
     <script>
       if ("%VITE_IS_PORTAL%" === "true") {
-        window.CrazyGames.SDK.game.sdkGameLoadingStart();
+        window.cgInitPromise = new Promise((resolve) => {
+          const initCg = () => {
+            window.CrazyGames.SDK.init().then(() => {
+              window.CrazyGames.SDK.game.loadingStart();
+              resolve();
+            }).catch(console.error);
+          };
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initCg);
+          } else {
+            initCg();
+          }
+        });
       }
     </script>
     

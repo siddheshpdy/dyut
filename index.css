@@ -16,6 +16,9 @@
   --color-gold: #eab308;
   --color-ruby: #dc2626; /* For kill icons */
   --color-text-muted: #a1a1aa; /* For secondary nav links */
+
+  /* Disable full-page snapshotting to prevent mobile screen flicker */
+  view-transition-name: none;
 }
 
 body {

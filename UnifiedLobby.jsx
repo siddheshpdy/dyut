@@ -118,6 +118,7 @@ const PlayerProfile = ({ user }) => {
       const fetchPortalStats = async () => {
         if (window.CrazyGames?.SDK) {
           try {
+            if (window.cgInitPromise) await window.cgInitPromise;
             let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
             if (typeof data === 'string') data = JSON.parse(data);
             if (data) setStats(data);
@@ -176,7 +177,11 @@ const PlayerProfile = ({ user }) => {
         const newStats = { ...stats, displayName: editName.trim() };
         setStats(newStats);
         if (window.CrazyGames?.SDK) {
-          window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+          const saveStats = async () => {
+            if (window.cgInitPromise) await window.cgInitPromise;
+            window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+          };
+          saveStats();
         }
       } else {
         await updateUserName(editName.trim());
@@ -272,6 +277,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [hostLastPing, setHostLastPing] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [inviteUrl, setInviteUrl] = useState('');
 
   const { t } = useTranslation();
 
@@ -538,14 +544,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       newSeats = {
         Player4: { type: 'closed', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
         Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
       };
     } else {
       newSeats = {
         Player4: { type: 'human', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
         Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
       };
     }
@@ -659,17 +665,25 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };
 
-  let inviteUrl = '';
-  if (activeLobbyId) {
+  useEffect(() => {
+    if (!activeLobbyId) {
+      setInviteUrl('');
+      return;
+    }
+    const defaultUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try {
-        inviteUrl = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
-      } catch(e) {}
+      const fetchLink = async () => {
+        try {
+          if (window.cgInitPromise) await window.cgInitPromise;
+          const link = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
+          setInviteUrl(link || defaultUrl);
+        } catch(e) { setInviteUrl(defaultUrl); }
+      };
+      fetchLink();
+    } else {
+      setInviteUrl(defaultUrl);
     }
-    if (!inviteUrl) {
-      inviteUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
-    }
-  }
+  }, [activeLobbyId]);
 
   return (
     <>
@@ -891,7 +905,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 </button>
               )}
               {setupMode === 'public' && (
-                <button onClick={handleFindMatch} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
                   {isSearching ? t('searching', 'SEARCHING...') : t('findMatch', 'FIND MATCH')}
                 </button>
               )}

@@ -6,13 +6,17 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
 
   const handlePlayAgain = () => {
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try {
-        window.CrazyGames.SDK.ad.requestAd('midgame', {
-          adStarted: () => console.log('Ad started'),
-          adFinished: () => onNewGame(),
-          adError: (error) => { console.error('Ad error', error); onNewGame(); },
-        });
-      } catch(e) { onNewGame(); }
+      const showAd = async () => {
+        try {
+          if (window.cgInitPromise) await window.cgInitPromise;
+          window.CrazyGames.SDK.ad.requestAd('midgame', {
+            adStarted: () => console.log('Ad started'),
+            adFinished: () => onNewGame(),
+            adError: (error) => { console.error('Ad error', error); onNewGame(); },
+          });
+        } catch(e) { onNewGame(); }
+      };
+      showAd();
     } else {
       onNewGame();
     }

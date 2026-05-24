@@ -366,17 +366,36 @@ const Board = ({ onGoToMenu }) => {
   }, [visualPlayers, state.isQuickGame, state.isTeamMode]);
 
   // CrazyGames SDK: Granular Gameplay Tracking
+  const cgGameplayActive = useRef(false);
   useEffect(() => {
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK?.game) {
+    if (!import.meta.env.VITE_IS_PORTAL) return;
+
+    const startCgGameplay = async () => {
+      if (cgGameplayActive.current || winnerInfo) return;
+      cgGameplayActive.current = true;
       try {
-        if (winnerInfo) window.CrazyGames.SDK.game.gameplayStop();
-        else window.CrazyGames.SDK.game.gameplayStart();
+        if (window.cgInitPromise) await window.cgInitPromise;
+        window.CrazyGames.SDK.game.gameplayStart();
       } catch(e) {}
+    };
+
+    const stopCgGameplay = async () => {
+      if (!cgGameplayActive.current) return;
+      cgGameplayActive.current = false;
+      try {
+        if (window.cgInitPromise) await window.cgInitPromise;
+        window.CrazyGames.SDK.game.gameplayStop();
+      } catch(e) {}
+    };
+
+    if (winnerInfo) {
+      stopCgGameplay();
+    } else {
+      startCgGameplay();
     }
+
     return () => {
-      if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK?.game) {
-        try { window.CrazyGames.SDK.game.gameplayStop(); } catch(e) {}
-      }
+      stopCgGameplay();
     };
   }, [winnerInfo]);
 

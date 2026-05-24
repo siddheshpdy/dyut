@@ -143,7 +143,12 @@ function App() {
     initializeAuth().then(unsub => { 
       unsubFunc = unsub; 
       if (import.meta.env.VITE_IS_PORTAL) {
-        try { window.CrazyGames.SDK.game.sdkGameLoadingStop(); } catch(e) {}
+        const stopLoading = () => { try { window.CrazyGames.SDK.game.loadingStop(); } catch(e) {} };
+        if (window.cgInitPromise) {
+          window.cgInitPromise.then(stopLoading);
+        } else {
+          stopLoading();
+        }
       }
     });
     
@@ -272,7 +277,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
+    <main className="min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
