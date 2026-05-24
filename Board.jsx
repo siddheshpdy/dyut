@@ -55,7 +55,20 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
 
       {/* Capture Animation */}
       {isCapturing && (
-        <div className="absolute inset-0 w-[90%] h-[90%] m-auto rounded-full border-4 border-white/90 shadow-[0_0_20px_rgba(220,38,38,0.8)] animate-shockwave pointer-events-none"></div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="absolute w-[80%] h-[80%] rounded-full bg-ruby animate-blood-splatter mix-blend-screen"></div>
+          <div className="absolute w-[120%] h-[120%] rounded-full border-[4px] sm:border-[6px] border-ruby shadow-[0_0_30px_rgba(220,38,38,1)] animate-shockwave"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-[85%] h-[85%] text-white drop-shadow-[0_0_15px_rgba(220,38,38,1)] animate-kill-pop">
+            <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
+            <path d="M13 19l6-6"></path>
+            <path d="M16 16l4 4"></path>
+            <path d="M19 21l2-2"></path>
+            <path d="M9.5 17.5L21 6V3h-3L6.5 11.5"></path>
+            <path d="M11 19l-6-6"></path>
+            <path d="M8 16l-4 4"></path>
+            <path d="M5 21l-2-2"></path>
+          </svg>
+        </div>
       )}
 
       {/* Render Occupying Pieces */}
@@ -107,9 +120,6 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
     ringClass = 'ring-2 sm:ring-4 ring-cyan-400 ring-offset-1 sm:ring-offset-2 ring-offset-black/50';
   }
 
-  // Assign a unique view-transition-name to each piece so the browser can animate its movement
-  const transitionName = playerId != null && pieceIndex != null ? `piece-${playerId}-${pieceIndex}` : undefined;
-
   const shapeClass = isHomeStretch
     ? 'w-[70%] sm:w-[75%] h-[80%] sm:h-[85%] rounded-t-full rounded-b-[10px] shadow-[inset_-2px_-4px_8px_rgba(0,0,0,0.5),0_5px_8px_rgba(0,0,0,0.6)]'
     : 'w-[70%] sm:w-[80%] aspect-square rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]';
@@ -119,19 +129,17 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
     : 'w-[35%] h-[35%] bg-white/80 shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)]';
 
   return (
-    <div style={transitionName ? { viewTransitionName: transitionName } : {}} 
-         className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass}`}>
+    <div className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass}`}>
       <div className={`rounded-full pointer-events-none ${innerShapeClass}`}></div>
     </div>
   );
 };
 
 // The Player's Yard/Base for locked pieces
-const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating }) => {
+const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating, isActive }) => {
   const { state } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
-  const isActive = state.currentPlayer === playerId;
 
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
@@ -199,6 +207,7 @@ const Board = ({ onGoToMenu }) => {
   const { state, dispatch } = useGame();
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
+  const [visualCurrentPlayer, setVisualCurrentPlayer] = useState(state.currentPlayer);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
@@ -225,13 +234,13 @@ const Board = ({ onGoToMenu }) => {
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
 
-  const activeTransitionRef = useRef(null);
-
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
   useEffect(() => {
     let timeoutId;
-    let needsAnotherStep = false;
+    let needsForwardStep = false;
+    let needsCaptureStep = false;
+    let needsSpawnStep = false;
     let hasChanges = false;
     
     const next = JSON.parse(JSON.stringify(visualPlayers));
@@ -242,7 +251,6 @@ const Board = ({ onGoToMenu }) => {
         hasChanges = true;
         continue;
       }
-      // Sync high-level data instantly
       if (next[pId].color !== state.players[pId].color) { next[pId].color = state.players[pId].color; hasChanges = true; }
       if (next[pId].name !== state.players[pId].name) { next[pId].name = state.players[pId].name; hasChanges = true; }
       if (next[pId].hasKilled !== state.players[pId].hasKilled) { next[pId].hasKilled = state.players[pId].hasKilled; hasChanges = true; }
@@ -253,65 +261,65 @@ const Board = ({ onGoToMenu }) => {
         const visual = next[pId].pieces[i];
 
         if (actual !== visual) {
-          hasChanges = true;
-          if (visual !== -1 && visual !== 999 && actual !== -1) {
+          if (visual === -1 && actual !== -1) {
+            needsSpawnStep = true;
+          } else if (visual !== -1 && actual !== -1 && visual !== 999) {
             const isGoal = actual === 999;
             const target = isGoal ? PLAYER_PATHS[pId].length - 1 : actual;
-            
             if (visual < target) {
-              next[pId].pieces[i] = visual + 1;
-              needsAnotherStep = true;
+              needsForwardStep = true;
             } else if (isGoal && visual === target) {
-              next[pId].pieces[i] = 999;
+              needsCaptureStep = true;
             } else {
-              next[pId].pieces[i] = actual; // Fallback snap 
+              needsCaptureStep = true; // Backward fallback snap
             }
-          } else {
-            next[pId].pieces[i] = actual; // Instantly snap captures and spawns
+          } else if (visual !== -1 && actual === -1) {
+            needsCaptureStep = true;
           }
         }
       }
     }
 
-    if (hasChanges) {
-      const applyUpdate = () => {
-        try {
-          if (document.startViewTransition) {
-            // CRITICAL FIX: If a transition is already in flight, DO NOT start another one.
-            // Bypassing the API for intermediate rapid steps prevents mobile GPU OOM crashes (silent reloads).
-            if (activeTransitionRef.current) {
-              setVisualPlayers(next);
-              return;
-            }
+    if (needsSpawnStep || needsForwardStep || needsCaptureStep || hasChanges) {
+      for (const pId in state.players) {
+        for (let i = 0; i < 4; i++) {
+          const actual = state.players[pId].pieces[i];
+          const visual = next[pId].pieces[i];
 
-            const transition = document.startViewTransition(() => {
-              try {
-                flushSync(() => setVisualPlayers(next));
-              } catch (err) {
-                setVisualPlayers(next); // Fallback if flushSync throws
+          if (actual !== visual) {
+            if (needsSpawnStep) {
+              if (visual === -1 && actual !== -1) {
+                next[pId].pieces[i] = actual;
+                hasChanges = true;
               }
-            });
-            activeTransitionRef.current = transition;
-            
-            transition.ready.catch(() => {});
-            transition.updateCallbackDone.catch(() => {});
-            transition.finished.catch(() => {}).finally(() => {
-              if (activeTransitionRef.current === transition) activeTransitionRef.current = null;
-            });
-          } else {
-            setVisualPlayers(next);
+            } else if (needsForwardStep) {
+              if (visual !== -1 && actual !== -1 && visual !== 999) {
+                const target = actual === 999 ? PLAYER_PATHS[pId].length - 1 : actual;
+                if (visual < target) {
+                  next[pId].pieces[i] = visual + 1;
+                  hasChanges = true;
+                }
+              }
+            } else if (needsCaptureStep) {
+              if (visual !== -1 && actual === -1) {
+                next[pId].pieces[i] = -1;
+                hasChanges = true;
+              } else if (actual === 999 && visual === PLAYER_PATHS[pId].length - 1) {
+                next[pId].pieces[i] = 999;
+                hasChanges = true;
+              } else if (visual !== -1 && actual !== -1 && visual > actual) {
+                next[pId].pieces[i] = actual;
+                hasChanges = true;
+              }
+            }
           }
-        } catch (e) {
-          activeTransitionRef.current = null;
-          setVisualPlayers(next);
         }
-      };
+      }
 
-      // Allow 200ms per square for the browser to perfectly sync with the CSS transition duration
-      if (needsAnotherStep) {
-        timeoutId = setTimeout(applyUpdate, 200);
-      } else {
-        timeoutId = setTimeout(applyUpdate, 10); // Final snap delay to prevent overlapping transitions
+      if (hasChanges) {
+        timeoutId = setTimeout(() => {
+          flushSync(() => setVisualPlayers(next));
+        }, needsForwardStep ? 90 : 250); // 90ms per hop, 250ms for spawns/captures/turn-changes
       }
     }
 
@@ -330,6 +338,12 @@ const Board = ({ onGoToMenu }) => {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('dyut-animating', { detail: isAnimating }));
+    
+    // Delay the visual turn outline until all pieces have finished moving
+    if (!isAnimating) {
+      setVisualCurrentPlayer(state.currentPlayer);
+    }
+    
   }, [isAnimating]);
 
   const winnerInfo = useMemo(() => {
@@ -652,6 +666,7 @@ const Board = ({ onGoToMenu }) => {
             gridCol={base.col}
             onSpawnClick={handleSpawnClick}
             isAnimating={isAnimating}
+            isActive={visualCurrentPlayer === base.id}
           />
         ))}
         
