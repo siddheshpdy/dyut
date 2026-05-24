@@ -2,14 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/images/favicon.png" />
+    <link rel="apple-touch-icon" href="/images/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="keywords" content="Dyut, Chaupar, Chausar, Chopad, Pagade, Pachisi, Parcheesi, Pat, board game, cross and circle, Indian board game, online multiplayer, ludo alternative, strategy game, play dyut" />
     <meta name="description" content="Play Dyut, a fast-paced, strategic cross-and-circle Indian board game similar to Chaupar and Chausar. Enjoy local play, online multiplayer, or challenge AI bots." />
     <meta name="theme-color" content="#161616" />
     
-    <!-- CrazyGames SDK (Required for portal builds, safely idles elsewhere) -->
+    <!-- CrazyGames SDK -->
     <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+    <script>
+      if ("%VITE_IS_PORTAL%" === "true") {
+        window.cgInitPromise = new Promise((resolve) => {
+          const initCg = () => {
+            window.CrazyGames.SDK.init().then(() => {
+              window.CrazyGames.SDK.game.loadingStart();
+              resolve();
+            }).catch(console.error);
+          };
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initCg);
+          } else {
+            initCg();
+          }
+        });
+      }
+    </script>
     
     <!-- Google Search Console Verification -->
     <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE_HERE" />

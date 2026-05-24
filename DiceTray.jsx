@@ -83,7 +83,7 @@ const DiceTray = () => {
       setIsRolling(false);
       setIsEvaluating(true);
 
-      // Introduce a 1200ms gap for the user to perceive the final dice result before the game reacts
+      // Introduce a 600ms gap for the user to perceive the final dice result before the game reacts
       setTimeout(() => {
         // CRITICAL: Check for Void Rule (1+3) before anything else
         if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
@@ -96,8 +96,8 @@ const DiceTray = () => {
           });
         }
         setIsEvaluating(false);
-      }, 1200);
-    }, 800);
+      }, 600);
+    }, 600);
   };
 
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
@@ -193,10 +193,10 @@ const DiceTray = () => {
 
         <div className="w-full flex flex-row lg:flex-col gap-3 sm:gap-4 items-stretch lg:items-center">
           <button
-            onClick={handleRoll}
+            onClick={(e) => { if (isBotPlaying && e.isTrusted) return; handleRoll(); }}
             id="dice-roll-btn"
             disabled={!canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn}
-            className="flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all"
+            className={`flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
           >
             {isRolling ? t('rolling') : t('rollDice')}
           </button>

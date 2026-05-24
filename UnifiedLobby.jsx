@@ -118,6 +118,7 @@ const PlayerProfile = ({ user }) => {
       const fetchPortalStats = async () => {
         if (window.CrazyGames?.SDK) {
           try {
+            if (window.cgInitPromise) await window.cgInitPromise;
             let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
             if (typeof data === 'string') data = JSON.parse(data);
             if (data) setStats(data);
@@ -176,7 +177,11 @@ const PlayerProfile = ({ user }) => {
         const newStats = { ...stats, displayName: editName.trim() };
         setStats(newStats);
         if (window.CrazyGames?.SDK) {
-          window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+          const saveStats = async () => {
+            if (window.cgInitPromise) await window.cgInitPromise;
+            window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+          };
+          saveStats();
         }
       } else {
         await updateUserName(editName.trim());
@@ -272,6 +277,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [hostLastPing, setHostLastPing] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [inviteUrl, setInviteUrl] = useState('');
 
   const { t } = useTranslation();
 
@@ -525,22 +531,27 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     });
   };
 
-  const handleHostOnlineClick = async (isPublicLobby = false) => {
+  const handleHostOnlineClick = async (isPublicLobby = false, overrideConfig = null) => {
     const isPublic = typeof isPublicLobby === 'boolean' ? isPublicLobby : false;
     
+    const currentMatchType = overrideConfig?.matchType || matchType;
+    const currentIsQuickGame = overrideConfig?.isQuickGame ?? isQuickGame;
+    const currentIsVoidRuleEnabled = overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled;
+    const currentBotDifficulty = overrideConfig?.botDifficulty || botDifficulty;
+
     let newSeats = {};
-    if (matchType === '1v1') {
+    if (currentMatchType === '1v1') {
       newSeats = {
         Player4: { type: 'closed', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
         Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
       };
     } else {
       newSeats = {
         Player4: { type: 'human', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
         Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
       };
     }
@@ -558,12 +569,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     }
     
     const expiresAt = isPublic ? Date.now() + 60000 : null; // 60 second matchmaking timer
-    const isTeamModeLocal = (matchType === '2v2');
+    const isTeamModeLocal = (currentMatchType === '2v2');
 
     try {
       await rtdbSet(rtdbRef(rtdb, 'lobbies/' + newGameId), {
-        seats: newSeats, botDifficulty, isVoidRuleEnabled, isQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
-        isPublic, status: 'waiting', expiresAt, matchType,
+        seats: newSeats, botDifficulty: currentBotDifficulty, isVoidRuleEnabled: currentIsVoidRuleEnabled, isQuickGame: currentIsQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
+        isPublic, status: 'waiting', expiresAt, matchType: currentMatchType,
         version: 2,
         lastPing: Date.now(),
         openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length
@@ -572,6 +583,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       setSeats(newSeats);
       setIsTeamMode(isTeamModeLocal);
       setPendingGameId(newGameId);
+      
+      if (overrideConfig) {
+        setMatchType(currentMatchType);
+        setIsQuickGame(currentIsQuickGame);
+        setIsVoidRuleEnabled(currentIsVoidRuleEnabled);
+      }
     } catch (error) {
       console.error("Firebase Error:", error);
       alert(t('failedToCreateLobby', "Failed to create online lobby. Please check your Firestore Security Rules in the Firebase Console!"));
@@ -580,13 +597,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     }
   };
 
-  const handleFindMatch = async () => {
+  const handleFindMatch = async (overrideConfig = null) => {
     setIsSearching(true);
+    const currentMatchType = overrideConfig?.matchType || matchType;
+    const currentIsQuickGame = overrideConfig?.isQuickGame ?? isQuickGame;
+    const currentIsVoidRuleEnabled = overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled;
+
     const availableGameId = await findRandomPublicGame({
-      matchType,
-      isQuickGame,
-      isTeamMode: matchType === '2v2',
-      isVoidRuleEnabled
+      matchType: currentMatchType,
+      isQuickGame: currentIsQuickGame,
+      isTeamMode: currentMatchType === '2v2',
+      isVoidRuleEnabled: currentIsVoidRuleEnabled
     });
 
     if (availableGameId) {
@@ -594,8 +615,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         const lobbySnap = await rtdbGet(rtdbRef(rtdb, 'lobbies/' + availableGameId));
         if (lobbySnap.exists()) {
           const data = lobbySnap.val();
-          if (data.matchType !== matchType || (data.lastPing && Date.now() - data.lastPing > 25000)) {
-            await handleHostOnlineClick(true);
+          if (data.matchType !== currentMatchType || (data.lastPing && Date.now() - data.lastPing > 25000)) {
+            await handleHostOnlineClick(true, overrideConfig);
             setIsSearching(false);
             return;
           }
@@ -604,11 +625,19 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         console.error("Lobby validation failed", e);
       }
 
+      if (overrideConfig) {
+        setMatchType(currentMatchType);
+        setIsQuickGame(currentIsQuickGame);
+        setIsTeamMode(currentMatchType === '2v2');
+        setIsVoidRuleEnabled(currentIsVoidRuleEnabled);
+        setBotDifficulty(overrideConfig.botDifficulty || botDifficulty);
+      }
+
       window.history.pushState({}, '', `?join=${availableGameId}`);
       onReconnectOnline(availableGameId);
     } else {
       // No games found. Host a new public game!
-      await handleHostOnlineClick(true);
+      await handleHostOnlineClick(true, overrideConfig);
     }
     setIsSearching(false);
   };
@@ -636,17 +665,25 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };
 
-  let inviteUrl = '';
-  if (activeLobbyId) {
+  useEffect(() => {
+    if (!activeLobbyId) {
+      setInviteUrl('');
+      return;
+    }
+    const defaultUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try {
-        inviteUrl = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
-      } catch(e) {}
+      const fetchLink = async () => {
+        try {
+          if (window.cgInitPromise) await window.cgInitPromise;
+          const link = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
+          setInviteUrl(link || defaultUrl);
+        } catch(e) { setInviteUrl(defaultUrl); }
+      };
+      fetchLink();
+    } else {
+      setInviteUrl(defaultUrl);
     }
-    if (!inviteUrl) {
-      inviteUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
-    }
-  }
+  }, [activeLobbyId]);
 
   return (
     <>
@@ -736,6 +773,28 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
           <div className="w-full flex flex-col gap-3 animate-fade-in">
+            {import.meta.env.VITE_IS_PORTAL ? (
+              <>
+                <button onClick={() => {
+                  const newSeats = {
+                    Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+                    Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
+                    Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
+                    Player4: { type: 'bot', color: 'amber', name: '', uid: null }
+                  };
+                  executeStart(false, null, { seats: newSeats, isQuickGame: false, isTeamMode: false, botDifficulty: 'easy', isVoidRuleEnabled: true });
+                }} className="w-full py-5 flex items-center justify-center gap-4 bg-gold text-charcoal font-display font-bold text-2xl uppercase rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.5)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+                  {t('playNow', 'PLAY NOW')}
+                </button>
+                <button onClick={() => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' })} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-4 bg-emerald text-charcoal font-display font-bold text-xl uppercase rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 transition-all">
+                  {isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
+                </button>
+                <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-3 bg-white/10 text-white font-sans text-sm font-bold uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all border border-white/10 mt-2">
+                  {t('customGame', 'CUSTOM GAME')}
+                </button>
+              </>
+            ) : (
+              <>
             <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--color-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
@@ -750,6 +809,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
             </button>
+              </>
+            )}
 
             {(hasCachedGame || lastOnlineGameId) && (
               <div className="flex gap-2 w-full mt-2">
@@ -844,7 +905,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 </button>
               )}
               {setupMode === 'public' && (
-                <button onClick={handleFindMatch} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
                   {isSearching ? t('searching', 'SEARCHING...') : t('findMatch', 'FIND MATCH')}
                 </button>
               )}

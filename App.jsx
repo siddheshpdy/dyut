@@ -71,11 +71,6 @@ function App() {
 
   // Preload heavy assets (sounds and gifs) in the background so they are instantly ready during gameplay
   useEffect(() => {
-    // CrazyGames SDK: Loading Tracking
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try { window.CrazyGames.SDK.game.sdkGameLoadingStart(); } catch(e) {}
-    }
-
     const audioFiles = [
       `${import.meta.env.BASE_URL}sounds/dice-roll.mp3`,
       `${import.meta.env.BASE_URL}sounds/capture.mp3`,
@@ -147,8 +142,13 @@ function App() {
     let unsubFunc = null;
     initializeAuth().then(unsub => { 
       unsubFunc = unsub; 
-      if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-        try { window.CrazyGames.SDK.game.sdkGameLoadingStop(); } catch(e) {}
+      if (import.meta.env.VITE_IS_PORTAL) {
+        const stopLoading = () => { try { window.CrazyGames.SDK.game.loadingStop(); } catch(e) {} };
+        if (window.cgInitPromise) {
+          window.cgInitPromise.then(stopLoading);
+        } else {
+          stopLoading();
+        }
       }
     });
     
@@ -161,19 +161,6 @@ function App() {
       window.removeEventListener('dyut-mute-change', handleMuteChange);
     };
   }, []);
-
-  // CrazyGames SDK: Gameplay Tracking
-  useEffect(() => {
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
-      try {
-        if (view === 'game') {
-          window.CrazyGames.SDK.game.gameplayStart();
-        } else {
-          window.CrazyGames.SDK.game.gameplayStop();
-        }
-      } catch (e) { console.error("CrazyGames event error:", e); }
-    }
-  }, [view]);
 
   const handleStartNewGame = (config) => {
     if (hasCachedGame) {
@@ -290,7 +277,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
+    <main className="min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
