@@ -28,6 +28,7 @@ const RulesScreen = ({ onBack }) => {
             <li><strong>{t('rulesCombat3Strong')}</strong>{t('rulesCombat3')}</li>
             <li><strong>{t('rulesCombat4Strong')}</strong>{t('rulesCombat4')}</li>
             <li><strong>{t('rulesCombat5Strong')}</strong>{t('rulesCombat5')}</li>
+            <li><strong>{t('rulesCombat6Strong')}</strong>{t('rulesCombat6')}</li>
           </ul>
         </section>
 

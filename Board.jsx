@@ -145,8 +145,10 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
   
   const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
+  const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
+  const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
   const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
-  const canSpawn = activePlayerId === playerId && hasValidSpawn && !isRollingPhaseActive && !isAnimating;
+  const canSpawn = isMyTurn && !isBotPlaying && activePlayerId === playerId && hasValidSpawn && !isRollingPhaseActive && !isAnimating;
 
   const baseColorClass = {
     yellow: 'bg-piece-yellow',
@@ -467,9 +469,10 @@ const Board = ({ onGoToMenu }) => {
   const handlePieceClick = (playerId, pieceIndex) => {
     // Can only select pieces if it's your turn and you have rolls in the queue
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
+    const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
+    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
 
-    if (!isMyTurn || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive || isAnimating) {
+    if (!isMyTurn || isBotPlaying || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive || isAnimating) {
       setSelectedPiece(null);
       return;
     }
@@ -531,7 +534,10 @@ const Board = ({ onGoToMenu }) => {
 
   const handleSpawnClick = (playerId, pieceIndex) => {
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    if (activePlayerId !== playerId || isRollingPhaseActive) return;
+    const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
+    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+
+    if (!isMyTurn || isBotPlaying || activePlayerId !== playerId || isRollingPhaseActive) return;
     
     const validDoubleIndex = state.turnQueue.findIndex(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
     if (validDoubleIndex !== -1) {
@@ -608,37 +614,63 @@ const Board = ({ onGoToMenu }) => {
     return [];
   }, [selectedPiece, activeRoll, state.players]);
 
-  // Find which pieces are on which cells
-  const getOccupants = (cellId) => {
-    const occupants = [];
+  // Render active pieces globally over the grid so they don't unmount and can use CSS transitions
+  const renderActivePieces = () => {
+    const cellGroups = {};
     const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    const isMyTurn = !state.isOnline || state.playerUids[activePlayerId] === state.localUid || (state.bots?.includes(activePlayerId) && state.localUid === state.hostUid);
+    const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
+    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
 
     Object.entries(visualPlayers).forEach(([playerId, player]) => {
-      const isCurrentPlayer = state.currentPlayer === playerId;
-      const isActiveOrProxy = playerId === activePlayerId;
-      const hasRolls = state.turnQueue.length > 0;
       player.pieces.forEach((pos, pieceIndex) => {
-        const logicalId = PLAYER_PATHS[playerId][pos];
-        const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
-
-        if (pos !== -1 && pos < 999 && visualId === cellId) {
-          let isMovable = isMyTurn && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
-
-          occupants.push({
-            playerId,
-            color: player.color,
-            pieceIndex,
-            isMovable,
-            isHomeStretch: logicalId.includes('_HOME'),
-            onClick: () => {
-              handlePieceClick(playerId, pieceIndex);
-            }
-          });
+        if (pos !== -1 && pos !== 999) {
+          const logicalId = PLAYER_PATHS[playerId][pos];
+          const visualId = logicalId ? logicalId.replace('_HOME', '') : null;
+          if (visualId) {
+            if (!cellGroups[visualId]) cellGroups[visualId] = [];
+            cellGroups[visualId].push({ playerId, player, pieceIndex, pos, logicalId });
+          }
         }
       });
     });
-    return occupants;
+
+    const piecesToRender = [];
+
+    Object.entries(cellGroups).forEach(([cellId, occupants]) => {
+      const targetCell = cells.find(c => c.id === cellId);
+      if (!targetCell) return;
+      
+      occupants.forEach((occ, i) => {
+        let offsetClass = '';
+        if (occupants.length === 2) {
+          offsetClass = i === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
+        } else if (occupants.length === 3) {
+          offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
+        } else if (occupants.length >= 4) {
+          offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : i === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
+        }
+
+        const isActiveOrProxy = occ.playerId === activePlayerId;
+        const hasRolls = state.turnQueue.length > 0;
+        const isMovable = isMyTurn && !isBotPlaying && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
+        const isHomeStretch = occ.logicalId.includes('_HOME');
+
+        piecesToRender.push(
+          <div 
+            key={`${occ.playerId}-${occ.pieceIndex}`}
+            style={{ gridColumn: targetCell.gridCol || targetCell.gridColumn, gridRow: targetCell.gridRow }}
+            className={`flex items-center justify-center transition-transform duration-100 ease-linear ${isMovable ? 'cursor-pointer hover:scale-110 z-50' : 'cursor-default z-40'} ${offsetClass}`}
+            onClick={(e) => { e.stopPropagation(); handlePieceClick(occ.playerId, occ.pieceIndex); }}
+          >
+            <div className="w-[80%] h-[80%] flex items-center justify-center pointer-events-none">
+              <Piece color={occ.player.color} isMovable={isMovable} isHomeStretch={isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
+            </div>
+          </div>
+        );
+      });
+    });
+    
+    return piecesToRender;
   };
 
   return (
@@ -653,8 +685,11 @@ const Board = ({ onGoToMenu }) => {
         {winnerInfo && <VictoryScreen winnerId={winnerInfo.id} onNewGame={onGoToMenu} />}
 
         {cells.map(cell => (
-          <Square key={cell.id} cell={cell} occupants={getOccupants(cell.id)} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces} />
+          <Square key={cell.id} cell={cell} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces} />
         ))}
+        
+        {/* Render Global Pieces */}
+        {renderActivePieces()}
         
         {/* Render the 4 player bases */}
         {activeBases.map(base => (

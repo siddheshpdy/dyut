@@ -20,6 +20,8 @@ function evaluateMove(playerId, currentPos, targetPos, state) {
     score += (targetPos - currentPos) * AI_WEIGHTS.DISTANCE;
 
     const path = PLAYER_PATHS[playerId];
+    const player = state.players[playerId];
+
     if (targetPos >= path.length - 1) return score + AI_WEIGHTS.FINISH;
 
     const targetCellId = path[targetPos];
@@ -28,6 +30,18 @@ function evaluateMove(playerId, currentPos, targetPos, state) {
     if (willMoveKill(targetPos, playerId, state)) score += AI_WEIGHTS.KILL;
     if (isSafe) score += AI_WEIGHTS.SAFE_ZONE;
     if (targetCellId && targetCellId.includes('_HOME')) score += AI_WEIGHTS.HOME_STRETCH;
+
+    // Penalize moving too close to the Home Stretch without paying Blood Debt
+    if (!player.hasKilled) {
+        const homeStretchStartIndex = path.findIndex(cell => cell && cell.includes('_HOME'));
+        if (homeStretchStartIndex !== -1) {
+            const distanceToHome = homeStretchStartIndex - targetPos;
+            // If within 12 squares of the blocked entrance, apply an increasing penalty
+            if (distanceToHome >= 0 && distanceToHome < 12) {
+                score -= (12 - distanceToHome) * 5; // e.g. 1 space away = -55 points
+            }
+        }
+    }
 
     // Detect forming a pair shield
     const occupants = getOccupantsOfPathIndex(targetPos, playerId, state.players);
@@ -50,11 +64,26 @@ export function getBestAIMove(originalPlayerId, state, difficulty = 'hard') {
     const isDouble = activeRoll.d1 === activeRoll.d2 && activeRoll.d2 !== null;
     let possibleMoves = [];
 
+    // Dynamic Spawn Priority: Heavily prioritize spawning if board presence is low or blood debt is unpaid
+    let currentSpawnScore = AI_WEIGHTS.SPAWN;
+    const activePieces = player.pieces.filter(p => p !== -1 && p !== 999).length;
+    if (activePieces === 0) currentSpawnScore += 200; // Absolute must-spawn
+    else if (!player.hasKilled) currentSpawnScore += 80; // Need more hunters on the board
+    else if (activePieces === 1) currentSpawnScore += 40; // Good to have backups
+
     // 1. Spawning Check
     if (isDouble) {
-        const lockedIndex = player.pieces.findIndex(p => p === -1);
-        if (lockedIndex !== -1 && canSpawnPiece(playerId, activeRoll.sum, state)) {
-            possibleMoves.push({ action: { type: ACTION_TYPES.SPAWN_PIECE, payload: { playerId, pieceIndex: lockedIndex, rollIndex: 0 } }, score: AI_WEIGHTS.SPAWN });
+        const lockedIndices = player.pieces.map((p, i) => p === -1 ? i : -1).filter(i => i !== -1);
+        if (lockedIndices.length > 0) {
+            const spawnStatus = canSpawnPiece(playerId, activeRoll.sum, state);
+            if (spawnStatus === 'DUAL_SPAWN') {
+                const doubleRollIndices = state.turnQueue.map((r, i) => r.sum === activeRoll.sum && r.d1 === r.d2 && r.d2 !== null ? i : -1).filter(i => i !== -1);
+                if (lockedIndices.length >= 2 && doubleRollIndices.length >= 2) {
+                    possibleMoves.push({ action: { type: ACTION_TYPES.DUAL_SPAWN_ATTACK, payload: { playerId, pieceIndices: [lockedIndices[0], lockedIndices[1]], rollIndices: [doubleRollIndices[0], doubleRollIndices[1]] } }, score: AI_WEIGHTS.BREAK_PAIR_SHIELD + 100 });
+                }
+            } else if (spawnStatus) {
+                possibleMoves.push({ action: { type: ACTION_TYPES.SPAWN_PIECE, payload: { playerId, pieceIndex: lockedIndices[0], rollIndex: 0 } }, score: currentSpawnScore });
+            }
         }
     }
 
@@ -116,7 +145,10 @@ export function getBestAIMove(originalPlayerId, state, difficulty = 'hard') {
     
     // Artificial Humanization: 15% chance to pick the 2nd best move (simulating a human mistake/oversight)
     if (difficulty === 'hard' && possibleMoves.length > 1 && Math.random() < 0.15) {
-        return possibleMoves[1].action;
+        // Only make a mistake if the second best move isn't completely catastrophic compared to the best
+        if (possibleMoves[0].score - possibleMoves[1].score < 60) {
+            return possibleMoves[1].action;
+        }
     }
 
     return possibleMoves[0].action; // Return best calculated move
