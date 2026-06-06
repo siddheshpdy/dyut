@@ -406,6 +406,12 @@ const Board = ({ onGoToMenu }) => {
 
     if (winnerInfo) {
       stopCgGameplay();
+      // Trigger CrazyGames Happy Time confetti overlay for the victory!
+      try {
+        if (window.CrazyGames?.SDK?.game?.happytime) {
+          window.CrazyGames.SDK.game.happytime();
+        }
+      } catch(e) {}
     } else {
       startCgGameplay();
     }

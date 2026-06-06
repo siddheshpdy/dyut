@@ -111,6 +111,7 @@ const PlayerProfile = ({ user }) => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [cgUser, setCgUser] = useState(null);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -119,6 +120,11 @@ const PlayerProfile = ({ user }) => {
         if (window.CrazyGames?.SDK) {
           try {
             if (window.cgInitPromise) await window.cgInitPromise;
+            try {
+              const systemUser = await window.CrazyGames.SDK.user.getUser();
+              if (systemUser) setCgUser(systemUser);
+            } catch (e) { console.error("CrazyGames user error:", e); }
+
             let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
             if (typeof data === 'string') data = JSON.parse(data);
             if (data) setStats(data);
@@ -139,9 +145,30 @@ const PlayerProfile = ({ user }) => {
     }
   }, [user]);
 
-  if (!user) return <div className="h-10"></div>;
+  if (!user && !import.meta.env.VITE_IS_PORTAL) return <div className="h-10"></div>;
 
-  if (user.isAnonymous && !import.meta.env.VITE_IS_PORTAL) {
+  if (import.meta.env.VITE_IS_PORTAL && !cgUser) {
+    const handleCgSignIn = async () => {
+      if (!window.CrazyGames?.SDK) return;
+      setIsSigningIn(true);
+      try {
+        const systemUser = await window.CrazyGames.SDK.user.showAuthPrompt();
+        if (systemUser) setCgUser(systemUser);
+      } catch (e) { console.error("CrazyGames Auth error:", e); }
+      setIsSigningIn(false);
+    };
+
+    return (
+      <button type="button" onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
+        {isSigningIn ? (
+          <svg className="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        ) : (
+          <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        )}
+        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
+      </button>
+    );
+  } else if (user?.isAnonymous && !import.meta.env.VITE_IS_PORTAL) {
     const handleSignIn = () => {
       setIsSigningIn(true);
       signInWithGoogle().finally(() => {
@@ -169,7 +196,8 @@ const PlayerProfile = ({ user }) => {
     );
   }
 
-  const displayName = stats?.displayName || user.displayName || (import.meta.env.VITE_IS_PORTAL ? 'Portal Player' : 'Player');
+  const displayName = cgUser?.username || stats?.displayName || user?.displayName || (import.meta.env.VITE_IS_PORTAL ? 'Portal Player' : 'Player');
+  const photoURL = cgUser?.profilePictureUrl || user?.photoURL || stats?.photoURL;
 
   const handleEditSave = async () => {
     if (editName.trim() && editName.trim() !== displayName) {
@@ -201,8 +229,8 @@ const PlayerProfile = ({ user }) => {
   return (
     <div className="h-9 sm:h-10 flex items-center justify-between gap-2 sm:gap-4 bg-black/20 border border-white/5 pl-3 pr-2 sm:pl-4 sm:pr-3 py-1.5 sm:py-2 rounded-full z-20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] animate-fade-in">
       <div className="flex items-center gap-2 sm:gap-3">
-        {user.photoURL || stats?.photoURL ? (
-          <img src={user.photoURL || stats?.photoURL} alt="Profile" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-white/20 shadow-md" />
+        {photoURL ? (
+          <img src={photoURL} alt="Profile" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-white/20 shadow-md object-cover" />
         ) : (
           <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gold flex items-center justify-center text-charcoal font-bold text-xs sm:text-sm shadow-md">
             {displayName.charAt(0).toUpperCase()}
@@ -221,11 +249,13 @@ const PlayerProfile = ({ user }) => {
               className="w-24 bg-black/40 border border-gold/50 rounded px-1 py-0.5 text-xs font-bold text-white/90 focus:outline-none"
             />
           ) : (
-            <div className="flex items-center gap-1.5 group cursor-pointer" onClick={() => { setEditName(displayName); setIsEditing(true); }} title={t('editName', 'Edit Name')}>
+            <div className={`flex items-center gap-1.5 ${cgUser ? '' : 'group cursor-pointer'}`} onClick={() => { if (!cgUser) { setEditName(displayName); setIsEditing(true); } }} title={cgUser ? '' : t('editName', 'Edit Name')}>
               <span className="text-[10px] sm:text-xs font-bold text-white/90 leading-none truncate max-w-[80px] sm:max-w-[120px]">{displayName}</span>
-              <svg className="w-3 h-3 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
+              {!cgUser && (
+                <svg className="w-3 h-3 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              )}
             </div>
           )}
           {stats && (
@@ -366,6 +396,26 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     }
   }, [lobbyExpiresAt, activeLobbyId, lobbyStatus]);
 
+  // Push room status updates to CrazyGames SDK for external invite link locking and portal UI
+  const updateCrazyGamesRoom = async (action, targetSeats) => {
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK && activeLobbyId) {
+      try {
+        if (window.cgInitPromise) await window.cgInitPromise;
+        const humanSeats = Object.values(targetSeats).filter(s => s.type === 'human');
+        const claimedSeats = humanSeats.filter(s => s.uid);
+        
+        if (typeof window.CrazyGames.SDK.game.updateRoom === 'function') {
+          window.CrazyGames.SDK.game.updateRoom({
+            roomId: activeLobbyId,
+            action: action, // 'update', 'start'
+            playerCount: claimedSeats.length,
+            maxPlayerCount: humanSeats.length
+          });
+        }
+      } catch (e) { console.error("CrazyGames updateRoom error:", e); }
+    }
+  };
+
   const isStartingRef = useRef(false);
 
   useEffect(() => {
@@ -389,6 +439,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         });
         try {
           await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
+          updateCrazyGamesRoom('start', finalSeats);
         } catch (e) {
           console.error("AutoStart sync error:", e);
         }
@@ -406,6 +457,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
           updates.openSeats = Object.values(value).filter(s => s.type === 'human' && !s.uid).length;
         }
         await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates); 
+        if (field === 'seats') {
+          updateCrazyGamesRoom('update', value);
+        }
       } catch (e) { 
         console.error("Sync error:", e); 
         alert(`Failed to sync ${field}. Check console for details.`);
@@ -661,6 +715,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     if (finalSeats) updates.seats = finalSeats;
     try {
       await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates);
+      updateCrazyGamesRoom('start', finalSeats || seats);
     } catch (e) { console.error(e); }
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };
@@ -671,15 +726,27 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       return;
     }
     const defaultUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
+    let isMounted = true;
+
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
       const fetchLink = async () => {
         try {
           if (window.cgInitPromise) await window.cgInitPromise;
+          if (!isMounted) return;
+          
           const link = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
           setInviteUrl(link || defaultUrl);
+          
+          // Render the native CrazyGames social invite overlay button
+          window.CrazyGames.SDK.game.showInviteButton({ roomId: activeLobbyId });
         } catch(e) { setInviteUrl(defaultUrl); }
       };
       fetchLink();
+
+      return () => {
+        isMounted = false;
+        try { window.CrazyGames.SDK.game.hideInviteButton(); } catch(e) {}
+      };
     } else {
       setInviteUrl(defaultUrl);
     }

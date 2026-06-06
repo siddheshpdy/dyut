@@ -16,7 +16,7 @@ const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 
-const GameOverlay = ({ onShowRules, onReturnToMenu, isMuted, toggleMute }) => {
+const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
   const { t } = useTranslation();
   const { state, leaveGame } = useGame();
   
@@ -32,13 +32,6 @@ const GameOverlay = ({ onShowRules, onReturnToMenu, isMuted, toggleMute }) => {
 
   return (
     <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-3 z-50">
-      <button onClick={toggleMute} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-        {isMuted ? (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-        )}
-      </button>
       <button onClick={onShowRules} className="px-4 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('rules', 'Rules')}>
         {t('rules', 'Rules')}
       </button>
@@ -143,12 +136,32 @@ function App() {
     initializeAuth().then(unsub => { 
       unsubFunc = unsub; 
       if (import.meta.env.VITE_IS_PORTAL) {
-        const stopLoading = () => { try { window.CrazyGames.SDK.game.loadingStop(); } catch(e) {} };
-        if (window.cgInitPromise) {
-          window.cgInitPromise.then(stopLoading);
-        } else {
-          stopLoading();
-        }
+        const setupCrazyGames = async () => {
+          try {
+            if (window.cgInitPromise) await window.cgInitPromise;
+            if (!isMounted) return;
+            
+            window.CrazyGames.SDK.game.loadingStop();
+            
+            // 1. Handle boot-time invites (if the player loaded the game via an invite link)
+            try {
+              const bootRoomId = window.CrazyGames.SDK.game.getInviteParam('roomId');
+              if (bootRoomId) {
+                setJoinGameId(bootRoomId);
+              }
+            } catch (e) { console.warn("CrazyGames getInviteParam failed:", e); }
+            
+            // 2. Listen for runtime invites
+            window.CrazyGames.SDK.game.inviteLinkListener((params) => {
+              if (params && params.roomId) {
+                setJoinGameId(params.roomId);
+              }
+            });
+          } catch (e) {
+            console.error("CrazyGames SDK setup failed:", e);
+          }
+        };
+        setupCrazyGames();
       }
     });
     
@@ -161,6 +174,27 @@ function App() {
       window.removeEventListener('dyut-mute-change', handleMuteChange);
     };
   }, []);
+
+  // Centralized function to call midgame ads and handle audio muting
+  const triggerMidgameAd = () => {
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      // Save the user's current mute preference before the ad forces a mute
+      const wasMuted = localStorage.getItem('dyut_muted') === 'true';
+
+      const callbacks = {
+        adStarted: () => {
+          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true }));
+        },
+        adFinished: () => {
+          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: wasMuted }));
+        },
+        adError: () => {
+          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: wasMuted }));
+        },
+      };
+      window.CrazyGames.SDK.ad.requestAd('midgame', callbacks);
+    }
+  };
 
   const handleStartNewGame = (config) => {
     if (hasCachedGame) {
@@ -205,6 +239,7 @@ function App() {
     setJoinGameId(null);
     setGameConfig(null);
     setView('menu');
+    triggerMidgameAd();
   };
 
   const handleReturnToMenu = () => {
@@ -212,6 +247,7 @@ function App() {
     setJoinGameId(null);
     setGameConfig(null);
     setView('menu');
+    triggerMidgameAd();
   };
 
   const renderView = () => {
@@ -248,7 +284,7 @@ function App() {
               <h1 className="dyut-title text-2xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
             </div>
             {/* Minimalist Top-Right Action Menu */}
-            <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} isMuted={isMuted} toggleMute={toggleMute} />
+            <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} />
             <div className="flex flex-col lg:flex-row items-center justify-center gap-6 sm:gap-8 w-full z-10 relative pt-16 lg:pt-0 pb-8 lg:pb-0">
               <Board onGoToMenu={handleWipeAndGoToMenu} />
               <DiceTray />
@@ -278,6 +314,14 @@ function App() {
 
   return (
     <main className="min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
+      {/* Global Mute Button */}
+      <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+        {isMuted ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+        )}
+      </button>
       {/* Abstract Blurred Board Background for Menus */}
       {view !== 'game' && (
         <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">

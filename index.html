@@ -9,22 +9,27 @@
     <meta name="description" content="Play Dyut, a fast-paced, strategic cross-and-circle Indian board game similar to Chaupar and Chausar. Enjoy local play, online multiplayer, or challenge AI bots." />
     <meta name="theme-color" content="#161616" />
     
-    <!-- CrazyGames SDK -->
-    <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+    <!-- Portal SDK Setup -->
     <script>
       if ("%VITE_IS_PORTAL%" === "true") {
-        window.cgInitPromise = new Promise((resolve) => {
-          const initCg = () => {
-            window.CrazyGames.SDK.init().then(() => {
-              window.CrazyGames.SDK.game.loadingStart();
-              resolve();
-            }).catch(console.error);
+        window.cgInitPromise = new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+          script.onload = () => {
+            const initCg = () => {
+              window.CrazyGames.SDK.init().then(() => {
+                window.CrazyGames.SDK.game.loadingStart();
+                resolve();
+              }).catch(console.error);
+            };
+            if (document.readyState === "loading") {
+              document.addEventListener("DOMContentLoaded", initCg);
+            } else {
+              initCg();
+            }
           };
-          if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", initCg);
-          } else {
-            initCg();
-          }
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
       }
     </script>
