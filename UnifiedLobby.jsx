@@ -116,6 +116,8 @@ const PlayerProfile = ({ user }) => {
 
   useEffect(() => {
     if (import.meta.env.VITE_IS_PORTAL) {
+      let authListener = null;
+
       const fetchPortalStats = async () => {
         if (window.CrazyGames?.SDK) {
           try {
@@ -123,6 +125,12 @@ const PlayerProfile = ({ user }) => {
             try {
               const systemUser = await window.CrazyGames.SDK.user.getUser();
               if (systemUser) setCgUser(systemUser);
+
+              // Listen for users signing in from the portal's native top-bar (outside the iframe)
+              authListener = (sysUser) => {
+                if (sysUser) setCgUser(sysUser);
+              };
+              window.CrazyGames.SDK.user.addAuthListener(authListener);
             } catch (e) { console.error("CrazyGames user error:", e); }
 
             let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
@@ -132,7 +140,11 @@ const PlayerProfile = ({ user }) => {
         }
       };
       setTimeout(fetchPortalStats, 500); // Give SDK time to init
-      return;
+      return () => {
+        if (authListener && window.CrazyGames?.SDK?.user?.removeAuthListener) {
+          try { window.CrazyGames.SDK.user.removeAuthListener(authListener); } catch(e) {}
+        }
+      };
     }
 
     if (user && !user.isAnonymous) {
@@ -403,13 +415,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         if (window.cgInitPromise) await window.cgInitPromise;
         const humanSeats = Object.values(targetSeats).filter(s => s.type === 'human');
         const claimedSeats = humanSeats.filter(s => s.uid);
+        const isFull = humanSeats.length > 0 && humanSeats.length === claimedSeats.length;
         
         if (typeof window.CrazyGames.SDK.game.updateRoom === 'function') {
           window.CrazyGames.SDK.game.updateRoom({
             roomId: activeLobbyId,
-            action: action, // 'update', 'start'
+            action: action === 'start' || isFull ? 'start' : 'update',
             playerCount: claimedSeats.length,
-            maxPlayerCount: humanSeats.length
+            maxPlayerCount: humanSeats.length,
+            isJoinable: action !== 'start' && !isFull,
+            inviteParams: { roomId: activeLobbyId }
           });
         }
       } catch (e) { console.error("CrazyGames updateRoom error:", e); }
@@ -734,7 +749,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
           if (window.cgInitPromise) await window.cgInitPromise;
           if (!isMounted) return;
           
-          const link = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
+          const link = await window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
           setInviteUrl(link || defaultUrl);
           
           // Render the native CrazyGames social invite overlay button
@@ -751,6 +766,40 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       setInviteUrl(defaultUrl);
     }
   }, [activeLobbyId]);
+
+  // Request CrazyGames Banner Ad on Desktop
+  useEffect(() => {
+    if (import.meta.env.VITE_IS_PORTAL) {
+      let isMounted = true;
+      const showBanners = async () => {
+        try {
+          if (window.cgInitPromise) await window.cgInitPromise;
+          if (!isMounted) return;
+          // Only request the banners if the screen is large enough (XL Desktop) to avoid UI overlap
+          if (window.innerWidth >= 1280 && window.CrazyGames?.SDK?.banner) {
+            await window.CrazyGames.SDK.banner.requestBanner({
+              id: 'cg-lobby-banner-left',
+              width: 300,
+              height: 600
+            });
+            await window.CrazyGames.SDK.banner.requestBanner({
+              id: 'cg-lobby-banner-right',
+              width: 300,
+              height: 600
+            });
+          }
+        } catch (e) { console.warn("CrazyGames banner error:", e); }
+      };
+      const timeoutId = setTimeout(showBanners, 500); // Give DOM time to render the containers
+      return () => {
+        isMounted = false;
+        clearTimeout(timeoutId);
+        if (window.CrazyGames?.SDK?.banner) {
+          try { window.CrazyGames.SDK.banner.clearAllBanners(); } catch (e) {}
+        }
+      };
+    }
+  }, []);
 
   return (
     <>
@@ -1035,7 +1084,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                   {t('waitingForHost', 'Waiting for Host...')}
                 </div>
             )}
-              <button onClick={() => window.location.href = window.location.pathname} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
+              <button onClick={async () => {
+                if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+                  try { await window.CrazyGames.SDK.game.leftRoom(); } catch(e){}
+                }
+                window.location.href = window.location.pathname;
+              }} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
                 {t('leaveLobby', 'Leave Lobby')}
               </button>
             </div>
@@ -1043,6 +1097,22 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         )}
       </div>
     </div>
+
+    {/* Desktop Banner Ad Containers */}
+    {import.meta.env.VITE_IS_PORTAL && (
+      <>
+        {/* Left Banner */}
+        <div className="hidden xl:flex fixed left-4 2xl:left-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
+          <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Advertisement</span>
+          <div id="cg-lobby-banner-left" className="w-[300px] h-[600px] bg-black/20 rounded-xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex items-center justify-center"></div>
+        </div>
+        {/* Right Banner */}
+        <div className="hidden xl:flex fixed right-4 2xl:right-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
+          <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Advertisement</span>
+          <div id="cg-lobby-banner-right" className="w-[300px] h-[600px] bg-black/20 rounded-xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex items-center justify-center"></div>
+        </div>
+      </>
+    )}
     </>
   );
 };

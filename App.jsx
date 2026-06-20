@@ -80,7 +80,14 @@ function App() {
 
     // Parse URL for joining online games
     const urlParams = new URLSearchParams(window.location.search);
-    const joinId = urlParams.get('join');
+    let joinId = urlParams.get('join') || urlParams.get('roomId');
+    
+    // Fallback for portals that inject parameters into the hash fragment
+    if (!joinId && window.location.hash.includes('?')) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')));
+      joinId = hashParams.get('join') || hashParams.get('roomId');
+    }
+
     if (joinId) {
       setJoinGameId(joinId);
     }
@@ -88,6 +95,7 @@ function App() {
     setLastOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
 
     let isMounted = true;
+    let cgJoinListener = null;
 
     const initializeAuth = async () => {
       // First, check for a redirect result. This needs to be awaited to prevent
@@ -143,20 +151,21 @@ function App() {
             
             window.CrazyGames.SDK.game.loadingStop();
             
-            // 1. Handle boot-time invites (if the player loaded the game via an invite link)
+            // 1. Check for boot-time invites via inviteParams property
             try {
-              const bootRoomId = window.CrazyGames.SDK.game.getInviteParam('roomId');
-              if (bootRoomId) {
-                setJoinGameId(bootRoomId);
+              const inviteParams = window.CrazyGames.SDK.game.inviteParams;
+              if (inviteParams && inviteParams.roomId) {
+                setJoinGameId(inviteParams.roomId);
               }
-            } catch (e) { console.warn("CrazyGames getInviteParam failed:", e); }
-            
-            // 2. Listen for runtime invites
-            window.CrazyGames.SDK.game.inviteLinkListener((params) => {
-              if (params && params.roomId) {
-                setJoinGameId(params.roomId);
+            } catch (e) { console.warn("CrazyGames inviteParams error:", e); }
+
+            cgJoinListener = (inviteParams) => {
+              if (inviteParams && inviteParams.roomId) {
+                setView('menu'); // Force route to lobby if they are in a match/tutorial
+                setJoinGameId(inviteParams.roomId);
               }
-            });
+            };
+            window.CrazyGames.SDK.game.addJoinRoomListener(cgJoinListener);
           } catch (e) {
             console.error("CrazyGames SDK setup failed:", e);
           }
@@ -172,6 +181,9 @@ function App() {
       isMounted = false;
       if (unsubFunc) unsubFunc();
       window.removeEventListener('dyut-mute-change', handleMuteChange);
+      if (cgJoinListener && window.CrazyGames?.SDK) {
+        try { window.CrazyGames.SDK.game.removeJoinRoomListener(cgJoinListener); } catch (e) {}
+      }
     };
   }, []);
 
@@ -240,6 +252,9 @@ function App() {
     setGameConfig(null);
     setView('menu');
     triggerMidgameAd();
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      try { window.CrazyGames.SDK.game.leftRoom(); } catch (e) {}
+    }
   };
 
   const handleReturnToMenu = () => {
@@ -248,6 +263,9 @@ function App() {
     setGameConfig(null);
     setView('menu');
     triggerMidgameAd();
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+      try { window.CrazyGames.SDK.game.leftRoom(); } catch (e) {}
+    }
   };
 
   const renderView = () => {
