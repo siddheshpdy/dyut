@@ -13,6 +13,8 @@ const ALL_COLORS = [
   { name: 'amber', tw: 'bg-amber' },
 ];
 
+const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+
 const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
@@ -769,7 +771,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   // Request CrazyGames Banner Ad on Desktop
   useEffect(() => {
-    if (import.meta.env.VITE_IS_PORTAL) {
+    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED) {
       let isMounted = true;
       const showBanners = async () => {
         try {
@@ -944,6 +946,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 )}
               </div>
             )}
+            {import.meta.env.VITE_IS_PORTAL && (
+              <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
+                {t('portalLegalNotice', 'By playing Dyut on CrazyGames, you agree to the CrazyGames Terms & Conditions and Privacy Policy.')}
+              </p>
+            )}
           </div>
         )}
 
@@ -1099,7 +1106,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     </div>
 
     {/* Desktop Banner Ad Containers */}
-    {import.meta.env.VITE_IS_PORTAL && (
+    {import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && (
       <>
         {/* Left Banner */}
         <div className="hidden xl:flex fixed left-4 2xl:left-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">

@@ -15,6 +15,7 @@ import { onIdTokenChanged } from 'firebase/auth';
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
+const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 
 const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
   const { t } = useTranslation();
@@ -189,7 +190,7 @@ function App() {
 
   // Centralized function to call midgame ads and handle audio muting
   const triggerMidgameAd = () => {
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
       // Save the user's current mute preference before the ad forces a mute
       const wasMuted = localStorage.getItem('dyut_muted') === 'true';
 

@@ -114,6 +114,7 @@ The project expects Firebase environment variables, including:
 - `VITE_FIREBASE_DATABASE_URL`
 
 There is also portal-specific behavior gated by `VITE_IS_PORTAL`.
+CrazyGames ad calls are gated separately by `VITE_CG_ENABLE_ADS`; the Basic Launch portal build keeps this set to `false`.
 
 ## Testing
 

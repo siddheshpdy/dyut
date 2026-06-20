@@ -1,11 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
+const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+
 const VictoryScreen = ({ winnerId, onNewGame }) => {
   const { t } = useTranslation();
 
   const handlePlayAgain = () => {
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
       const showAd = async () => {
         try {
           if (window.cgInitPromise) await window.cgInitPromise;
