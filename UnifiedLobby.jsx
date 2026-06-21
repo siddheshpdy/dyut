@@ -15,6 +15,72 @@ const ALL_COLORS = [
 
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 
+const OrnateDivider = () => (
+  <div className="flex items-center justify-center gap-3 text-gold/60">
+    <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold/20"></span>
+    <span className="h-2 w-2 rotate-45 border border-gold/70"></span>
+    <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold/20"></span>
+  </div>
+);
+
+const LobbyModeCard = ({ tone, icon, title, description, onClick }) => {
+  const toneStyles = {
+    gold: {
+      text: 'text-gold',
+      border: 'border-gold/55',
+      glow: 'shadow-[0_0_28px_rgba(234,179,8,0.18)]',
+      wash: 'from-gold/20 via-gold/10 to-transparent',
+      icon: 'border-gold/60 bg-gold/15 text-gold shadow-[0_0_22px_rgba(234,179,8,0.22)]',
+    },
+    ruby: {
+      text: 'text-ruby',
+      border: 'border-ruby/55',
+      glow: 'shadow-[0_0_28px_rgba(220,38,38,0.16)]',
+      wash: 'from-ruby/20 via-ruby/10 to-transparent',
+      icon: 'border-ruby/60 bg-ruby/15 text-ruby shadow-[0_0_22px_rgba(220,38,38,0.22)]',
+    },
+    sapphire: {
+      text: 'text-sapphire',
+      border: 'border-sapphire/55',
+      glow: 'shadow-[0_0_28px_rgba(56,189,248,0.14)]',
+      wash: 'from-sapphire/20 via-sapphire/10 to-transparent',
+      icon: 'border-sapphire/60 bg-sapphire/15 text-sapphire shadow-[0_0_22px_rgba(56,189,248,0.2)]',
+    },
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:bg-black/65 sm:gap-5 sm:p-4 lg:gap-6 ${toneStyles.border} ${toneStyles.glow}`}
+    >
+      <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
+      <div className="absolute inset-y-3 right-8 hidden w-44 rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
+      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-24 lg:w-24 ${toneStyles.icon}`}>
+        {icon}
+      </div>
+      <div className="relative z-10 min-w-0 flex-1">
+        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-3xl ${toneStyles.text}`}>{title}</div>
+        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base">{description}</p>
+      </div>
+      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 ${toneStyles.text}`}>{'>'}</div>
+    </button>
+  );
+};
+
+const LobbyUtilityButton = ({ icon, label }) => (
+  <button
+    type="button"
+    className="group flex flex-col items-center gap-2 text-gold/75 transition-colors hover:text-gold"
+    title={label}
+  >
+    <span className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/35 bg-black/35 text-2xl shadow-[0_0_18px_rgba(234,179,8,0.12)] transition-all group-hover:border-gold/70 group-hover:bg-gold/10">
+      {icon}
+    </span>
+    <span className="hidden text-[10px] font-bold uppercase tracking-widest sm:block">{label}</span>
+  </button>
+);
+
 const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
@@ -803,15 +869,22 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     }
   }, []);
 
+  const isInitialMenu = !activeLobbyId && !setupMode;
+
   return (
     <>
-      {/* Top Navigation Bar */}
-      <header className="fixed top-0 left-0 w-full bg-transparent px-4 py-4 md:px-8 flex justify-between items-center z-50">
-        <div className="flex items-center order-1">
-          <LanguageSwitcher />
+      {isInitialMenu && (
+        <div className="fixed inset-0 z-0 overflow-hidden bg-[#070605]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.34),transparent_36%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(8,6,5,0.48)_28%,rgba(8,6,5,0.48)_72%,rgba(0,0,0,0.96))]"></div>
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-[radial-gradient(ellipse_at_center,rgba(126,32,18,0.42),transparent_58%)]"></div>
+          <div className="absolute inset-x-0 bottom-0 hidden h-40 bg-[linear-gradient(0deg,rgba(108,28,14,0.34),transparent)] lg:block"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,transparent_0,rgba(0,0,0,0.08)_38%,rgba(0,0,0,0.72)_100%)]"></div>
         </div>
-        
-        <div className="flex items-center order-2 gap-4">
+      )}
+      {/* Top Navigation Bar */}
+      <header className={`fixed top-0 left-0 z-50 grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 bg-transparent px-4 py-4 md:px-8 ${isInitialMenu ? 'lg:py-5' : ''}`}>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
           <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
             {isMuted ? (
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
@@ -819,13 +892,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
             )}
           </button>
-          <nav className="hidden md:flex items-center gap-6 mr-4">
-            <button onClick={onShowTutorial} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('howToPlay', 'How to Play')}</button>
-            <button onClick={onShowRules} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('rules', 'Rules')}</button>
-            <button onClick={onShowHistory} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('history', 'History')}</button>
-            <button onClick={onShowAbout} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('aboutUs', 'About Us')}</button>
-          </nav>
-          
+        </div>
+
+        <nav className="hidden items-center justify-center gap-7 md:flex">
+          <button onClick={onShowTutorial} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('howToPlay', 'How to Play')}</button>
+          <button onClick={onShowRules} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('rules', 'Rules')}</button>
+          <button onClick={onShowHistory} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('history', 'History')}</button>
+          <button onClick={onShowAbout} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('aboutUs', 'About Us')}</button>
+        </nav>
+        
+        <div className="flex items-center justify-end gap-3">
           <PlayerProfile user={user} />
           
           <div className="md:hidden relative flex items-center">
@@ -844,7 +920,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       </header>
 
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto">
+      <div className={`${isInitialMenu ? 'relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:pb-20 lg:pt-20' : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
@@ -885,12 +961,21 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       
-      <h1 className="dyut-title text-5xl font-bold mb-8 tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
+      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isInitialMenu ? 'mb-1 text-[clamp(3.25rem,8vw,6.25rem)] leading-none sm:mb-2' : 'mb-8 text-5xl'}`}>DYUT</h1>
+      {isInitialMenu && <OrnateDivider />}
       
-      <div className="w-full">
+      <div className={`${isInitialMenu ? 'mt-4 w-full max-w-[880px] sm:mt-6' : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className="w-full flex flex-col gap-3 animate-fade-in">
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-6' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+            {isInitialMenu && (
+              <>
+                <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
+                <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
+                <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
+                <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
+              </>
+            )}
             {import.meta.env.VITE_IS_PORTAL ? (
               <>
                 <button onClick={() => {
@@ -913,27 +998,75 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </>
             ) : (
               <>
-            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--color-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
-            </button>
+                {isInitialMenu ? (
+                  <div className="flex w-full flex-col gap-3 sm:gap-4">
+                    <LobbyModeCard
+                      tone="gold"
+                      icon={(
+                        <svg className="h-7 w-7 sm:h-10 sm:w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7 13.5h10"></path>
+                          <path d="M9 17h6"></path>
+                          <path d="M12 3.5a3.5 3.5 0 013.5 3.5c0 1.6-.96 2.8-2.1 3.3l1.1 3.2h-5l1.1-3.2A3.58 3.58 0 018.5 7 3.5 3.5 0 0112 3.5z"></path>
+                          <path d="M6.5 20.5h11"></path>
+                        </svg>
+                      )}
+                      title={t('localPlay', 'LOCAL PLAY')}
+                      description={t('localPlaySubtitle', 'Play with friends on the same device.')}
+                      onClick={() => { setSetupMode('local'); setSetupStep('config'); }}
+                    />
+                    <LobbyModeCard
+                      tone="ruby"
+                      icon={(
+                        <svg className="h-7 w-7 sm:h-10 sm:w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="8.5"></circle>
+                          <path d="M3.5 12h17"></path>
+                          <path d="M12 3.5c2.2 2.3 3.2 5.1 3.2 8.5s-1 6.2-3.2 8.5"></path>
+                          <path d="M12 3.5C9.8 5.8 8.8 8.6 8.8 12s1 6.2 3.2 8.5"></path>
+                        </svg>
+                      )}
+                      title={t('onlineMatch', 'ONLINE MATCH')}
+                      description={t('onlineMatchSubtitle', 'Compete with players around the world.')}
+                      onClick={() => { setSetupMode('public'); setSetupStep('config'); }}
+                    />
+                    <LobbyModeCard
+                      tone="sapphire"
+                      icon={(
+                        <svg className="h-7 w-7 sm:h-10 sm:w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+                          <path d="M8 10V7a4 4 0 018 0v3"></path>
+                          <path d="M12 14v2"></path>
+                        </svg>
+                      )}
+                      title={t('privateMatch', 'PRIVATE MATCH')}
+                      description={t('privateMatchSubtitle', 'Create or join a private room.')}
+                      onClick={() => { setSetupMode('private'); setSetupStep('config'); }}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--color-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
+                    </button>
 
-            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-              <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
-            </button>
+                    <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
+                    </button>
 
-            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-              <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
-            </button>
+                    <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
+                    </button>
+                  </>
+                )}
               </>
             )}
 
             {(hasCachedGame || lastOnlineGameId) && (
-              <div className="flex gap-2 w-full mt-2">
+              <div className={`${isInitialMenu ? 'mx-auto mt-4 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
-                  <button onClick={onResumeGame} className="flex-1 py-3 bg-white/5 text-white font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     {t('resumeOffline', 'Resume Offline')}
                   </button>
@@ -951,6 +1084,69 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 {t('portalLegalNotice', 'By playing Dyut on CrazyGames, you agree to the CrazyGames Terms & Conditions and Privacy Policy.')}
               </p>
             )}
+          </div>
+        )}
+
+        {isInitialMenu && (
+          <div className="mt-3 flex w-full max-w-[880px] flex-col items-center justify-between gap-3 sm:mt-4 lg:contents">
+            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-6 lg:left-8 lg:z-20 lg:max-w-sm lg:px-4 lg:py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-gold/40 bg-gold/10 text-gold">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z"></path>
+                  <path d="M9 12l2 2 4-5"></path>
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-gold sm:text-base">{t('fairPlayTitle', 'Fair Play. Pure Dyut.')}</div>
+                <div className="truncate text-xs text-white/70 sm:text-sm">{t('fairPlaySubtitle', 'Respect the game. Honor the tradition.')}</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-5 sm:gap-8 lg:fixed lg:bottom-6 lg:right-8 lg:z-20">
+              <LobbyUtilityButton
+                label={t('leaderboard', 'Leaderboard')}
+                icon={(
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 21h8"></path>
+                    <path d="M12 17v4"></path>
+                    <path d="M7 4h10v5a5 5 0 01-10 0V4z"></path>
+                    <path d="M5 6H3v2a4 4 0 004 4"></path>
+                    <path d="M19 6h2v2a4 4 0 01-4 4"></path>
+                  </svg>
+                )}
+              />
+              <LobbyUtilityButton
+                label={t('achievements', 'Achievements')}
+                icon={(
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="5"></circle>
+                    <path d="M9 13l-1 8 4-2 4 2-1-8"></path>
+                    <path d="M12 5.5l.8 1.6 1.7.2-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.2.8-1.6z"></path>
+                  </svg>
+                )}
+              />
+              <LobbyUtilityButton
+                label={t('rewards', 'Rewards')}
+                icon={(
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 12v9H4v-9"></path>
+                    <path d="M2 7h20v5H2z"></path>
+                    <path d="M12 7v14"></path>
+                    <path d="M12 7H8.5A2.5 2.5 0 1111 4.5L12 7z"></path>
+                    <path d="M12 7h3.5A2.5 2.5 0 1013 4.5L12 7z"></path>
+                  </svg>
+                )}
+              />
+              <LobbyUtilityButton
+                label={t('settings', 'Settings')}
+                icon={(
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"></path>
+                    <path d="M19.4 15a1.8 1.8 0 00.36 1.98l.05.05a2.2 2.2 0 11-3.11 3.11l-.05-.05a1.8 1.8 0 00-1.98-.36 1.8 1.8 0 00-1.1 1.66V21.5a2.2 2.2 0 11-4.4 0v-.08a1.8 1.8 0 00-1.1-1.66 1.8 1.8 0 00-1.98.36l-.05.05a2.2 2.2 0 11-3.11-3.11l.05-.05A1.8 1.8 0 003.35 15a1.8 1.8 0 00-1.66-1.1H1.6a2.2 2.2 0 110-4.4h.08a1.8 1.8 0 001.66-1.1 1.8 1.8 0 00-.36-1.98l-.05-.05A2.2 2.2 0 116.04 3.26l.05.05a1.8 1.8 0 001.98.36h.01a1.8 1.8 0 001.1-1.66V1.9a2.2 2.2 0 114.4 0v.08a1.8 1.8 0 001.1 1.66h.01a1.8 1.8 0 001.98-.36l.05-.05a2.2 2.2 0 113.11 3.11l-.05.05a1.8 1.8 0 00-.36 1.98v.01a1.8 1.8 0 001.66 1.1h.08a2.2 2.2 0 110 4.4h-.08A1.8 1.8 0 0019.4 15z"></path>
+                  </svg>
+                )}
+              />
+            </div>
           </div>
         )}
 

@@ -332,7 +332,7 @@ function App() {
   };
 
   return (
-    <main className="min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center p-4 relative overflow-y-auto overflow-x-hidden outline-none font-sans">
+    <main className={`min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-x-hidden outline-none font-sans ${view === 'menu' ? 'p-0 overflow-hidden' : 'p-4 overflow-y-auto'}`}>
       {/* Global Mute Button */}
       <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
         {isMuted ? (
