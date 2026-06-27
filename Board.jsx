@@ -738,7 +738,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
   };
 
   const boardShellClass = layoutMode === 'mobile'
-    ? 'mx-auto aspect-square w-full max-w-[94vw] px-1 sm:max-w-[88vw] sm:px-2'
+    ? 'mx-auto aspect-square h-full max-h-full w-auto max-w-[94vw] px-1 sm:max-w-[88vw] sm:px-2'
     : 'mx-auto aspect-square w-full max-w-[96vw] sm:p-2 lg:h-[78vh] lg:max-h-[820px] lg:w-auto lg:max-w-none xl:max-h-[850px]';
 
   return (

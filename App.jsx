@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Board from './Board';
 import DiceTray from './DiceTray';
@@ -166,6 +166,7 @@ const GameInfoOverlay = ({ infoView, onClose }) => {
 function App() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
+  const mobileTrayRef = useRef(null);
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
@@ -173,6 +174,7 @@ function App() {
   const [lastOnlineGameId, setLastOnlineGameId] = useState(null);
   const [gameInfoView, setGameInfoView] = useState(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [mobileTrayHeight, setMobileTrayHeight] = useState(0);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
 
   const toggleMute = () => {
@@ -311,6 +313,33 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || isDesktop || view !== 'game') return undefined;
+
+    const trayElement = mobileTrayRef.current;
+    if (!trayElement) return undefined;
+
+    const syncHeight = () => {
+      setMobileTrayHeight(trayElement.getBoundingClientRect().height);
+    };
+
+    syncHeight();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', syncHeight);
+      return () => window.removeEventListener('resize', syncHeight);
+    }
+
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(trayElement);
+    window.addEventListener('resize', syncHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', syncHeight);
+    };
+  }, [isDesktop, view]);
+
   // Centralized function to call midgame ads and handle audio muting
   const triggerMidgameAd = () => {
     if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
@@ -443,11 +472,14 @@ function App() {
                 <DiceTray layoutMode="desktop" />
               </div>
             ) : (
-              <div className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[19rem] pt-16 sm:px-3 sm:pb-[20rem]">
-                <div className="flex min-h-0 flex-1 items-center justify-center">
+              <div className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-3">
+                <div
+                  className="flex min-h-0 flex-1 items-center justify-center overflow-hidden pt-2"
+                  style={mobileTrayHeight > 0 ? { height: `calc(100dvh - 4.5rem - ${mobileTrayHeight}px - env(safe-area-inset-bottom))` } : undefined}
+                >
                   <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
                 </div>
-                <div className="absolute inset-x-0 bottom-0 z-20 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3">
+                <div ref={mobileTrayRef} className="z-20 px-0 pt-3">
                   <DiceTray layoutMode="mobile" />
                 </div>
               </div>
