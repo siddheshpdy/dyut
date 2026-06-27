@@ -4,6 +4,7 @@ import Board from './Board';
 import DiceTray from './DiceTray';
 import { GameContext, gameReducer } from './GameContext';
 import { getTutorialScenarios } from './tutorialScenarios';
+import SecondaryScreenShell from './SecondaryScreenShell';
 
 const tutorialReducer = (state, action) => {
   if (action.type === 'LOAD_SCENARIO') return { ...action.payload, isTutorial: true };
@@ -54,35 +55,53 @@ const TutorialScreen = ({ onBack }) => {
   const value = { state: scenarioState, dispatch, leaveGame: () => {} };
 
   return (
-    <div className="flex flex-col items-center w-full max-w-6xl p-2 sm:p-4 overflow-y-auto">
-      <div className="glass-panel p-4 sm:p-6 rounded-3xl w-full max-w-3xl mb-4 sm:mb-6 text-center animate-fade-in z-20 mx-auto mt-16 lg:mt-0">
-        <h2 className="text-gold font-display font-bold text-2xl sm:text-3xl mb-2 uppercase tracking-widest">{t(`tutorialTitle_${currentScenario.id}`, currentScenario.title)}</h2>
-        <p className="text-white/80 font-sans text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">
-          {t(`tutorialDesc_${currentScenario.id}`, currentScenario.description)}
-        </p>
-        
-        <div className="mt-4 sm:mt-6 flex flex-col items-center gap-3">
-          {isSuccess && <div className="text-emerald font-bold text-base sm:text-lg animate-hop">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
-          {(!needsAction && !isSuccess) && <div className="text-emerald font-bold text-xs sm:text-sm animate-pulse">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-2">
-            <button onClick={onBack} className="px-4 sm:px-6 py-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors shadow-md text-sm sm:text-base">{t('exitTutorial', 'Exit Tutorial')}</button>
-            <button onClick={() => {
-              dispatchLocal({ type: 'LOAD_SCENARIO', payload: currentScenario.initialState });
-              setIsSuccess(false);
-            }} className="px-4 sm:px-6 py-2 bg-white/5 hover:bg-white/10 text-white/70 font-bold rounded-xl transition-colors shadow-md text-sm sm:text-base">
-              {t('reset', 'Reset')}
-            </button>
-            <button onClick={handleNext} disabled={!canProceed} className={`px-6 sm:px-8 py-2 font-bold rounded-xl transition-all shadow-lg text-sm sm:text-base ${canProceed ? 'bg-gold text-charcoal hover:scale-105 hover:bg-yellow-400' : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
+    <div className="flex w-full max-w-[1600px] flex-col items-center overflow-y-auto px-2 pb-4 pt-16 sm:px-4 sm:pb-6 lg:px-6 lg:pt-8">
+      <div className="z-20 mx-auto mb-4 w-full max-w-4xl animate-fade-in sm:mb-6">
+        <SecondaryScreenShell
+          title={t(`tutorialTitle_${currentScenario.id}`, currentScenario.title)}
+          maxWidthClass="max-w-4xl"
+          titleClassName="tracking-[0.14em]"
+        >
+          <div className="space-y-5 text-center">
+            <p className="mx-auto max-w-3xl font-sans text-sm leading-relaxed text-white/82 sm:text-base">
+              {t(`tutorialDesc_${currentScenario.id}`, currentScenario.description)}
+            </p>
+
+            <div className="rounded-2xl border border-gold/20 bg-black/30 px-4 py-4 shadow-[inset_0_0_24px_rgba(0,0,0,0.45)]">
+              {isSuccess && <div className="animate-hop font-display text-base font-bold uppercase tracking-[0.16em] text-emerald sm:text-lg">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
+              {(!needsAction && !isSuccess) && <div className="animate-pulse font-display text-sm font-bold uppercase tracking-[0.14em] text-emerald/90">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
+              {needsAction && !isSuccess && (
+                <div className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-white/55 sm:text-sm">
+                  {t('completePrompt', 'Complete the required move on the board')}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-2 flex flex-wrap justify-center gap-3 sm:gap-4">
+              <button onClick={onBack} className="dyut-secondary-button px-4 py-2 text-xs sm:px-6 sm:text-sm">{t('exitTutorial', 'Exit Tutorial')}</button>
+              <button onClick={() => {
+                dispatchLocal({ type: 'LOAD_SCENARIO', payload: currentScenario.initialState });
+                setIsSuccess(false);
+              }} className="dyut-muted-button px-4 py-2 text-xs sm:px-6 sm:text-sm">
+                {t('reset', 'Reset')}
+              </button>
+              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'dyut-primary-button shadow-[0_0_18px_rgba(251,191,36,0.4)]' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
+            </div>
           </div>
-        </div>
+        </SecondaryScreenShell>
       </div>
       <div className="w-full flex justify-center pointer-events-auto">
-        <GameContext.Provider value={value}>
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-6 sm:gap-8 w-full z-10 relative">
-            <Board onGoToMenu={onBack} />
-            <DiceTray />
-          </div>
-        </GameContext.Provider>
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(140,56,16,0.18),transparent_38%)]"></div>
+      </div>
+      <div className="w-full flex justify-center pointer-events-auto">
+        <div className="rounded-[28px] border border-gold/20 bg-black/18 p-2 shadow-[0_0_40px_rgba(0,0,0,0.45)] sm:p-3 lg:p-4">
+          <GameContext.Provider value={value}>
+            <div className="relative z-10 flex w-full flex-col items-center justify-center gap-6 sm:gap-8 lg:flex-row">
+              <Board onGoToMenu={onBack} />
+              <DiceTray />
+            </div>
+          </GameContext.Provider>
+        </div>
       </div>
     </div>
   );

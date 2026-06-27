@@ -8,6 +8,32 @@ import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } f
 import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
+const getOccupantOffsetClass = (count, index, spreadPair = false) => {
+  if (count === 2) {
+    if (spreadPair) {
+      return index === 0 ? '-translate-x-[24%]' : 'translate-x-[24%] z-20';
+    }
+    return index === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
+  }
+
+  if (count === 3) {
+    return index === 0 ? '-translate-x-[15%] -translate-y-[15%]' : index === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
+  }
+
+  if (count >= 4) {
+    return index === 0 ? '-translate-x-[15%] -translate-y-[15%]' : index === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : index === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
+  }
+
+  return '';
+};
+
+const getOccupantSizeClass = (count, spreadPair = false) => {
+  if (count === 2 && spreadPair) {
+    return 'w-[68%] h-[68%] sm:w-[72%] sm:h-[72%]';
+  }
+  return 'w-[80%] h-[80%]';
+};
+
 // The individual Square component
 const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
   const isCenter = cell.id === 'CENTER';
@@ -74,21 +100,18 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
       {/* Render Occupying Pieces */}
       {occupants && occupants.length > 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {occupants.map((occ, i) => {
-            let offsetClass = '';
-            if (occupants.length === 2) {
-              offsetClass = i === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
-            } else if (occupants.length === 3) {
-              offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
-            } else if (occupants.length >= 4) {
-              offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : i === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
-            }
-            return (
-              <div key={i} className={`absolute w-[80%] h-[80%] flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${offsetClass}`} style={{ pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); occ.onClick(); }}>
-                <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
-              </div>
-            );
-          })}
+          {(() => {
+            const spreadPair = occupants.length === 2 && occupants.every(occ => occ.isMovable);
+            return occupants.map((occ, i) => {
+              const offsetClass = getOccupantOffsetClass(occupants.length, i, spreadPair);
+              const sizeClass = getOccupantSizeClass(occupants.length, spreadPair);
+              return (
+                <div key={i} className={`absolute ${sizeClass} flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${offsetClass}`} style={{ pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); occ.onClick(); }}>
+                  <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
     </div>
@@ -128,15 +151,22 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
     ? 'w-[35%] aspect-square bg-white/90 shadow-[inset_0_-2px_3px_rgba(0,0,0,0.4)] -translate-y-[15%]'
     : 'w-[35%] h-[35%] bg-white/80 shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)]';
 
+  const homeStretchDirectionClass = isHomeStretch ? ({
+    Player1: 'rotate-0',
+    Player2: '-rotate-90',
+    Player3: 'rotate-180',
+    Player4: 'rotate-90',
+  }[playerId] || '') : '';
+
   return (
-    <div className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass}`}>
+    <div className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass} ${homeStretchDirectionClass}`}>
       <div className={`rounded-full pointer-events-none ${innerShapeClass}`}></div>
     </div>
   );
 };
 
 // The Player's Yard/Base for locked pieces
-const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating, isActive }) => {
+const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating, isActive, layoutMode = 'desktop' }) => {
   const { state } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
@@ -163,24 +193,46 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
     amber: 'bg-amber',
   }[player.color];
 
+  const baseWrapperClass = layoutMode === 'mobile'
+    ? 'relative flex flex-col items-center justify-center p-0'
+    : 'relative flex flex-col items-center justify-center p-0 sm:p-2 lg:p-2';
+
+  const baseCardClass = layoutMode === 'mobile'
+    ? `relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg border px-1.5 py-1.5 transition-all duration-500 ${isActive ? 'border-gold/85 bg-black/60 shadow-[0_0_20px_rgba(234,179,8,0.32),inset_0_0_18px_rgba(234,179,8,0.08)]' : 'border-gold/24 bg-black/46 shadow-[inset_0_0_16px_rgba(0,0,0,0.68)]'}`
+    : `relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:px-4 lg:py-4 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`;
+
+  const pieceGridClass = layoutMode === 'mobile'
+    ? `grid w-full max-w-[52px] grid-cols-4 gap-0.5 rounded-md p-0.5 transition-all duration-500 ${isActive ? 'border border-gold/72 bg-black/64 shadow-[0_0_11px_rgba(234,179,8,0.22),inset_0_2px_8px_rgba(0,0,0,0.64)]' : 'border border-gold/24 bg-black/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.64)]'}`
+    : `grid aspect-square w-[70%] max-w-[80px] grid-cols-2 grid-rows-2 gap-1 rounded-xl p-1 transition-all duration-500 sm:w-[80%] sm:max-w-[100px] sm:gap-2 sm:p-2 lg:w-full lg:max-w-[116px] lg:p-3 ${isActive ? 'border border-gold/85 bg-black/68 shadow-[0_0_22px_rgba(234,179,8,0.34),inset_0_4px_14px_rgba(0,0,0,0.64)]' : 'border border-gold/30 bg-black/54 shadow-[inset_0_4px_14px_rgba(0,0,0,0.64)]'}`;
+
   return (
     <div
       style={{ gridRow, gridColumn: gridCol }}
-      className="flex flex-col items-center justify-center p-0 sm:p-2 lg:p-4 relative"
+      className={baseWrapperClass}
     >
+      {isActive && (
+        <div className="absolute -top-4 left-1/2 hidden -translate-x-1/2 text-gold drop-shadow-[0_0_12px_rgba(234,179,8,0.95)] lg:block">
+          <svg className="h-9 w-9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M5 18h14l1-10-5 4-3-7-3 7-5-4 1 10zm-1 2h16v2H4v-2z" />
+          </svg>
+        </div>
+      )}
+      <div className={baseCardClass}>
+      <span className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-gold/45 to-transparent"></span>
+      <span className="pointer-events-none absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/25 to-transparent"></span>
       <div className="mb-1 sm:mb-2 flex flex-col items-center">
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
-          <div className={`w-2 h-2 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
-          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'player-gold-text'}`}>{player.name || playerId}</span>
+          <div className={`h-2 w-2 rounded-full border border-white/40 jewel-shadow sm:h-4 sm:w-4 ${baseColorClass}`}></div>
+          <span className={`max-w-[40px] truncate font-display text-[8px] font-bold tracking-[0.1em] transition-all duration-300 sm:max-w-none sm:text-xs sm:tracking-widest md:text-sm ${layoutMode === 'mobile' ? 'lg:text-sm' : 'lg:text-lg'} ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}>{player.name || playerId}</span>
           {state.isTeamMode && (
             <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[6px] sm:text-[8px] font-sans font-bold uppercase tracking-widest rounded border ${player.team === 1 ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30' : 'bg-rose-500/20 text-rose-200 border-rose-500/30'}`} title={`Team ${player.team}`}>
               T{player.team}
             </span>
           )}
         </div>
-        <div className="flex gap-1 sm:gap-2 mt-0.5 sm:mt-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 sm:w-5 sm:h-5 transition-all duration-500 ${player.hasKilled ? 'ruby-kill-icon drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
+        <div className="mt-0.5 flex gap-1 sm:mt-2 sm:gap-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`h-3 w-3 sm:h-5 sm:w-5 transition-all duration-500 ${player.hasKilled ? 'ruby-kill-icon drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
             <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
             <path d="M13 19l6-6"></path>
             <path d="M16 16l4 4"></path>
@@ -193,23 +245,23 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
         </div>
       </div>
       {/* Base Container - A 2x2 grid for the locked pieces */}
-      <div className={`w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 rounded-xl transition-all duration-500 ${isActive ? 'bg-black/60 shadow-[0_0_20px_rgba(251,191,36,0.3),inset_0_4px_12px_rgba(0,0,0,0.6)] border border-gold/70 scale-105' : 'bg-black/40 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5'}`}>
+      <div className={pieceGridClass}>
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}>
             <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
           </div>
         ))}
       </div>
+      </div>
     </div>
   );
 };
 
 // The main Board container
-const Board = ({ onGoToMenu }) => {
+const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
   const { state, dispatch } = useGame();
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
-  const [visualCurrentPlayer, setVisualCurrentPlayer] = useState(state.currentPlayer);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
@@ -227,14 +279,45 @@ const Board = ({ onGoToMenu }) => {
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
 
   // Map the 4 players to the 4 empty corners of the 19x19 grid
-  const allBases = [
-    { id: 'Player1', row: '14 / span 6', col: '2 / span 6' },  // South-West (Yellow)
-    { id: 'Player2', row: '14 / span 6', col: '14 / span 6' }, // South-East (Black)
-    { id: 'Player3', row: '2 / span 6', col: '14 / span 6' },  // North-East (Green)
-    { id: 'Player4', row: '2 / span 6', col: '2 / span 6' },   // North-West (Blue)
-  ];
+  const allBases = layoutMode === 'mobile'
+    ? [
+        { id: 'Player1', row: '15 / span 4', col: '2 / span 4' },
+        { id: 'Player2', row: '15 / span 4', col: '15 / span 4' },
+        { id: 'Player3', row: '2 / span 4', col: '15 / span 4' },
+        { id: 'Player4', row: '2 / span 4', col: '2 / span 4' },
+      ]
+    : [
+        { id: 'Player1', row: '14 / span 6', col: '2 / span 6' },  // South-West (Yellow)
+        { id: 'Player2', row: '14 / span 6', col: '14 / span 6' }, // South-East (Black)
+        { id: 'Player3', row: '2 / span 6', col: '14 / span 6' },  // North-East (Green)
+        { id: 'Player4', row: '2 / span 6', col: '2 / span 6' },   // North-West (Blue)
+      ];
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
+  const activeBasePlayerId = getProxyPlayerId(state.currentPlayer, state);
+  const visibleBases = layoutMode === 'mobile'
+    ? activeBases.filter(base => base.id !== activeBasePlayerId)
+    : activeBases;
+  const mobileVisibleBaseSlotsByCount = {
+    1: [
+      { row: '2 / span 4', col: '15 / span 4' },
+    ],
+    2: [
+      { row: '2 / span 4', col: '2 / span 4' },
+      { row: '2 / span 4', col: '15 / span 4' },
+    ],
+    3: [
+      { row: '2 / span 4', col: '2 / span 4' },
+      { row: '2 / span 4', col: '15 / span 4' },
+      { row: '15 / span 4', col: '15 / span 4' },
+    ],
+  };
+  const positionedVisibleBases = layoutMode === 'mobile'
+    ? visibleBases.map((base, index) => {
+        const mobileSlot = mobileVisibleBaseSlotsByCount[visibleBases.length]?.[index];
+        return mobileSlot ? { ...base, row: mobileSlot.row, col: mobileSlot.col } : base;
+      })
+    : visibleBases;
 
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
@@ -340,12 +423,6 @@ const Board = ({ onGoToMenu }) => {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('dyut-animating', { detail: isAnimating }));
-    
-    // Delay the visual turn outline until all pieces have finished moving
-    if (!isAnimating) {
-      setVisualCurrentPlayer(state.currentPlayer);
-    }
-    
   }, [isAnimating]);
 
   const winnerInfo = useMemo(() => {
@@ -406,6 +483,12 @@ const Board = ({ onGoToMenu }) => {
 
     if (winnerInfo) {
       stopCgGameplay();
+      // Trigger CrazyGames Happy Time confetti overlay for the victory!
+      try {
+        if (window.CrazyGames?.SDK?.game?.happytime) {
+          window.CrazyGames.SDK.game.happytime();
+        }
+      } catch(e) {}
     } else {
       startCgGameplay();
     }
@@ -545,6 +628,17 @@ const Board = ({ onGoToMenu }) => {
     }
   };
 
+  useEffect(() => {
+    const handleMobileSpawn = (event) => {
+      const { playerId, pieceIndex } = event.detail || {};
+      if (typeof playerId !== 'string' || typeof pieceIndex !== 'number') return;
+      handleSpawnClick(playerId, pieceIndex);
+    };
+
+    window.addEventListener('dyut-mobile-spawn', handleMobileSpawn);
+    return () => window.removeEventListener('dyut-mobile-spawn', handleMobileSpawn);
+  }, [state.currentPlayer, state.turnQueue, state.players, state.hasRolledThisTurn, state.rollingPhaseComplete, isAnimating]);
+
   const handleFullMove = (distance) => {
     if (!selectedPiece) return;
     if (selectedPiece.isLocked) {
@@ -639,21 +733,18 @@ const Board = ({ onGoToMenu }) => {
     Object.entries(cellGroups).forEach(([cellId, occupants]) => {
       const targetCell = cells.find(c => c.id === cellId);
       if (!targetCell) return;
+      const hasRolls = state.turnQueue.length > 0;
+      const spreadMovablePair = occupants.length === 2 && occupants.every((occ) => {
+        const isActiveOrProxy = occ.playerId === activePlayerId;
+        return isMyTurn && !isBotPlaying && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
+      });
       
       occupants.forEach((occ, i) => {
-        let offsetClass = '';
-        if (occupants.length === 2) {
-          offsetClass = i === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
-        } else if (occupants.length === 3) {
-          offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
-        } else if (occupants.length >= 4) {
-          offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : i === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
-        }
-
         const isActiveOrProxy = occ.playerId === activePlayerId;
-        const hasRolls = state.turnQueue.length > 0;
         const isMovable = isMyTurn && !isBotPlaying && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
         const isHomeStretch = occ.logicalId.includes('_HOME');
+        const offsetClass = getOccupantOffsetClass(occupants.length, i, spreadMovablePair);
+        const sizeClass = getOccupantSizeClass(occupants.length, spreadMovablePair);
 
         piecesToRender.push(
           <div 
@@ -662,7 +753,7 @@ const Board = ({ onGoToMenu }) => {
             className={`flex items-center justify-center transition-transform duration-100 ease-linear ${isMovable ? 'cursor-pointer hover:scale-110 z-50' : 'cursor-default z-40'} ${offsetClass}`}
             onClick={(e) => { e.stopPropagation(); handlePieceClick(occ.playerId, occ.pieceIndex); }}
           >
-            <div className="w-[80%] h-[80%] flex items-center justify-center pointer-events-none">
+            <div className={`${sizeClass} flex items-center justify-center pointer-events-none`}>
               <Piece color={occ.player.color} isMovable={isMovable} isHomeStretch={isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
             </div>
           </div>
@@ -673,10 +764,14 @@ const Board = ({ onGoToMenu }) => {
     return piecesToRender;
   };
 
+  const boardShellClass = layoutMode === 'mobile'
+    ? 'mx-auto h-full w-full px-1 sm:px-2'
+    : 'mx-auto aspect-square w-full max-w-[96vw] sm:p-2 lg:h-[78vh] lg:max-h-[820px] lg:w-auto lg:max-w-none xl:max-h-[850px]';
+
   return (
-    <div className="w-full max-w-[98vw] lg:max-w-none lg:w-auto lg:h-[80vh] aspect-square mx-auto sm:p-2">
+    <div className={boardShellClass}>
       <div 
-        className="w-full h-full grid board-bounding-box rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
+        className="grid h-full w-full rounded-lg p-0.5 drop-shadow-[0_0_34px_rgba(234,179,8,0.14)] board-bounding-box sm:rounded-2xl sm:p-2"
         style={{ 
           gridTemplateColumns: 'repeat(19, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'
@@ -692,7 +787,7 @@ const Board = ({ onGoToMenu }) => {
         {renderActivePieces()}
         
         {/* Render the 4 player bases */}
-        {activeBases.map(base => (
+        {positionedVisibleBases.map(base => (
           <PlayerBase 
             key={base.id}
             playerId={base.id}
@@ -701,7 +796,8 @@ const Board = ({ onGoToMenu }) => {
             gridCol={base.col}
             onSpawnClick={handleSpawnClick}
             isAnimating={isAnimating}
-            isActive={visualCurrentPlayer === base.id}
+            isActive={activeBasePlayerId === base.id}
+            layoutMode={layoutMode}
           />
         ))}
         

@@ -5,6 +5,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as rtdbGet, remove as rtdbRemove } from 'firebase/database';
 import { db, rtdb, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
+import { DYUT_ICONS } from './dyut-icons';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -13,10 +14,116 @@ const ALL_COLORS = [
   { name: 'amber', tw: 'bg-amber' },
 ];
 
+const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+
+const OrnateDivider = () => (
+  <div className="flex items-center justify-center gap-3 text-gold/60">
+    <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold/20"></span>
+    <span className="h-2 w-2 rotate-45 border border-gold/70"></span>
+    <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold/20"></span>
+  </div>
+);
+
+const LobbyModeCard = ({ tone, icon, title, description, onClick }) => {
+  const toneStyles = {
+    gold: {
+      text: 'text-gold',
+      border: 'border-gold/55',
+      glow: 'shadow-[0_0_28px_rgba(234,179,8,0.18)]',
+      wash: 'from-gold/20 via-gold/10 to-transparent',
+      icon: 'border-gold/60 bg-gold/15 text-gold shadow-[0_0_22px_rgba(234,179,8,0.22)]',
+    },
+    ruby: {
+      text: 'text-ruby',
+      border: 'border-ruby/55',
+      glow: 'shadow-[0_0_28px_rgba(220,38,38,0.16)]',
+      wash: 'from-ruby/20 via-ruby/10 to-transparent',
+      icon: 'border-ruby/60 bg-ruby/15 text-ruby shadow-[0_0_22px_rgba(220,38,38,0.22)]',
+    },
+    sapphire: {
+      text: 'text-sapphire',
+      border: 'border-sapphire/55',
+      glow: 'shadow-[0_0_28px_rgba(56,189,248,0.14)]',
+      wash: 'from-sapphire/20 via-sapphire/10 to-transparent',
+      icon: 'border-sapphire/60 bg-sapphire/15 text-sapphire shadow-[0_0_22px_rgba(56,189,248,0.2)]',
+    },
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:bg-black/65 sm:gap-5 sm:p-4 lg:gap-6 ${toneStyles.border} ${toneStyles.glow}`}
+    >
+      <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
+      <div className="absolute inset-y-3 right-8 hidden w-44 rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
+      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-24 lg:w-24 ${toneStyles.icon}`}>
+        {icon}
+      </div>
+      <div className="relative z-10 min-w-0 flex-1">
+        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-3xl ${toneStyles.text}`}>{title}</div>
+        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base">{description}</p>
+      </div>
+      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 ${toneStyles.text}`}>{'>'}</div>
+    </button>
+  );
+};
+
+const ConfigSectionTitle = ({ children }) => (
+  <div className="flex w-full items-center justify-center gap-3 text-gold/80">
+    <span className="h-px flex-1 bg-gradient-to-r from-transparent via-gold/40 to-gold/70"></span>
+    <span className="h-1.5 w-1.5 rotate-45 border border-gold/70"></span>
+    <span className="font-display text-xs font-bold uppercase tracking-[0.22em] sm:text-sm">{children}</span>
+    <span className="h-1.5 w-1.5 rotate-45 border border-gold/70"></span>
+    <span className="h-px flex-1 bg-gradient-to-l from-transparent via-gold/40 to-gold/70"></span>
+  </div>
+);
+
+const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, children, onClick, className = '' }) => {
+  const toneClasses = {
+    gold: active
+      ? 'border-gold bg-gold/18 text-gold shadow-[0_0_24px_rgba(234,179,8,0.28),inset_0_0_30px_rgba(234,179,8,0.12)]'
+      : 'border-gold/35 bg-black/35 text-gold/65 hover:border-gold/70 hover:text-gold',
+    sapphire: active
+      ? 'border-sapphire bg-sapphire/18 text-sapphire shadow-[0_0_24px_rgba(56,189,248,0.28),inset_0_0_30px_rgba(56,189,248,0.12)]'
+      : 'border-sapphire/35 bg-black/35 text-sapphire/65 hover:border-sapphire/70 hover:text-sapphire',
+    emerald: active
+      ? 'border-emerald bg-emerald/18 text-emerald shadow-[0_0_24px_rgba(52,211,153,0.24),inset_0_0_30px_rgba(52,211,153,0.1)]'
+      : 'border-emerald/35 bg-black/35 text-emerald/65 hover:border-emerald/70 hover:text-emerald',
+    ruby: active
+      ? 'border-ruby bg-ruby/18 text-ruby shadow-[0_0_24px_rgba(220,38,38,0.28),inset_0_0_30px_rgba(220,38,38,0.12)]'
+      : 'border-ruby/35 bg-black/35 text-ruby/65 hover:border-ruby/70 hover:text-ruby',
+    violet: active
+      ? 'border-purple-400 bg-purple-500/15 text-purple-300 shadow-[0_0_24px_rgba(168,85,247,0.25),inset_0_0_30px_rgba(168,85,247,0.1)]'
+      : 'border-purple-400/35 bg-black/35 text-purple-300/65 hover:border-purple-300/70 hover:text-purple-200',
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 ${toneClasses} ${className}`}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(255,255,255,0.12),transparent_38%)] opacity-70"></div>
+      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-1.5">
+        {children}
+        {icon && (
+          <span className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 ${active ? 'opacity-100' : 'opacity-50'}`}>
+            {icon}
+          </span>
+        )}
+        <div className="font-display text-lg font-bold uppercase tracking-wider sm:text-xl">{title}</div>
+        {subtitle && <div className="hidden text-xs leading-snug text-white/70 sm:block sm:text-sm">{subtitle}</div>}
+      </div>
+    </button>
+  );
+};
+
 const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
   const typeColor = seat.type === 'human' ? 'text-gold bg-gold/10 border-gold/30' : seat.type === 'bot' ? 'text-sapphire bg-sapphire/10 border-sapphire/30' : 'text-white/40 bg-white/5 border-white/10';
+  const DropdownIcon = DYUT_ICONS.dropdown;
   
   const isOwnedByMe = seat.uid === userUid;
   const editable = !isOnline || isOwnedByMe || (isBot && isHost);
@@ -53,9 +160,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           <option value="closed" className="bg-charcoal text-white/50">{t('closed', 'Closed')}</option>
         </select>
         <div className="pointer-events-none absolute inset-y-0 right-1 flex items-center px-1">
-          <svg className={`h-3 w-3 ${seat.type === 'closed' ? 'text-white/40' : seat.type === 'human' ? 'text-gold/70' : 'text-sapphire/70'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          <DropdownIcon className={`h-3 w-3 ${seat.type === 'closed' ? 'text-white/40' : seat.type === 'human' ? 'text-gold/70' : 'text-sapphire/70'}`} aria-hidden="true" />
         </div>
       </div>
       
@@ -111,14 +216,29 @@ const PlayerProfile = ({ user }) => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [cgUser, setCgUser] = useState(null);
   const { t } = useTranslation();
+  const ExitIcon = DYUT_ICONS.exit;
 
   useEffect(() => {
     if (import.meta.env.VITE_IS_PORTAL) {
+      let authListener = null;
+
       const fetchPortalStats = async () => {
         if (window.CrazyGames?.SDK) {
           try {
             if (window.cgInitPromise) await window.cgInitPromise;
+            try {
+              const systemUser = await window.CrazyGames.SDK.user.getUser();
+              if (systemUser) setCgUser(systemUser);
+
+              // Listen for users signing in from the portal's native top-bar (outside the iframe)
+              authListener = (sysUser) => {
+                if (sysUser) setCgUser(sysUser);
+              };
+              window.CrazyGames.SDK.user.addAuthListener(authListener);
+            } catch (e) { console.error("CrazyGames user error:", e); }
+
             let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
             if (typeof data === 'string') data = JSON.parse(data);
             if (data) setStats(data);
@@ -126,7 +246,11 @@ const PlayerProfile = ({ user }) => {
         }
       };
       setTimeout(fetchPortalStats, 500); // Give SDK time to init
-      return;
+      return () => {
+        if (authListener && window.CrazyGames?.SDK?.user?.removeAuthListener) {
+          try { window.CrazyGames.SDK.user.removeAuthListener(authListener); } catch(e) {}
+        }
+      };
     }
 
     if (user && !user.isAnonymous) {
@@ -139,9 +263,30 @@ const PlayerProfile = ({ user }) => {
     }
   }, [user]);
 
-  if (!user) return <div className="h-10"></div>;
+  if (!user && !import.meta.env.VITE_IS_PORTAL) return <div className="h-10"></div>;
 
-  if (user.isAnonymous && !import.meta.env.VITE_IS_PORTAL) {
+  if (import.meta.env.VITE_IS_PORTAL && !cgUser) {
+    const handleCgSignIn = async () => {
+      if (!window.CrazyGames?.SDK) return;
+      setIsSigningIn(true);
+      try {
+        const systemUser = await window.CrazyGames.SDK.user.showAuthPrompt();
+        if (systemUser) setCgUser(systemUser);
+      } catch (e) { console.error("CrazyGames Auth error:", e); }
+      setIsSigningIn(false);
+    };
+
+    return (
+      <button type="button" onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
+        {isSigningIn ? (
+          <svg className="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        ) : (
+          <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        )}
+        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
+      </button>
+    );
+  } else if (user?.isAnonymous && !import.meta.env.VITE_IS_PORTAL) {
     const handleSignIn = () => {
       setIsSigningIn(true);
       signInWithGoogle().finally(() => {
@@ -169,7 +314,8 @@ const PlayerProfile = ({ user }) => {
     );
   }
 
-  const displayName = stats?.displayName || user.displayName || (import.meta.env.VITE_IS_PORTAL ? 'Portal Player' : 'Player');
+  const displayName = cgUser?.username || stats?.displayName || user?.displayName || (import.meta.env.VITE_IS_PORTAL ? 'Portal Player' : 'Player');
+  const photoURL = cgUser?.profilePictureUrl || user?.photoURL || stats?.photoURL;
 
   const handleEditSave = async () => {
     if (editName.trim() && editName.trim() !== displayName) {
@@ -201,8 +347,8 @@ const PlayerProfile = ({ user }) => {
   return (
     <div className="h-9 sm:h-10 flex items-center justify-between gap-2 sm:gap-4 bg-black/20 border border-white/5 pl-3 pr-2 sm:pl-4 sm:pr-3 py-1.5 sm:py-2 rounded-full z-20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] animate-fade-in">
       <div className="flex items-center gap-2 sm:gap-3">
-        {user.photoURL || stats?.photoURL ? (
-          <img src={user.photoURL || stats?.photoURL} alt="Profile" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-white/20 shadow-md" />
+        {photoURL ? (
+          <img src={photoURL} alt="Profile" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-white/20 shadow-md object-cover" />
         ) : (
           <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gold flex items-center justify-center text-charcoal font-bold text-xs sm:text-sm shadow-md">
             {displayName.charAt(0).toUpperCase()}
@@ -221,11 +367,13 @@ const PlayerProfile = ({ user }) => {
               className="w-24 bg-black/40 border border-gold/50 rounded px-1 py-0.5 text-xs font-bold text-white/90 focus:outline-none"
             />
           ) : (
-            <div className="flex items-center gap-1.5 group cursor-pointer" onClick={() => { setEditName(displayName); setIsEditing(true); }} title={t('editName', 'Edit Name')}>
+            <div className={`flex items-center gap-1.5 ${cgUser ? '' : 'group cursor-pointer'}`} onClick={() => { if (!cgUser) { setEditName(displayName); setIsEditing(true); } }} title={cgUser ? '' : t('editName', 'Edit Name')}>
               <span className="text-[10px] sm:text-xs font-bold text-white/90 leading-none truncate max-w-[80px] sm:max-w-[120px]">{displayName}</span>
-              <svg className="w-3 h-3 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
+              {!cgUser && (
+                <svg className="w-3 h-3 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              )}
             </div>
           )}
           {stats && (
@@ -241,9 +389,7 @@ const PlayerProfile = ({ user }) => {
           className="text-white/30 hover:text-ruby transition-colors ml-1 p-1.5 rounded-full hover:bg-white/5"
           title={t('signOut', 'Sign Out')}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
+          <ExitIcon className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
     </div>
@@ -366,6 +512,29 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     }
   }, [lobbyExpiresAt, activeLobbyId, lobbyStatus]);
 
+  // Push room status updates to CrazyGames SDK for external invite link locking and portal UI
+  const updateCrazyGamesRoom = async (action, targetSeats) => {
+    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK && activeLobbyId) {
+      try {
+        if (window.cgInitPromise) await window.cgInitPromise;
+        const humanSeats = Object.values(targetSeats).filter(s => s.type === 'human');
+        const claimedSeats = humanSeats.filter(s => s.uid);
+        const isFull = humanSeats.length > 0 && humanSeats.length === claimedSeats.length;
+        
+        if (typeof window.CrazyGames.SDK.game.updateRoom === 'function') {
+          window.CrazyGames.SDK.game.updateRoom({
+            roomId: activeLobbyId,
+            action: action === 'start' || isFull ? 'start' : 'update',
+            playerCount: claimedSeats.length,
+            maxPlayerCount: humanSeats.length,
+            isJoinable: action !== 'start' && !isFull,
+            inviteParams: { roomId: activeLobbyId }
+          });
+        }
+      } catch (e) { console.error("CrazyGames updateRoom error:", e); }
+    }
+  };
+
   const isStartingRef = useRef(false);
 
   useEffect(() => {
@@ -389,6 +558,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         });
         try {
           await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
+          updateCrazyGamesRoom('start', finalSeats);
         } catch (e) {
           console.error("AutoStart sync error:", e);
         }
@@ -406,6 +576,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
           updates.openSeats = Object.values(value).filter(s => s.type === 'human' && !s.uid).length;
         }
         await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates); 
+        if (field === 'seats') {
+          updateCrazyGamesRoom('update', value);
+        }
       } catch (e) { 
         console.error("Sync error:", e); 
         alert(`Failed to sync ${field}. Check console for details.`);
@@ -661,6 +834,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     if (finalSeats) updates.seats = finalSeats;
     try {
       await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates);
+      updateCrazyGamesRoom('start', finalSeats || seats);
     } catch (e) { console.error(e); }
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };
@@ -671,73 +845,141 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       return;
     }
     const defaultUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
+    let isMounted = true;
+
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
       const fetchLink = async () => {
         try {
           if (window.cgInitPromise) await window.cgInitPromise;
-          const link = window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
+          if (!isMounted) return;
+          
+          const link = await window.CrazyGames.SDK.game.inviteLink({ roomId: activeLobbyId });
           setInviteUrl(link || defaultUrl);
+          
+          // Render the native CrazyGames social invite overlay button
+          window.CrazyGames.SDK.game.showInviteButton({ roomId: activeLobbyId });
         } catch(e) { setInviteUrl(defaultUrl); }
       };
       fetchLink();
+
+      return () => {
+        isMounted = false;
+        try { window.CrazyGames.SDK.game.hideInviteButton(); } catch(e) {}
+      };
     } else {
       setInviteUrl(defaultUrl);
     }
   }, [activeLobbyId]);
 
+  // Request CrazyGames Banner Ad on Desktop
+  useEffect(() => {
+    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED) {
+      let isMounted = true;
+      const showBanners = async () => {
+        try {
+          if (window.cgInitPromise) await window.cgInitPromise;
+          if (!isMounted) return;
+          // Only request the banners if the screen is large enough (XL Desktop) to avoid UI overlap
+          if (window.innerWidth >= 1280 && window.CrazyGames?.SDK?.banner) {
+            await window.CrazyGames.SDK.banner.requestBanner({
+              id: 'cg-lobby-banner-left',
+              width: 300,
+              height: 600
+            });
+            await window.CrazyGames.SDK.banner.requestBanner({
+              id: 'cg-lobby-banner-right',
+              width: 300,
+              height: 600
+            });
+          }
+        } catch (e) { console.warn("CrazyGames banner error:", e); }
+      };
+      const timeoutId = setTimeout(showBanners, 500); // Give DOM time to render the containers
+      return () => {
+        isMounted = false;
+        clearTimeout(timeoutId);
+        if (window.CrazyGames?.SDK?.banner) {
+          try { window.CrazyGames.SDK.banner.clearAllBanners(); } catch (e) {}
+        }
+      };
+    }
+  }, []);
+
+  const isInitialMenu = !activeLobbyId && !setupMode;
+  const isSetupConfig = !activeLobbyId && setupMode && setupStep === 'config';
+  const isLobbyStage = isInitialMenu || isSetupConfig;
+  const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
+  const MenuIcon = DYUT_ICONS.menu;
+  const HowToPlayIcon = DYUT_ICONS.howToPlay;
+  const RulesIcon = DYUT_ICONS.rules;
+  const HistoryIcon = DYUT_ICONS.history;
+  const InfoIcon = DYUT_ICONS.info;
+  const ResumeIcon = DYUT_ICONS.resumeOffline;
+  const BackIcon = DYUT_ICONS.back;
+  const LocalModeIcon = DYUT_ICONS.battle;
+  const OnlineModeIcon = DYUT_ICONS.language;
+  const PrivateModeIcon = DYUT_ICONS.privateMatch;
+  const PublicLobbyIcon = DYUT_ICONS.inviteFriend;
+  const ReconnectIcon = DYUT_ICONS.shareMatch;
+  const QuickIcon = DYUT_ICONS.quickMode;
+  const EasyIcon = DYUT_ICONS.easyDifficulty;
+  const HardIcon = DYUT_ICONS.hardDifficulty;
+  const StartIcon = DYUT_ICONS.next;
+  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl";
+
   return (
     <>
-      {/* Top Navigation Bar */}
-      <header className="fixed top-0 left-0 w-full bg-transparent px-4 py-4 md:px-8 flex justify-between items-center z-50">
-        <div className="flex items-center order-1">
-          <LanguageSwitcher />
+      {isLobbyStage && (
+        <div className="fixed inset-0 z-0 overflow-hidden bg-[#070605]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.34),transparent_36%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(8,6,5,0.48)_28%,rgba(8,6,5,0.48)_72%,rgba(0,0,0,0.96))]"></div>
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-[radial-gradient(ellipse_at_center,rgba(126,32,18,0.42),transparent_58%)]"></div>
+          <div className="absolute inset-x-0 bottom-0 hidden h-40 bg-[linear-gradient(0deg,rgba(108,28,14,0.34),transparent)] lg:block"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,transparent_0,rgba(0,0,0,0.08)_38%,rgba(0,0,0,0.72)_100%)]"></div>
         </div>
-        
-        <div className="flex items-center order-2 gap-4">
+      )}
+      {/* Top Navigation Bar */}
+      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-5' : ''}`}>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
           <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-            {isMuted ? (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-            )}
+            <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
           </button>
-          <nav className="hidden md:flex items-center gap-6 mr-4">
-            <button onClick={onShowTutorial} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('howToPlay', 'How to Play')}</button>
-            <button onClick={onShowRules} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('rules', 'Rules')}</button>
-            <button onClick={onShowHistory} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('history', 'History')}</button>
-            <button onClick={onShowAbout} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide transition-colors">{t('aboutUs', 'About Us')}</button>
-          </nav>
-          
+        </div>
+
+        <nav className="hidden min-w-0 items-center justify-center gap-4 lg:flex xl:gap-7">
+          <button onClick={onShowTutorial} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><HowToPlayIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('howToPlay', 'How to Play')}</span></button>
+          <button onClick={onShowRules} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><RulesIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('rules', 'Rules')}</span></button>
+          <button onClick={onShowHistory} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><HistoryIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('history', 'History')}</span></button>
+          <button onClick={onShowAbout} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><InfoIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('aboutUs', 'About Us')}</span></button>
+        </nav>
+        
+        <div className="flex items-center justify-end gap-3">
           <PlayerProfile user={user} />
           
-          <div className="md:hidden relative flex items-center">
+          <div className="relative flex items-center lg:hidden">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] p-2 ml-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              <MenuIcon className="h-6 w-6" aria-hidden="true" />
             </button>
             {isMobileMenuOpen && (
               <div className="absolute right-0 top-12 glass-panel p-4 rounded-xl flex flex-col gap-4 min-w-[150px] shadow-2xl z-50 bg-[var(--color-panel-bg)]">
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowTutorial(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('howToPlay', 'How to Play')}</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowRules(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('rules', 'Rules')}</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowHistory(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('history', 'History')}</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowAbout(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left">{t('aboutUs', 'About Us')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowTutorial(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><HowToPlayIcon className="h-4 w-4" aria-hidden="true" />{t('howToPlay', 'How to Play')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowRules(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><RulesIcon className="h-4 w-4" aria-hidden="true" />{t('rules', 'Rules')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowHistory(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><HistoryIcon className="h-4 w-4" aria-hidden="true" />{t('history', 'History')}</button>
+                <button onClick={() => { setIsMobileMenuOpen(false); onShowAbout(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><InfoIcon className="h-4 w-4" aria-hidden="true" />{t('aboutUs', 'About Us')}</button>
               </div>
             )}
           </div>
         </div>
       </header>
 
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto">
+      <div className={`${isLobbyStage ? 'relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:pb-20 lg:pt-20' : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
             {isLobbyPublic ? (
               <div className="flex flex-col items-start gap-1" title="Public Lobby">
                 <div className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2h1a2 2 0 002-2v-1a2 2 0 012-2h1.945M7.75 4.09l.242.59a2 2 0 001.98 1.42h.02a2 2 0 001.98-1.42l.242-.59M12 15.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
-                  </svg>
+                  <PublicLobbyIcon className="h-4 w-4 text-emerald" aria-hidden="true" />
                   <span className="text-gold font-bold text-sm tracking-widest uppercase">{t('publicLobby', 'PUBLIC LOBBY')} - ID: {activeLobbyId}</span>
                 </div>
                 {lobbyStatus === 'waiting' && timeLeft !== null && (
@@ -748,9 +990,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
             ) : (
               <div className="flex items-center gap-2" title="Private Lobby">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-ruby" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <PrivateModeIcon className="h-4 w-4 text-ruby" aria-hidden="true" />
                 <span className="text-gold font-bold text-sm tracking-widest uppercase">{t('privateLobby', 'PRIVATE LOBBY')} - ID: {activeLobbyId}</span>
               </div>
             )}
@@ -767,12 +1007,21 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       
-      <h1 className="dyut-title text-5xl font-bold mb-8 tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
+      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? 'mb-1 text-[clamp(3rem,7vw,5.5rem)] leading-none sm:mb-2' : 'mb-8 text-5xl'}`}>DYUT</h1>
+      {isLobbyStage && <OrnateDivider />}
       
-      <div className="w-full">
+      <div className={`${isLobbyStage ? 'mt-4 w-full max-w-[880px] sm:mt-5 lg:max-w-[940px]' : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className="w-full flex flex-col gap-3 animate-fade-in">
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-6' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+            {isInitialMenu && (
+              <>
+                <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
+                <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
+                <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
+                <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
+              </>
+            )}
             {import.meta.env.VITE_IS_PORTAL ? (
               <>
                 <button onClick={() => {
@@ -795,100 +1044,155 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </>
             ) : (
               <>
-            <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--color-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
-            </button>
+                {isInitialMenu ? (
+                  <div className="flex w-full flex-col gap-3 sm:gap-4">
+                    <LobbyModeCard
+                      tone="gold"
+                      icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                      title={t('localPlay', 'LOCAL PLAY')}
+                      description={t('localPlaySubtitle', 'Play with friends on the same device.')}
+                      onClick={() => { setSetupMode('local'); setSetupStep('config'); }}
+                    />
+                    <LobbyModeCard
+                      tone="ruby"
+                      icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                      title={t('onlineMatch', 'ONLINE MATCH')}
+                      description={t('onlineMatchSubtitle', 'Compete with players around the world.')}
+                      onClick={() => { setSetupMode('public'); setSetupStep('config'); }}
+                    />
+                    <LobbyModeCard
+                      tone="sapphire"
+                      icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                      title={t('privateMatch', 'PRIVATE MATCH')}
+                      description={t('privateMatchSubtitle', 'Create or join a private room.')}
+                      onClick={() => { setSetupMode('private'); setSetupStep('config'); }}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
+                      <LocalModeIcon className="h-6 w-6 text-[var(--color-gold)]" aria-hidden="true" />
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
+                    </button>
 
-            <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-              <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
-            </button>
+                    <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
+                      <OnlineModeIcon className="h-6 w-6 text-emerald-500" aria-hidden="true" />
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
+                    </button>
 
-            <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-              <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
-            </button>
+                    <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
+                      <PrivateModeIcon className="h-6 w-6 text-sky-400" aria-hidden="true" />
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
+                    </button>
+                  </>
+                )}
               </>
             )}
 
             {(hasCachedGame || lastOnlineGameId) && (
-              <div className="flex gap-2 w-full mt-2">
+              <div className={`${isInitialMenu ? 'mx-auto mt-4 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
-                  <button onClick={onResumeGame} className="flex-1 py-3 bg-white/5 text-white font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
+                    <ResumeIcon className="h-4 w-4 text-gold" aria-hidden="true" />
                     {t('resumeOffline', 'Resume Offline')}
                   </button>
                 )}
                 {lastOnlineGameId && (
                   <button onClick={() => onReconnectOnline(lastOnlineGameId)} className="flex-1 py-3 bg-white/5 text-sapphire font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                    <ReconnectIcon className="h-4 w-4" aria-hidden="true" />
                     {t('reconnectOnline', 'Reconnect')}
                   </button>
                 )}
               </div>
             )}
+            {import.meta.env.VITE_IS_PORTAL && (
+              <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
+                {t('portalLegalNotice', 'By playing Dyut on CrazyGames, you agree to the CrazyGames Terms & Conditions and Privacy Policy.')}
+              </p>
+            )}
+          </div>
+        )}
+
+        {isLobbyStage && (
+          <div className={`${isSetupConfig ? 'hidden lg:contents' : 'mt-3 flex'} w-full max-w-[880px] flex-col items-center justify-between gap-3 sm:mt-4 lg:contents`}>
+            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-6 lg:left-8 lg:z-20 lg:max-w-sm lg:px-4 lg:py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-gold/40 bg-gold/10 text-gold">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z"></path>
+                  <path d="M9 12l2 2 4-5"></path>
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-gold sm:text-base">{t('fairPlayTitle', 'Fair Play. Pure Dyut.')}</div>
+                <div className="truncate text-xs text-white/70 sm:text-sm">{t('fairPlaySubtitle', 'Respect the game. Honor the tradition.')}</div>
+              </div>
+            </div>
+
           </div>
         )}
 
         {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
         {!activeLobbyId && setupMode && setupStep === 'config' && (
-          <div className="w-full flex flex-col items-center animate-fade-in space-y-6">
-            <div className="w-full flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
-              <button onClick={() => setSetupMode(null)} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg> {t('back', 'BACK')}</button>
-              <h2 className="text-white/80 font-bold tracking-widest uppercase text-sm">{setupMode === 'public' ? t('publicMatch', 'PUBLIC MATCH') : setupMode === 'private' ? t('privateMatch', 'PRIVATE MATCH') : t('localPlay', 'LOCAL PLAY')}</h2>
-              <div className="w-[72px]"></div>
+          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:p-7">
+            <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
+            <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
+            <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
+            <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
+
+            <div className="mb-3 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:mb-4">
+              <button onClick={() => setSetupMode(null)} className="flex items-center gap-2 rounded-lg border border-gold/30 bg-white/5 px-4 py-2 font-display text-xs font-bold uppercase tracking-widest text-white/70 transition-colors hover:border-gold/60 hover:text-gold">
+                <BackIcon className="h-4 w-4" aria-hidden="true" />
+                {t('back', 'BACK')}
+              </button>
+              <h2 className="text-center font-display text-2xl font-bold uppercase tracking-widest text-gold text-glow-gold sm:text-3xl">
+                {setupMode === 'public' ? t('publicMatch', 'PUBLIC MATCH') : setupMode === 'private' ? t('privateMatch', 'PRIVATE MATCH') : t('localPlay', 'LOCAL PLAY')}
+              </h2>
+              <div className="hidden w-[92px] sm:block"></div>
             </div>
 
-            <div className="w-full flex flex-col items-center">
-              <h3 className="text-white/70 text-[10px] uppercase tracking-widest mb-3 text-center font-semibold">{t('matchType', 'Match Type')}</h3>
-              <div className="flex gap-2 w-full max-w-[340px]">
-                <button onClick={() => setMatchType('1v1')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === '1v1' ? 'bg-sapphire/20 border-sapphire text-sapphire shadow-[0_0_15px_rgba(56,189,248,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
-                  <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-sapphire"></div><div className="w-2.5 h-2.5 rounded-full bg-ruby"></div></div>
-                  {t('1v1', '1 vs 1')}
-                </button>
-                <button onClick={() => setMatchType('2v2')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === '2v2' ? 'bg-emerald/20 border-emerald text-emerald shadow-[0_0_15px_rgba(52,211,153,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
-                  <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-emerald"></div><div className="w-2.5 h-2.5 rounded-full bg-amber"></div></div>
-                  {t('2v2', '2 vs 2')}
-                </button>
-                <button onClick={() => setMatchType('ffa')} className={`flex-1 py-4 flex flex-col items-center justify-center gap-1.5 rounded-xl border font-display font-bold text-sm sm:text-base transition-all ${matchType === 'ffa' ? 'bg-ruby/20 border-ruby text-ruby shadow-[0_0_15px_rgba(244,63,94,0.3)] scale-105 z-10' : 'bg-black/40 border-white/10 text-white/50 hover:text-white hover:border-white/30'}`}>
-                  <div className="flex gap-1"><div className="w-2.5 h-2.5 rounded-full bg-ruby"></div><div className="w-2.5 h-2.5 rounded-full bg-sapphire"></div><div className="w-2.5 h-2.5 rounded-full bg-emerald"></div></div>
-                  {t('ffa4p', 'FFA 4P')}
-                </button>
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <ConfigSectionTitle>{t('matchType', 'Match Type')}</ConfigSectionTitle>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <ConfigChoiceCard active={matchType === '1v1'} tone="sapphire" title={t('1v1', '1 vs 1')} subtitle={t('oneOnOne', 'Face off one on one')} onClick={() => setMatchType('1v1')}>
+                  <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span></div>
+                  <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
+                </ConfigChoiceCard>
+                <ConfigChoiceCard active={matchType === '2v2'} tone="gold" title={t('2v2', '2 vs 2')} subtitle={t('teamUpDominate', 'Team up and dominate')} onClick={() => setMatchType('2v2')}>
+                  <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-emerald shadow-[0_0_10px_rgba(52,211,153,0.8)]"></span><span className="h-3 w-3 rounded-full bg-amber shadow-[0_0_10px_rgba(245,158,11,0.8)]"></span></div>
+                  <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
+                </ConfigChoiceCard>
+                <ConfigChoiceCard active={matchType === 'ffa'} tone="violet" title={t('ffa4p', 'FFA 4P')} subtitle={t('everyPlayerForThemselves', 'Every player for themselves')} onClick={() => setMatchType('ffa')}>
+                  <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-emerald shadow-[0_0_10px_rgba(52,211,153,0.8)]"></span><span className="h-3 w-3 rounded-full bg-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.8)]"></span></div>
+                  <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
+                </ConfigChoiceCard>
               </div>
+
+              <ConfigSectionTitle>{t('gameRules', 'Game Rules')}</ConfigSectionTitle>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px]">
+                  <RulesIcon className="h-8 w-8" aria-hidden="true" />
+                </ConfigChoiceCard>
+                <ConfigChoiceCard active={isQuickGame} tone="gold" title={t('quick', 'Quick')} subtitle={t('fastPacedShortGames', 'Fast-paced & short games')} onClick={() => setIsQuickGame(!isQuickGame)} className="min-h-[92px]">
+                  <QuickIcon className="h-8 w-8" aria-hidden="true" />
+                </ConfigChoiceCard>
+              </div>
+
+              {setupMode !== 'public' && (
+                <>
+                  <ConfigSectionTitle>{t('botDifficulty', 'Bot Difficulty')}</ConfigSectionTitle>
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <ConfigChoiceCard active={botDifficulty === 'easy'} tone="emerald" title={t('easy', 'EASY')} subtitle={t('relaxedChallenge', 'Relaxed challenge')} onClick={() => setBotDifficulty('easy')} className="min-h-[86px]">
+                      <EasyIcon className="h-8 w-8" aria-hidden="true" />
+                    </ConfigChoiceCard>
+                    <ConfigChoiceCard active={botDifficulty === 'hard'} tone="ruby" title={t('hard', 'HARD')} subtitle={t('forSeasonedStrategists', 'For seasoned & strategists')} onClick={() => setBotDifficulty('hard')} className="min-h-[86px]">
+                      <HardIcon className="h-8 w-8" aria-hidden="true" />
+                    </ConfigChoiceCard>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="w-full flex flex-col items-center">
-              <h3 className="text-white/70 text-[10px] uppercase tracking-widest mb-3 text-center font-semibold">{t('gameRules', 'Game Rules')}</h3>
-              <div className="flex justify-center gap-3 w-full max-w-[340px]">
-                <button onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${isVoidRuleEnabled ? 'bg-gold/20 border-gold/40 text-gold shadow-[0_0_10px_rgba(251,191,36,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('voidRule', '1+3 Void')}</span>
-                </button>
-                <button onClick={() => setIsQuickGame(!isQuickGame)} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${isQuickGame ? 'bg-sapphire/20 border-sapphire/40 text-sapphire shadow-[0_0_10px_rgba(56,189,248,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('quick', 'Quick')}</span>
-                </button>
-              </div>
-            </div>
-
-            {setupMode !== 'public' && (
-              <div className="w-full flex flex-col items-center">
-                <h3 className="text-white/70 text-[10px] uppercase tracking-widest mb-3 text-center font-semibold">{t('botDifficulty', 'Bot Difficulty')}</h3>
-                <div className="flex justify-center gap-3 w-full max-w-[340px]">
-                  <button onClick={() => setBotDifficulty('easy')} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${botDifficulty === 'easy' ? 'bg-emerald/20 border-emerald/40 text-emerald shadow-[0_0_10px_rgba(52,211,153,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-.464 5.535a1 1 0 10-1.415-1.414 3 3 0 01-4.242 0 1 1 0 00-1.415 1.414 5 5 0 007.072 0z" clipRule="evenodd" /></svg>
-                    <span className="text-[10px] font-bold uppercase tracking-wider">{t('easy', 'EASY')}</span>
-                  </button>
-                  <button onClick={() => setBotDifficulty('hard')} className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all ${botDifficulty === 'hard' ? 'bg-ruby/20 border-ruby/40 text-ruby shadow-[0_0_10px_rgba(244,63,94,0.2)]' : 'bg-black/30 border-white/5 text-white/40 hover:text-white/80'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zm-1.5 5.5a1 1 0 00-1 1h-3a1 1 0 100 2h7a1 1 0 100-2h-3a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    <span className="text-[10px] font-bold uppercase tracking-wider">{t('hard', 'HARD')}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="w-full mt-4">
+            <div className="mx-auto mt-4 w-full max-w-[760px]">
               {setupMode === 'local' && (
                 <button onClick={() => {
                   let newSeats = {};
@@ -900,17 +1204,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');
                   setSetupStep('seats');
-                }} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg uppercase rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+                }} className={configPrimaryButtonClass}>
                   {t('next', 'Next')}
                 </button>
               )}
               {setupMode === 'public' && (
-                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-2 bg-emerald text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className={configPrimaryButtonClass}>
                   {isSearching ? t('searching', 'SEARCHING...') : t('findMatch', 'FIND MATCH')}
                 </button>
               )}
               {setupMode === 'private' && (
-                <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className="w-full py-4 flex items-center justify-center gap-2 bg-sapphire text-white font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(56,189,248,0.4)] hover:bg-blue-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 disabled:cursor-not-allowed transition-all">
+                <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className={configPrimaryButtonClass}>
                   {isHosting ? t('hostingMatch', 'CREATING LOBBY...') : t('createLobby', 'CREATE LOBBY')}
                 </button>
               )}
@@ -922,7 +1226,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
           <div className="w-full space-y-6 animate-fade-in">
             <div className="w-full flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] mb-4">
-              <button onClick={() => setSetupStep('config')} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg> {t('back', 'BACK')}</button>
+              <button onClick={() => setSetupStep('config')} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
               <h2 className="text-white/80 font-bold tracking-widest uppercase text-sm">{t('localPlay', 'LOCAL PLAY')}</h2>
               <div className="w-[72px]"></div>
             </div>
@@ -959,7 +1263,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             <div className="flex flex-col gap-2 w-full mt-4">
             {isHost ? (
                 <button onClick={handleStartOnlineMatch} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <StartIcon className="h-6 w-6" aria-hidden="true" />
                   {t('startMatch', 'START MATCH')}
                 </button>
             ) : (
@@ -968,7 +1272,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                   {t('waitingForHost', 'Waiting for Host...')}
                 </div>
             )}
-              <button onClick={() => window.location.href = window.location.pathname} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
+              <button onClick={async () => {
+                if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+                  try { await window.CrazyGames.SDK.game.leftRoom(); } catch(e){}
+                }
+                window.location.href = window.location.pathname;
+              }} className="w-full py-3 bg-transparent text-white/40 hover:text-white flex items-center justify-center gap-2 font-sans text-xs font-semibold rounded-xl transition-colors uppercase tracking-widest">
                 {t('leaveLobby', 'Leave Lobby')}
               </button>
             </div>
@@ -976,6 +1285,22 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         )}
       </div>
     </div>
+
+    {/* Desktop Banner Ad Containers */}
+    {import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && (
+      <>
+        {/* Left Banner */}
+        <div className="hidden xl:flex fixed left-4 2xl:left-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
+          <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Advertisement</span>
+          <div id="cg-lobby-banner-left" className="w-[300px] h-[600px] bg-black/20 rounded-xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex items-center justify-center"></div>
+        </div>
+        {/* Right Banner */}
+        <div className="hidden xl:flex fixed right-4 2xl:right-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
+          <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Advertisement</span>
+          <div id="cg-lobby-banner-right" className="w-[300px] h-[600px] bg-black/20 rounded-xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex items-center justify-center"></div>
+        </div>
+      </>
+    )}
     </>
   );
 };

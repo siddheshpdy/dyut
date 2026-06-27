@@ -172,6 +172,12 @@
 ## Phase 31: Web Portal Integration (Completed)
 * To see the roadmap for packaging the game for web portals, implementing their SDKs, and handling iframe data restrictions, refer to the `webPortalPlan.md` file.
 
+## Phase 32: Portal Matchmaking SDK Integration (Completed)
+* Objective: Fully integrate CrazyGames multiplayer SDK methods to allow the portal's UI to manage room invites and display correct lobby statuses.
+* Inbound Invites (Room Join Listener): Update `App.jsx` to register the SDK's room join listener upon initialization. Extract the `roomId` payload from the callback and pass it to the Firebase routing state (`setJoinGameId`).
+* Outbound Sync (Room Status Updates): Update `UnifiedLobby.jsx` to push room capacity and state changes to the SDK. 
+* Sync Logic: Call the SDK's room update method to report the exact number of active human players versus max capacity whenever a seat is claimed or vacated, and update the room status to "Started" or "Full" when the match begins to lock standard invites.
+
 ---
 
 ## Suggested State Architecture Example
