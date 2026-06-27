@@ -938,7 +938,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       {/* Top Navigation Bar */}
-      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:grid md:grid-cols-[auto_1fr_auto] md:px-8 ${isLobbyStage ? 'lg:py-5' : ''}`}>
+      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-5' : ''}`}>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
@@ -946,7 +946,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
           </button>
         </div>
 
-        <nav className="hidden min-w-0 items-center justify-center gap-4 md:flex lg:gap-7">
+        <nav className="hidden min-w-0 items-center justify-center gap-4 lg:flex xl:gap-7">
           <button onClick={onShowTutorial} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><HowToPlayIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('howToPlay', 'How to Play')}</span></button>
           <button onClick={onShowRules} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><RulesIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('rules', 'Rules')}</span></button>
           <button onClick={onShowHistory} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><HistoryIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('history', 'History')}</span></button>
@@ -956,7 +956,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         <div className="flex items-center justify-end gap-3">
           <PlayerProfile user={user} />
           
-          <div className="md:hidden relative flex items-center">
+          <div className="relative flex items-center lg:hidden">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] p-2 ml-2">
               <MenuIcon className="h-6 w-6" aria-hidden="true" />
             </button>

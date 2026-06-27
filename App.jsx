@@ -61,46 +61,46 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
       </div>
     </div>
 
-    <div className="absolute left-4 right-4 top-4 z-50 hidden items-center justify-between rounded-[22px] border border-gold/45 bg-[#050403]/75 px-9 py-2.5 shadow-[0_0_34px_rgba(0,0,0,0.76),inset_0_0_36px_rgba(234,179,8,0.07)] backdrop-blur-md lg:flex">
-      <nav className="flex min-w-0 items-center gap-5 text-white/80 xl:gap-7">
-        <button onClick={onShowTutorial} className="group flex items-center gap-3 whitespace-nowrap transition-colors hover:text-gold"><HowToPlayIcon className="h-6 w-6 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5" aria-hidden="true" /><span className="font-display text-base xl:text-lg">{t('howToPlay', 'How to Play')}</span></button>
-        <button onClick={onShowRules} className="group flex items-center gap-3 whitespace-nowrap transition-colors hover:text-gold"><RulesIcon className="h-6 w-6 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5" aria-hidden="true" /><span className="font-display text-base xl:text-lg">{t('rules', 'Rules')}</span></button>
-        <button onClick={onShowHistory} className="group flex items-center gap-3 whitespace-nowrap transition-colors hover:text-gold"><HistoryIcon className="h-6 w-6 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5" aria-hidden="true" /><span className="font-display text-base xl:text-lg">{t('history', 'History')}</span></button>
-        <button onClick={onShowAbout} className="group flex items-center gap-3 whitespace-nowrap transition-colors hover:text-gold"><AboutIcon className="h-6 w-6 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5" aria-hidden="true" /><span className="font-display text-base xl:text-lg">{t('aboutUs', 'About Us')}</span></button>
+    <div className="absolute left-4 right-4 top-4 z-50 hidden grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[22px] border border-gold/45 bg-[#050403]/75 px-5 py-2.5 shadow-[0_0_34px_rgba(0,0,0,0.76),inset_0_0_36px_rgba(234,179,8,0.07)] backdrop-blur-md lg:grid xl:px-9">
+      <nav className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 justify-self-start text-white/80 xl:gap-x-7">
+        <button onClick={onShowTutorial} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HowToPlayIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('howToPlay', 'How to Play')}</span></button>
+        <button onClick={onShowRules} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><RulesIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('rules', 'Rules')}</span></button>
+        <button onClick={onShowHistory} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HistoryIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('history', 'History')}</span></button>
+        <button onClick={onShowAbout} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><AboutIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('aboutUs', 'About Us')}</span></button>
       </nav>
 
-      <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-        <div className="flex items-center gap-4">
-          <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold"></span>
-          <h1 className="dyut-title text-5xl font-bold leading-none tracking-[0.16em] text-gold text-glow-gold xl:text-6xl">DYUT</h1>
-          <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold"></span>
+      <div className="flex flex-col items-center justify-self-center">
+        <div className="flex items-center gap-3 xl:gap-4">
+          <span className="h-px w-10 bg-gradient-to-r from-transparent via-gold/70 to-gold xl:w-16"></span>
+          <h1 className="dyut-title text-4xl font-bold leading-none tracking-[0.16em] text-gold text-glow-gold xl:text-6xl">DYUT</h1>
+          <span className="h-px w-10 bg-gradient-to-l from-transparent via-gold/70 to-gold xl:w-16"></span>
         </div>
-        <span className="-mt-1 font-display text-xs font-bold uppercase tracking-[0.28em] text-gold">{t('gameOfLegends', 'The Game of Legends')}</span>
+        <span className="-mt-1 font-display text-[10px] font-bold uppercase tracking-[0.24em] text-gold xl:text-xs xl:tracking-[0.28em]">{t('gameOfLegends', 'The Game of Legends')}</span>
       </div>
 
-      <div className="flex items-center gap-5">
+      <div className="flex items-center justify-end gap-3 justify-self-end xl:gap-5">
         <div className="flex overflow-hidden rounded-xl border border-gold/35 bg-black/45 shadow-[inset_0_0_18px_rgba(0,0,0,0.55)]">
-          <div className="flex items-center gap-3 px-5 py-2.5">
-            <TimerIcon className="h-7 w-7 text-gold" aria-hidden="true" />
+          <div className="flex items-center gap-2 px-3 py-2 xl:gap-3 xl:px-5 xl:py-2.5">
+            <TimerIcon className="h-6 w-6 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
             <div className="text-center">
-              <div className="font-display text-2xl leading-none text-white/90">--:--</div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/70">{t('turnTimer', 'Turn Timer')}</div>
+              <div className="font-display text-xl leading-none text-white/90 xl:text-2xl">--:--</div>
+              <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('turnTimer', 'Turn Timer')}</div>
             </div>
           </div>
           <div className="w-px bg-gold/25"></div>
-          <div className="flex items-center gap-3 px-5 py-2.5">
-            <ScoreIcon className="h-7 w-7 text-gold" aria-hidden="true" />
+          <div className="flex items-center gap-2 px-3 py-2 xl:gap-3 xl:px-5 xl:py-2.5">
+            <ScoreIcon className="h-6 w-6 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
             <div className="text-center">
-              <div className="font-display text-2xl leading-none text-white/90">{activeScore}</div>
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/70">{t('score', 'Score')}</div>
+              <div className="font-display text-xl leading-none text-white/90 xl:text-2xl">{activeScore}</div>
+              <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('score', 'Score')}</div>
             </div>
           </div>
         </div>
-        <button onClick={toggleMute} className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-gold" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-          <SoundIcon className={`h-7 w-7 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+        <button onClick={toggleMute} className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-gold xl:h-14 xl:w-14" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+          <SoundIcon className={`h-6 w-6 xl:h-7 xl:w-7 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
         </button>
-        <button onClick={handleMenuClick} className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
-          <ExitIcon className="h-7 w-7" aria-hidden="true" />
+        <button onClick={handleMenuClick} className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-ruby xl:h-14 xl:w-14" title={t('exitGame', 'Exit Game')}>
+          <ExitIcon className="h-6 w-6 xl:h-7 xl:w-7" aria-hidden="true" />
         </button>
       </div>
     </div>

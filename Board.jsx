@@ -8,6 +8,32 @@ import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } f
 import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
+const getOccupantOffsetClass = (count, index, spreadPair = false) => {
+  if (count === 2) {
+    if (spreadPair) {
+      return index === 0 ? '-translate-x-[24%]' : 'translate-x-[24%] z-20';
+    }
+    return index === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
+  }
+
+  if (count === 3) {
+    return index === 0 ? '-translate-x-[15%] -translate-y-[15%]' : index === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
+  }
+
+  if (count >= 4) {
+    return index === 0 ? '-translate-x-[15%] -translate-y-[15%]' : index === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : index === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
+  }
+
+  return '';
+};
+
+const getOccupantSizeClass = (count, spreadPair = false) => {
+  if (count === 2 && spreadPair) {
+    return 'w-[68%] h-[68%] sm:w-[72%] sm:h-[72%]';
+  }
+  return 'w-[80%] h-[80%]';
+};
+
 // The individual Square component
 const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
   const isCenter = cell.id === 'CENTER';
@@ -74,21 +100,18 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
       {/* Render Occupying Pieces */}
       {occupants && occupants.length > 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {occupants.map((occ, i) => {
-            let offsetClass = '';
-            if (occupants.length === 2) {
-              offsetClass = i === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
-            } else if (occupants.length === 3) {
-              offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
-            } else if (occupants.length >= 4) {
-              offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : i === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
-            }
-            return (
-              <div key={i} className={`absolute w-[80%] h-[80%] flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${offsetClass}`} style={{ pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); occ.onClick(); }}>
-                <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
-              </div>
-            );
-          })}
+          {(() => {
+            const spreadPair = occupants.length === 2 && occupants.every(occ => occ.isMovable);
+            return occupants.map((occ, i) => {
+              const offsetClass = getOccupantOffsetClass(occupants.length, i, spreadPair);
+              const sizeClass = getOccupantSizeClass(occupants.length, spreadPair);
+              return (
+                <div key={i} className={`absolute ${sizeClass} flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${offsetClass}`} style={{ pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); occ.onClick(); }}>
+                  <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
     </div>
@@ -128,8 +151,15 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
     ? 'w-[35%] aspect-square bg-white/90 shadow-[inset_0_-2px_3px_rgba(0,0,0,0.4)] -translate-y-[15%]'
     : 'w-[35%] h-[35%] bg-white/80 shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)]';
 
+  const homeStretchDirectionClass = isHomeStretch ? ({
+    Player1: 'rotate-0',
+    Player2: '-rotate-90',
+    Player3: 'rotate-180',
+    Player4: 'rotate-90',
+  }[playerId] || '') : '';
+
   return (
-    <div className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass}`}>
+    <div className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass} ${homeStretchDirectionClass}`}>
       <div className={`rounded-full pointer-events-none ${innerShapeClass}`}></div>
     </div>
   );
@@ -650,21 +680,18 @@ const Board = ({ onGoToMenu }) => {
     Object.entries(cellGroups).forEach(([cellId, occupants]) => {
       const targetCell = cells.find(c => c.id === cellId);
       if (!targetCell) return;
+      const hasRolls = state.turnQueue.length > 0;
+      const spreadMovablePair = occupants.length === 2 && occupants.every((occ) => {
+        const isActiveOrProxy = occ.playerId === activePlayerId;
+        return isMyTurn && !isBotPlaying && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
+      });
       
       occupants.forEach((occ, i) => {
-        let offsetClass = '';
-        if (occupants.length === 2) {
-          offsetClass = i === 0 ? '-translate-x-[15%]' : 'translate-x-[15%] z-20';
-        } else if (occupants.length === 3) {
-          offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : 'translate-y-[15%] z-30';
-        } else if (occupants.length >= 4) {
-          offsetClass = i === 0 ? '-translate-x-[15%] -translate-y-[15%]' : i === 1 ? 'translate-x-[15%] -translate-y-[15%] z-20' : i === 2 ? '-translate-x-[15%] translate-y-[15%] z-30' : 'translate-x-[15%] translate-y-[15%] z-40';
-        }
-
         const isActiveOrProxy = occ.playerId === activePlayerId;
-        const hasRolls = state.turnQueue.length > 0;
         const isMovable = isMyTurn && !isBotPlaying && isActiveOrProxy && hasRolls && !isRollingPhaseActive && !isAnimating;
         const isHomeStretch = occ.logicalId.includes('_HOME');
+        const offsetClass = getOccupantOffsetClass(occupants.length, i, spreadMovablePair);
+        const sizeClass = getOccupantSizeClass(occupants.length, spreadMovablePair);
 
         piecesToRender.push(
           <div 
@@ -673,7 +700,7 @@ const Board = ({ onGoToMenu }) => {
             className={`flex items-center justify-center transition-transform duration-100 ease-linear ${isMovable ? 'cursor-pointer hover:scale-110 z-50' : 'cursor-default z-40'} ${offsetClass}`}
             onClick={(e) => { e.stopPropagation(); handlePieceClick(occ.playerId, occ.pieceIndex); }}
           >
-            <div className="w-[80%] h-[80%] flex items-center justify-center pointer-events-none">
+            <div className={`${sizeClass} flex items-center justify-center pointer-events-none`}>
               <Piece color={occ.player.color} isMovable={isMovable} isHomeStretch={isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
             </div>
           </div>
