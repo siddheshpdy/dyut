@@ -166,7 +166,7 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
 };
 
 // The Player's Yard/Base for locked pieces
-const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating, isActive }) => {
+const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimating, isActive, layoutMode = 'desktop' }) => {
   const { state } = useGame();
   
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
@@ -193,10 +193,22 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
     amber: 'bg-amber',
   }[player.color];
 
+  const baseWrapperClass = layoutMode === 'mobile'
+    ? 'relative flex flex-col items-center justify-center p-0'
+    : 'relative flex flex-col items-center justify-center p-0 sm:p-2 lg:p-2';
+
+  const baseCardClass = layoutMode === 'mobile'
+    ? `relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border px-1.5 py-2 transition-all duration-500 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_30px_rgba(234,179,8,0.45),inset_0_0_26px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/50 shadow-[inset_0_0_22px_rgba(0,0,0,0.68)]'}`
+    : `relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:px-4 lg:py-4 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`;
+
+  const pieceGridClass = layoutMode === 'mobile'
+    ? `grid aspect-square w-[66%] max-w-[62px] grid-cols-2 grid-rows-2 gap-1 rounded-xl p-1 transition-all duration-500 ${isActive ? 'border border-gold/85 bg-black/68 shadow-[0_0_16px_rgba(234,179,8,0.3),inset_0_4px_12px_rgba(0,0,0,0.64)]' : 'border border-gold/30 bg-black/54 shadow-[inset_0_4px_12px_rgba(0,0,0,0.64)]'}`
+    : `grid aspect-square w-[70%] max-w-[80px] grid-cols-2 grid-rows-2 gap-1 rounded-xl p-1 transition-all duration-500 sm:w-[80%] sm:max-w-[100px] sm:gap-2 sm:p-2 lg:w-full lg:max-w-[116px] lg:p-3 ${isActive ? 'border border-gold/85 bg-black/68 shadow-[0_0_22px_rgba(234,179,8,0.34),inset_0_4px_14px_rgba(0,0,0,0.64)]' : 'border border-gold/30 bg-black/54 shadow-[inset_0_4px_14px_rgba(0,0,0,0.64)]'}`;
+
   return (
     <div
       style={{ gridRow, gridColumn: gridCol }}
-      className="relative flex flex-col items-center justify-center p-0 sm:p-2 lg:p-2"
+      className={baseWrapperClass}
     >
       {isActive && (
         <div className="absolute -top-4 left-1/2 hidden -translate-x-1/2 text-gold drop-shadow-[0_0_12px_rgba(234,179,8,0.95)] lg:block">
@@ -205,14 +217,14 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
           </svg>
         </div>
       )}
-      <div className={`relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:px-4 lg:py-4 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`}>
+      <div className={baseCardClass}>
       <span className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-gold/45 to-transparent"></span>
       <span className="pointer-events-none absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/25 to-transparent"></span>
       <div className="mb-1 sm:mb-2 flex flex-col items-center">
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
           <div className={`h-2 w-2 rounded-full border border-white/40 jewel-shadow sm:h-4 sm:w-4 ${baseColorClass}`}></div>
-          <span className={`max-w-[45px] truncate font-display text-[10px] font-bold tracking-wider transition-all duration-300 sm:max-w-none sm:text-xs sm:tracking-widest md:text-sm lg:text-lg ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}>{player.name || playerId}</span>
+          <span className={`max-w-[45px] truncate font-display text-[10px] font-bold tracking-wider transition-all duration-300 sm:max-w-none sm:text-xs sm:tracking-widest md:text-sm ${layoutMode === 'mobile' ? 'lg:text-sm' : 'lg:text-lg'} ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}>{player.name || playerId}</span>
           {state.isTeamMode && (
             <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[6px] sm:text-[8px] font-sans font-bold uppercase tracking-widest rounded border ${player.team === 1 ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30' : 'bg-rose-500/20 text-rose-200 border-rose-500/30'}`} title={`Team ${player.team}`}>
               T{player.team}
@@ -233,7 +245,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
         </div>
       </div>
       {/* Base Container - A 2x2 grid for the locked pieces */}
-      <div className={`grid aspect-square w-[70%] max-w-[80px] grid-cols-2 grid-rows-2 gap-1 rounded-xl p-1 transition-all duration-500 sm:w-[80%] sm:max-w-[100px] sm:gap-2 sm:p-2 lg:w-full lg:max-w-[116px] lg:p-3 ${isActive ? 'border border-gold/85 bg-black/68 shadow-[0_0_22px_rgba(234,179,8,0.34),inset_0_4px_14px_rgba(0,0,0,0.64)]' : 'border border-gold/30 bg-black/54 shadow-[inset_0_4px_14px_rgba(0,0,0,0.64)]'}`}>
+      <div className={pieceGridClass}>
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}>
             <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
@@ -276,6 +288,9 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
   const activeBasePlayerId = getProxyPlayerId(state.currentPlayer, state);
+  const visibleBases = layoutMode === 'mobile'
+    ? activeBases.filter(base => base.id !== activeBasePlayerId)
+    : activeBases;
 
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
@@ -586,6 +601,17 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
     }
   };
 
+  useEffect(() => {
+    const handleMobileSpawn = (event) => {
+      const { playerId, pieceIndex } = event.detail || {};
+      if (typeof playerId !== 'string' || typeof pieceIndex !== 'number') return;
+      handleSpawnClick(playerId, pieceIndex);
+    };
+
+    window.addEventListener('dyut-mobile-spawn', handleMobileSpawn);
+    return () => window.removeEventListener('dyut-mobile-spawn', handleMobileSpawn);
+  }, [state.currentPlayer, state.turnQueue, state.players, state.hasRolledThisTurn, state.rollingPhaseComplete, isAnimating]);
+
   const handleFullMove = (distance) => {
     if (!selectedPiece) return;
     if (selectedPiece.isLocked) {
@@ -734,7 +760,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
         {renderActivePieces()}
         
         {/* Render the 4 player bases */}
-        {activeBases.map(base => (
+        {visibleBases.map(base => (
           <PlayerBase 
             key={base.id}
             playerId={base.id}
@@ -744,6 +770,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
             onSpawnClick={handleSpawnClick}
             isAnimating={isAnimating}
             isActive={activeBasePlayerId === base.id}
+            layoutMode={layoutMode}
           />
         ))}
         
