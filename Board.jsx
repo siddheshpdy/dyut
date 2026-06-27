@@ -246,7 +246,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
 };
 
 // The main Board container
-const Board = ({ onGoToMenu }) => {
+const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
   const { state, dispatch } = useGame();
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
@@ -711,8 +711,12 @@ const Board = ({ onGoToMenu }) => {
     return piecesToRender;
   };
 
+  const boardShellClass = layoutMode === 'mobile'
+    ? 'mx-auto aspect-square w-full max-w-[94vw] px-1 sm:max-w-[88vw] sm:px-2'
+    : 'mx-auto aspect-square w-full max-w-[96vw] sm:p-2 lg:h-[78vh] lg:max-h-[820px] lg:w-auto lg:max-w-none xl:max-h-[850px]';
+
   return (
-    <div className="mx-auto aspect-square w-full max-w-[96vw] sm:p-2 lg:h-[78vh] lg:max-h-[820px] lg:w-auto lg:max-w-none xl:max-h-[850px]">
+    <div className={boardShellClass}>
       <div 
         className="grid h-full w-full rounded-lg p-0.5 drop-shadow-[0_0_34px_rgba(234,179,8,0.14)] board-bounding-box sm:rounded-2xl sm:p-2"
         style={{ 

@@ -17,7 +17,7 @@ const Die = ({ value, isRolling }) => (
   </div>
 );
 
-const DiceTray = () => {
+const DiceTray = ({ layoutMode = 'desktop' }) => {
   const { state, dispatch } = useGame();
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
@@ -143,6 +143,10 @@ const DiceTray = () => {
   }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, isEvaluating, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating]);
 
 
+  const trayShellClass = layoutMode === 'mobile'
+    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-4 rounded-[28px] border border-gold/45 bg-[#080604]/92 p-4 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[30px] sm:p-5'
+    : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:min-h-[660px] lg:w-[350px] lg:max-w-[350px] lg:justify-center lg:gap-7 lg:border-gold/55 lg:bg-[#050403]/68 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:min-h-[700px]';
+
   return (
     <>
       {showVoidGif && (
@@ -172,7 +176,7 @@ const DiceTray = () => {
           </div>
         </div>
       )}
-      <div className="relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:min-h-[660px] lg:w-[350px] lg:max-w-[350px] lg:justify-center lg:gap-7 lg:border-gold/55 lg:bg-[#050403]/68 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:min-h-[700px]">
+      <div className={trayShellClass}>
         <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-2xl border-l border-t border-gold/70"></span>
         <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-2xl border-r border-t border-gold/70"></span>
         <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-2xl border-b border-l border-gold/70"></span>

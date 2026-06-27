@@ -17,6 +17,32 @@ const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+
+const useIsDesktop = () => {
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const sync = (event) => setIsDesktop(event.matches);
+    setIsDesktop(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', sync);
+      return () => mediaQuery.removeEventListener('change', sync);
+    }
+
+    mediaQuery.addListener(sync);
+    return () => mediaQuery.removeListener(sync);
+  }, []);
+
+  return isDesktop;
+};
 
 const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
   const { t } = useTranslation();
@@ -139,6 +165,7 @@ const GameInfoOverlay = ({ infoView, onClose }) => {
 
 function App() {
   const { t } = useTranslation();
+  const isDesktop = useIsDesktop();
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
@@ -410,10 +437,21 @@ function App() {
               isMuted={isMuted}
               toggleMute={toggleMute}
             />
-            <div className="relative z-10 flex h-[100dvh] w-full flex-col items-center justify-center gap-4 overflow-hidden px-3 pb-4 pt-16 lg:flex-row lg:gap-10 lg:px-10 lg:pb-6 lg:pt-28 xl:gap-12">
-              <Board onGoToMenu={handleWipeAndGoToMenu} />
-              <DiceTray />
-            </div>
+            {isDesktop ? (
+              <div className="relative z-10 flex h-[100dvh] w-full flex-row items-center justify-center gap-10 overflow-hidden px-10 pb-6 pt-28 xl:gap-12">
+                <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="desktop" />
+                <DiceTray layoutMode="desktop" />
+              </div>
+            ) : (
+              <div className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[19rem] pt-16 sm:px-3 sm:pb-[20rem]">
+                <div className="flex min-h-0 flex-1 items-center justify-center">
+                  <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
+                </div>
+                <div className="absolute inset-x-0 bottom-0 z-20 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3">
+                  <DiceTray layoutMode="mobile" />
+                </div>
+              </div>
+            )}
             <GameInfoOverlay infoView={gameInfoView} onClose={() => setGameInfoView(null)} />
           </GameProvider>
         );
