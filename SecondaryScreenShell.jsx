@@ -44,7 +44,7 @@ const SecondaryScreenShell = ({
             <button
               type="button"
               onClick={onBack}
-              className="rounded-xl border border-gold/35 bg-white/5 px-8 py-3 font-display text-sm font-bold uppercase tracking-[0.18em] text-white/80 transition-all hover:border-gold/65 hover:bg-gold/10 hover:text-gold"
+              className="dyut-secondary-button px-8 py-3 text-sm"
             >
               {backLabel || t('returnBtn', 'Return')}
             </button>

@@ -78,14 +78,14 @@ const TutorialScreen = ({ onBack }) => {
             </div>
 
             <div className="mt-2 flex flex-wrap justify-center gap-3 sm:gap-4">
-              <button onClick={onBack} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] text-white/80 transition-colors hover:border-gold/40 hover:text-gold sm:px-6 sm:text-sm">{t('exitTutorial', 'Exit Tutorial')}</button>
+              <button onClick={onBack} className="dyut-secondary-button px-4 py-2 text-xs sm:px-6 sm:text-sm">{t('exitTutorial', 'Exit Tutorial')}</button>
               <button onClick={() => {
                 dispatchLocal({ type: 'LOAD_SCENARIO', payload: currentScenario.initialState });
                 setIsSuccess(false);
-              }} className="rounded-xl border border-white/10 bg-black/35 px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:border-white/20 hover:text-white sm:px-6 sm:text-sm">
+              }} className="dyut-muted-button px-4 py-2 text-xs sm:px-6 sm:text-sm">
                 {t('reset', 'Reset')}
               </button>
-              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 text-charcoal shadow-[0_0_18px_rgba(251,191,36,0.4)] hover:scale-[1.03] hover:brightness-110' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
+              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'dyut-primary-button shadow-[0_0_18px_rgba(251,191,36,0.4)]' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
             </div>
           </div>
         </SecondaryScreenShell>
