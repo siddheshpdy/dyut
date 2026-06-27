@@ -175,8 +175,8 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, isEvaluating, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating]);
 
 
-  const trayShellClass = layoutMode === 'mobile'
-    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-3 rounded-[24px] border border-gold/45 bg-[#080604]/92 p-3 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
+const trayShellClass = layoutMode === 'mobile'
+    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2.5 rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2.5 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
     : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:min-h-[660px] lg:w-[350px] lg:max-w-[350px] lg:justify-center lg:gap-7 lg:border-gold/55 lg:bg-[#050403]/68 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:min-h-[700px]';
 
   return (
@@ -221,15 +221,15 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
             </div>
           </div>
         )}
-        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-center lg:gap-6'}`}>
-          <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2.5 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-center lg:gap-6'}`}>
+          <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
             <span className="mb-1 font-display text-xs uppercase tracking-[0.28em] text-white/65 lg:text-sm">{t('active')}</span>
             <div className={`${layoutMode === 'mobile' ? 'flex flex-wrap items-center gap-2' : ''}`}>
-              <div className="font-display text-xl font-bold uppercase leading-none text-gold text-glow-gold sm:text-2xl lg:text-4xl">
+              <div className="font-display text-lg font-bold uppercase leading-none text-gold text-glow-gold sm:text-2xl lg:text-4xl">
                 {state.players[state.currentPlayer]?.name || state.currentPlayer}
               </div>
               {layoutMode === 'mobile' && isCurrentUserPlayer && (
-                <span className="rounded-md border border-ruby/30 bg-ruby/25 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
+                <span className="rounded-md border border-ruby/30 bg-ruby/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
                   {t('you', 'YOU')}
                 </span>
               )}
@@ -263,8 +263,8 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
               )}
             </div>
           </div>
-          <div className={`${layoutMode === 'mobile' ? 'flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 p-2.5 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)]' : 'flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:p-5 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'}`}>
-            <span className={`${layoutMode === 'mobile' ? 'mb-2 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85' : 'mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block'}`}>{t('currentDice', 'Current Dice')}</span>
+          <div className={`${layoutMode === 'mobile' ? 'flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2.5 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)]' : 'flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:p-5 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'}`}>
+            <span className={`${layoutMode === 'mobile' ? 'mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85' : 'mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block'}`}>{t('currentDice', 'Current Dice')}</span>
             <div className="flex gap-2 sm:gap-4 lg:gap-5">
               <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
               <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
@@ -272,19 +272,19 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
           </div>
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'flex w-full flex-col items-stretch gap-2.5' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-5'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'flex w-full flex-col items-stretch gap-2' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-5'}`}>
           <button
             onClick={(e) => { if (isBotPlaying && e.isTrusted) return; handleRoll(); }}
             id="dice-roll-btn"
             disabled={!canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn}
-            className={`flex flex-1 items-center justify-center gap-3 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3 font-display text-lg font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-4 sm:text-xl lg:w-full lg:rounded-2xl lg:py-4 lg:text-2xl ${layoutMode === 'mobile' ? 'w-full rounded-2xl py-3 text-lg' : ''} ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
+            className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3 font-display text-lg font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-4 sm:text-xl lg:w-full lg:rounded-2xl lg:py-4 lg:text-2xl ${layoutMode === 'mobile' ? 'w-full rounded-2xl py-2.5 text-base' : ''} ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
           >
-            <DiceIcon className="h-5 w-5" aria-hidden="true" />
+            <DiceIcon className={`${layoutMode === 'mobile' ? 'h-4.5 w-4.5' : 'h-5 w-5'}`} aria-hidden="true" />
             {isRolling ? t('rolling') : t('rollDice')}
           </button>
         
-          <div className={`flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[96px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:p-4 ${layoutMode === 'mobile' ? 'w-full rounded-2xl bg-black/34 p-2.5' : ''}`}>
-            <span className={`${layoutMode === 'mobile' ? 'mb-1.5 block font-display text-[10px] uppercase tracking-[0.22em] text-gold/80' : 'mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80'}`}>{t('queue')}</span>
+          <div className={`flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[96px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:p-4 ${layoutMode === 'mobile' ? 'w-full rounded-2xl bg-black/34 p-2' : ''}`}>
+            <span className={`${layoutMode === 'mobile' ? 'mb-1 block font-display text-[10px] uppercase tracking-[0.22em] text-gold/80' : 'mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80'}`}>{t('queue')}</span>
             <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 lg:gap-2.5">
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {

@@ -69,20 +69,20 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
 
   return (
     <>
-    <div className="absolute left-3 right-3 top-3 z-50 flex items-center justify-between rounded-xl border border-gold/30 bg-black/55 px-3 py-2 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
+    <div className="absolute left-2.5 right-2.5 top-2.5 z-50 flex items-center justify-between rounded-xl border border-gold/30 bg-black/55 px-3 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
       <div>
-        <div className="dyut-title text-2xl font-bold leading-none tracking-widest text-gold text-glow-gold">DYUT</div>
-        <div className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-gold/80">{t('gameOfLegends', 'The Game of Legends')}</div>
+        <div className="dyut-title text-[1.7rem] font-bold leading-none tracking-[0.18em] text-gold text-glow-gold">DYUT</div>
+        <div className="font-display text-[8px] font-bold uppercase tracking-[0.18em] text-gold/80">{t('gameOfLegends', 'The Game of Legends')}</div>
       </div>
-      <div className="flex items-center gap-2">
-        <button onClick={toggleMute} className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-gold" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-          <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+      <div className="flex items-center gap-1.5">
+        <button onClick={toggleMute} className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-gold" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+          <SoundIcon className={`h-4.5 w-4.5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
         </button>
-        <button onClick={onShowRules} className="h-10 rounded-full border border-gold/30 bg-black/35 px-4 text-xs font-bold uppercase tracking-widest text-white/75 transition-colors hover:text-gold">
+        <button onClick={onShowRules} className="h-9 rounded-full border border-gold/30 bg-black/35 px-3.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white/75 transition-colors hover:text-gold">
           {t('rules', 'Rules')}
         </button>
-        <button onClick={handleMenuClick} className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
-          <ExitIcon className="h-5 w-5" aria-hidden="true" />
+        <button onClick={handleMenuClick} className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
+          <ExitIcon className="h-4.5 w-4.5" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -176,6 +176,9 @@ function App() {
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
   const [mobileTrayHeight, setMobileTrayHeight] = useState(0);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
+  const mobileBoardSize = mobileTrayHeight > 0
+    ? `min(calc(96vw - 0.75rem), calc(100dvh - 3.9rem - ${mobileTrayHeight}px - env(safe-area-inset-bottom) - 1.25rem))`
+    : 'calc(96vw - 0.75rem)';
 
   const toggleMute = () => {
     setIsMuted(prev => {
@@ -472,14 +475,13 @@ function App() {
                 <DiceTray layoutMode="desktop" />
               </div>
             ) : (
-              <div className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-16 sm:px-3">
-                <div
-                  className="flex min-h-0 flex-1 items-center justify-center overflow-hidden pt-2"
-                  style={mobileTrayHeight > 0 ? { height: `calc(100dvh - 4.5rem - ${mobileTrayHeight}px - env(safe-area-inset-bottom))` } : undefined}
-                >
-                  <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
+              <div className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[3.85rem] sm:px-3">
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden pt-2 pb-2 [@media(min-height:780px)]:justify-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4">
+                  <div style={{ width: mobileBoardSize, height: mobileBoardSize }}>
+                    <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
+                  </div>
                 </div>
-                <div ref={mobileTrayRef} className="z-20 px-0 pt-3">
+                <div ref={mobileTrayRef} className="z-20 px-0 pt-1.5">
                   <DiceTray layoutMode="mobile" />
                 </div>
               </div>
