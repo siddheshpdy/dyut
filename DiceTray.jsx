@@ -6,13 +6,14 @@ import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { useAIBot } from './useAIBot';
 import { useTranslation } from 'react-i18next';
+import { DYUT_ICONS } from './dyut-icons';
 
 const DICE_FACES = [1, 3, 4, 6];
 
 // A single die face component, styled to look like a long die (pasa)
 const Die = ({ value, isRolling }) => (
-  <div className={`w-12 h-16 sm:w-16 sm:h-24 glass-panel rounded-lg sm:rounded-xl shadow-2xl flex items-center justify-center border-t border-white/30 transition-transform ${isRolling ? 'animate-shake' : ''}`}>
-    <span className="text-3xl sm:text-5xl font-display font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">{value}</span>
+  <div className={`flex h-14 w-14 items-center justify-center rounded-xl border border-gold/45 bg-black/45 shadow-[inset_0_0_18px_rgba(255,255,255,0.05),0_0_18px_rgba(0,0,0,0.55)] transition-transform sm:h-20 sm:w-20 ${isRolling ? 'animate-shake' : ''}`}>
+    <span className="font-display text-3xl font-bold text-white/90 drop-shadow-[0_0_8px_rgba(255,255,255,0.45)] sm:text-5xl">{value}</span>
   </div>
 );
 
@@ -25,6 +26,8 @@ const DiceTray = () => {
   const { t } = useTranslation();
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const DiceIcon = DYUT_ICONS.dice;
+  const CrownIcon = DYUT_ICONS.currentTurn;
 
   useEffect(() => {
     const handler = (e) => setIsMuted(e.detail);
@@ -169,7 +172,11 @@ const DiceTray = () => {
           </div>
         </div>
       )}
-      <div className="relative w-full max-w-[98vw] sm:max-w-sm lg:max-w-xs p-2 sm:p-6 flex flex-col items-center gap-3 sm:gap-6 z-10 glass-panel rounded-2xl sm:rounded-3xl transition-all duration-500">
+      <div className="relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:w-[330px] lg:max-w-[330px] lg:gap-6">
+        <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-2xl border-l border-t border-gold/70"></span>
+        <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-2xl border-r border-t border-gold/70"></span>
+        <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-2xl border-b border-l border-gold/70"></span>
+        <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-2xl border-b border-r border-gold/70"></span>
         {isStuckUI && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl sm:rounded-3xl">
             <div className="bg-ruby text-white px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(244,63,94,0.6)] flex flex-col items-center border border-white/20 animate-pulse">
@@ -178,31 +185,40 @@ const DiceTray = () => {
             </div>
           </div>
         )}
-        <div className="flex flex-row lg:flex-col items-center justify-between lg:justify-center w-full gap-4">
+        <div className="flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-center">
           <div className="flex flex-col items-start lg:items-center">
-            <span className="text-white/60 text-[10px] sm:text-xs font-sans uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-1">{t('active')}</span>
-            <div className="text-gold font-display font-bold text-2xl sm:text-3xl drop-shadow-md uppercase text-glow-gold leading-none">
+            <span className="mb-1 font-display text-xs uppercase tracking-[0.28em] text-white/65">{t('active')}</span>
+            <div className="font-display text-2xl font-bold uppercase leading-none text-gold text-glow-gold sm:text-3xl">
               {state.players[state.currentPlayer]?.name || state.currentPlayer}
             </div>
+            <div className="mt-4 hidden w-full items-center justify-center gap-3 text-gold/80 lg:flex">
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent via-gold/40 to-gold"></span>
+              <CrownIcon className="h-5 w-5" aria-hidden="true" />
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent via-gold/40 to-gold"></span>
+            </div>
           </div>
-          <div className="flex gap-2 sm:gap-4">
-            <Die value={lastRoll.d1 || '—'} isRolling={isRolling} />
-            <Die value={lastRoll.d2 || '—'} isRolling={isRolling} />
+          <div className="flex flex-col items-center">
+            <span className="mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block">{t('currentDice', 'Current Dice')}</span>
+            <div className="flex gap-2 sm:gap-4">
+            <Die value={lastRoll.d1 || '-'} isRolling={isRolling} />
+            <Die value={lastRoll.d2 || '-'} isRolling={isRolling} />
+            </div>
           </div>
         </div>
 
-        <div className="w-full flex flex-row lg:flex-col gap-3 sm:gap-4 items-stretch lg:items-center">
+        <div className="flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center">
           <button
             onClick={(e) => { if (isBotPlaying && e.isTrusted) return; handleRoll(); }}
             id="dice-roll-btn"
             disabled={!canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn}
-            className={`flex-1 lg:w-full py-3 sm:py-4 bg-gold text-charcoal font-display font-bold text-lg sm:text-xl rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-105 disabled:bg-white/10 disabled:text-white/40 disabled:border disabled:border-white/5 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed transition-all ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
+            className={`flex flex-1 items-center justify-center gap-3 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3 font-display text-lg font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-4 sm:text-xl lg:w-full ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
           >
+            <DiceIcon className="h-5 w-5" aria-hidden="true" />
             {isRolling ? t('rolling') : t('rollDice')}
           </button>
         
-          <div className="flex-1 lg:w-full flex flex-col items-center justify-center bg-black/40 rounded-xl p-2 sm:p-3 border border-white/5 min-h-[48px] sm:min-h-[64px]">
-            <span className="text-white/50 text-[8px] sm:text-[10px] uppercase tracking-widest mb-1 sm:mb-2 hidden sm:block lg:block">{t('queue')}</span>
+          <div className="flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:w-full">
+            <span className="mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:block">{t('queue')}</span>
             <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {

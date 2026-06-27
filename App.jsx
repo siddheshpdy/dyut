@@ -18,10 +18,18 @@ const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 
-const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
+const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
   const { t } = useTranslation();
   const { state, leaveGame } = useGame();
   const ExitIcon = DYUT_ICONS.exit;
+  const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
+  const HowToPlayIcon = DYUT_ICONS.howToPlay;
+  const RulesIcon = DYUT_ICONS.rules;
+  const HistoryIcon = DYUT_ICONS.history;
+  const AboutIcon = DYUT_ICONS.inviteFriend;
+  const TimerIcon = DYUT_ICONS.timerAlt;
+  const ScoreIcon = DYUT_ICONS.score;
+  const activeScore = state.players?.[state.currentPlayer]?.pieces?.filter(pos => pos === 999).length || 0;
   
   const handleMenuClick = () => {
     const msg = state.isPublic && state.isOnline
@@ -34,13 +42,97 @@ const GameOverlay = ({ onShowRules, onReturnToMenu }) => {
   };
 
   return (
-    <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-3 z-50">
-      <button onClick={onShowRules} className="px-4 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors font-sans text-xs font-bold uppercase tracking-widest" title={t('rules', 'Rules')}>
-        {t('rules', 'Rules')}
+    <>
+    <div className="absolute left-3 right-3 top-3 z-50 flex items-center justify-between rounded-xl border border-gold/30 bg-black/55 px-3 py-2 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
+      <div>
+        <div className="dyut-title text-2xl font-bold leading-none tracking-widest text-gold text-glow-gold">DYUT</div>
+        <div className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-gold/80">{t('gameOfLegends', 'The Game of Legends')}</div>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={toggleMute} className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-gold" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+          <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+        </button>
+        <button onClick={onShowRules} className="h-10 rounded-full border border-gold/30 bg-black/35 px-4 text-xs font-bold uppercase tracking-widest text-white/75 transition-colors hover:text-gold">
+          {t('rules', 'Rules')}
+        </button>
+        <button onClick={handleMenuClick} className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
+          <ExitIcon className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+
+    <div className="absolute left-3 right-3 top-3 z-50 hidden items-center justify-between rounded-2xl border border-gold/35 bg-black/55 px-8 py-3 shadow-[0_0_30px_rgba(0,0,0,0.7),inset_0_0_30px_rgba(234,179,8,0.05)] backdrop-blur-md lg:flex">
+      <nav className="flex items-center gap-8 text-white/80">
+        <button onClick={onShowTutorial} className="flex items-center gap-3 transition-colors hover:text-gold"><HowToPlayIcon className="h-6 w-6 text-gold" aria-hidden="true" /><span className="font-display text-lg">{t('howToPlay', 'How to Play')}</span></button>
+        <button onClick={onShowRules} className="flex items-center gap-3 transition-colors hover:text-gold"><RulesIcon className="h-6 w-6 text-gold" aria-hidden="true" /><span className="font-display text-lg">{t('rules', 'Rules')}</span></button>
+        <button onClick={onShowHistory} className="flex items-center gap-3 transition-colors hover:text-gold"><HistoryIcon className="h-6 w-6 text-gold" aria-hidden="true" /><span className="font-display text-lg">{t('history', 'History')}</span></button>
+        <button onClick={onShowAbout} className="flex items-center gap-3 transition-colors hover:text-gold"><AboutIcon className="h-6 w-6 text-gold" aria-hidden="true" /><span className="font-display text-lg">{t('aboutUs', 'About Us')}</span></button>
+      </nav>
+
+      <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+        <div className="flex items-center gap-4">
+          <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold"></span>
+          <h1 className="dyut-title text-5xl font-bold leading-none tracking-widest text-gold text-glow-gold">DYUT</h1>
+          <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold"></span>
+        </div>
+        <span className="-mt-1 font-display text-xs font-bold uppercase tracking-[0.28em] text-gold">{t('gameOfLegends', 'The Game of Legends')}</span>
+      </div>
+
+      <div className="flex items-center gap-6">
+        <div className="flex overflow-hidden rounded-xl border border-gold/30 bg-black/35">
+          <div className="flex items-center gap-3 px-5 py-2">
+            <TimerIcon className="h-7 w-7 text-gold" aria-hidden="true" />
+            <div className="text-center">
+              <div className="font-display text-2xl leading-none text-white/90">--:--</div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/70">{t('turnTimer', 'Turn Timer')}</div>
+            </div>
+          </div>
+          <div className="w-px bg-gold/25"></div>
+          <div className="flex items-center gap-3 px-5 py-2">
+            <ScoreIcon className="h-7 w-7 text-gold" aria-hidden="true" />
+            <div className="text-center">
+              <div className="font-display text-2xl leading-none text-white/90">{activeScore}</div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/70">{t('score', 'Score')}</div>
+            </div>
+          </div>
+        </div>
+        <button onClick={toggleMute} className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-gold" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+          <SoundIcon className={`h-7 w-7 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+        </button>
+        <button onClick={handleMenuClick} className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
+          <ExitIcon className="h-7 w-7" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+    </>
+  );
+};
+
+const GameInfoOverlay = ({ infoView, onClose }) => {
+  const CloseIcon = DYUT_ICONS.close;
+
+  const content = {
+    rules: <RulesScreen onBack={onClose} />,
+    history: <HistoryScreen onBack={onClose} />,
+    tutorial: <TutorialScreen onBack={onClose} />,
+    about: <AboutScreen onBack={onClose} />,
+  }[infoView];
+
+  if (!content) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/78 p-4 backdrop-blur-md">
+      <button
+        type="button"
+        onClick={onClose}
+        className="fixed right-4 top-4 z-[130] flex h-11 w-11 items-center justify-center rounded-full border border-gold/40 bg-black/70 text-white/75 shadow-[0_0_20px_rgba(0,0,0,0.65)] transition-colors hover:text-gold"
+        aria-label="Close"
+      >
+        <CloseIcon className="h-5 w-5" aria-hidden="true" />
       </button>
-      <button onClick={handleMenuClick} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-ruby transition-colors" title={t('exitGame', 'Exit Game')}>
-        <ExitIcon className="h-5 w-5" aria-hidden="true" />
-      </button>
+      <div className="relative z-[125] flex min-h-full w-full items-center justify-center py-10">
+        {content}
+      </div>
     </div>
   );
 };
@@ -52,6 +144,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [joinGameId, setJoinGameId] = useState(null);
   const [lastOnlineGameId, setLastOnlineGameId] = useState(null);
+  const [gameInfoView, setGameInfoView] = useState(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
 
@@ -244,6 +337,7 @@ function App() {
       }
     }
     setGameConfig(config);
+    setGameInfoView(null);
     setView('game');
   };
 
@@ -254,6 +348,7 @@ function App() {
     localStorage.removeItem(ONLINE_GAME_ID_KEY);
     setJoinGameId(null);
     setGameConfig(null);
+    setGameInfoView(null);
     setView('menu');
     triggerMidgameAd();
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
@@ -265,6 +360,7 @@ function App() {
     window.history.pushState({}, '', window.location.pathname);
     setJoinGameId(null);
     setGameConfig(null);
+    setGameInfoView(null);
     setView('menu');
     triggerMidgameAd();
     if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
@@ -301,16 +397,24 @@ function App() {
       case 'game':
         return (
           <GameProvider gameConfig={gameConfig}>
-            {/* Game Header */}
-            <div className="absolute top-5 sm:top-6 left-4 sm:left-1/2 translate-x-0 sm:-translate-x-1/2 z-50 pointer-events-none">
-              <h1 className="dyut-title text-2xl sm:text-4xl font-bold tracking-widest text-glow-gold text-[var(--color-gold)]">DYUT</h1>
+            <div className="absolute inset-0 overflow-hidden bg-[#060504]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(80,38,16,0.34),transparent_42%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(10,8,6,0.58)_24%,rgba(10,8,6,0.58)_76%,rgba(0,0,0,0.96))]"></div>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_52%,rgba(234,179,8,0.08),transparent_30%),radial-gradient(circle_at_50%_50%,transparent_0,rgba(0,0,0,0.2)_45%,rgba(0,0,0,0.78)_100%)]"></div>
             </div>
-            {/* Minimalist Top-Right Action Menu */}
-            <GameOverlay onShowRules={() => setView('rules')} onReturnToMenu={handleReturnToMenu} />
-            <div className="flex flex-col lg:flex-row items-center justify-center gap-6 sm:gap-8 w-full z-10 relative pt-16 lg:pt-0 pb-8 lg:pb-0">
+            <GameOverlay
+              onShowRules={() => setGameInfoView('rules')}
+              onShowTutorial={() => setGameInfoView('tutorial')}
+              onShowHistory={() => setGameInfoView('history')}
+              onShowAbout={() => setGameInfoView('about')}
+              onReturnToMenu={handleReturnToMenu}
+              isMuted={isMuted}
+              toggleMute={toggleMute}
+            />
+            <div className="relative z-10 flex h-[100dvh] w-full flex-col items-center justify-center gap-4 overflow-hidden px-3 pb-4 pt-16 lg:flex-row lg:gap-8 lg:px-8 lg:pb-8 lg:pt-28">
               <Board onGoToMenu={handleWipeAndGoToMenu} />
               <DiceTray />
             </div>
+            <GameInfoOverlay infoView={gameInfoView} onClose={() => setGameInfoView(null)} />
           </GameProvider>
         );
       case 'menu':
@@ -335,8 +439,8 @@ function App() {
   };
 
   return (
-    <main className={`min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-x-hidden outline-none font-sans ${view === 'menu' ? 'p-0 overflow-hidden' : 'p-4 overflow-y-auto'}`}>
-      {view !== 'menu' && (
+    <main className={`min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-x-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0 overflow-hidden' : 'p-4 overflow-y-auto'}`}>
+      {view !== 'menu' && view !== 'game' && (
         <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
           <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
         </button>

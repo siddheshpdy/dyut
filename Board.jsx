@@ -166,13 +166,21 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
   return (
     <div
       style={{ gridRow, gridColumn: gridCol }}
-      className="flex flex-col items-center justify-center p-0 sm:p-2 lg:p-4 relative"
+      className="flex flex-col items-center justify-center p-0 sm:p-2 lg:p-3 relative"
     >
+      {isActive && (
+        <div className="absolute -top-2 left-1/2 hidden -translate-x-1/2 text-gold drop-shadow-[0_0_10px_rgba(234,179,8,0.85)] lg:block">
+          <svg className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M5 18h14l1-10-5 4-3-7-3 7-5-4 1 10zm-1 2h16v2H4v-2z" />
+          </svg>
+        </div>
+      )}
+      <div className={`flex h-full w-full flex-col items-center justify-center rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:px-4 lg:py-4 ${isActive ? 'border-gold/85 bg-black/58 shadow-[0_0_30px_rgba(234,179,8,0.45),inset_0_0_28px_rgba(234,179,8,0.06)]' : 'border-gold/30 bg-black/45 shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'}`}>
       <div className="mb-1 sm:mb-2 flex flex-col items-center">
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Avatar/Color Indicator */}
           <div className={`w-2 h-2 sm:w-4 sm:h-4 rounded-full jewel-shadow border border-white/40 ${baseColorClass}`}></div>
-          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'player-gold-text'}`}>{player.name || playerId}</span>
+          <span className={`font-display tracking-wider sm:tracking-widest text-[10px] sm:text-xs md:text-sm lg:text-base font-bold truncate max-w-[45px] sm:max-w-none transition-all duration-300 ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}>{player.name || playerId}</span>
           {state.isTeamMode && (
             <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[6px] sm:text-[8px] font-sans font-bold uppercase tracking-widest rounded border ${player.team === 1 ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30' : 'bg-rose-500/20 text-rose-200 border-rose-500/30'}`} title={`Team ${player.team}`}>
               T{player.team}
@@ -193,12 +201,13 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
         </div>
       </div>
       {/* Base Container - A 2x2 grid for the locked pieces */}
-      <div className={`w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 rounded-xl transition-all duration-500 ${isActive ? 'bg-black/60 shadow-[0_0_20px_rgba(251,191,36,0.3),inset_0_4px_12px_rgba(0,0,0,0.6)] border border-gold/70 scale-105' : 'bg-black/40 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-white/5'}`}>
+      <div className={`w-[70%] sm:w-[80%] lg:w-full max-w-[80px] sm:max-w-[100px] lg:max-w-[120px] aspect-square grid grid-cols-2 grid-rows-2 gap-1 sm:gap-2 p-1 sm:p-2 lg:p-3 rounded-xl transition-all duration-500 ${isActive ? 'bg-black/65 shadow-[0_0_20px_rgba(234,179,8,0.35),inset_0_4px_12px_rgba(0,0,0,0.6)] border border-gold/80' : 'bg-black/50 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)] border border-gold/30'}`}>
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}>
             <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
@@ -209,7 +218,6 @@ const Board = ({ onGoToMenu }) => {
   const { state, dispatch } = useGame();
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
-  const [visualCurrentPlayer, setVisualCurrentPlayer] = useState(state.currentPlayer);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
@@ -235,6 +243,7 @@ const Board = ({ onGoToMenu }) => {
   ];
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
+  const activeBasePlayerId = getProxyPlayerId(state.currentPlayer, state);
 
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
@@ -340,12 +349,6 @@ const Board = ({ onGoToMenu }) => {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('dyut-animating', { detail: isAnimating }));
-    
-    // Delay the visual turn outline until all pieces have finished moving
-    if (!isAnimating) {
-      setVisualCurrentPlayer(state.currentPlayer);
-    }
-    
   }, [isAnimating]);
 
   const winnerInfo = useMemo(() => {
@@ -680,9 +683,9 @@ const Board = ({ onGoToMenu }) => {
   };
 
   return (
-    <div className="w-full max-w-[98vw] lg:max-w-none lg:w-auto lg:h-[80vh] aspect-square mx-auto sm:p-2">
+    <div className="w-full max-w-[96vw] lg:max-w-none lg:w-auto lg:h-[76vh] lg:max-h-[760px] aspect-square mx-auto sm:p-2">
       <div 
-        className="w-full h-full grid board-bounding-box rounded-lg sm:rounded-2xl p-0.5 sm:p-2"
+        className="w-full h-full grid board-bounding-box rounded-lg sm:rounded-2xl p-0.5 sm:p-2 drop-shadow-[0_0_28px_rgba(234,179,8,0.12)]"
         style={{ 
           gridTemplateColumns: 'repeat(19, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'
@@ -707,7 +710,7 @@ const Board = ({ onGoToMenu }) => {
             gridCol={base.col}
             onSpawnClick={handleSpawnClick}
             isAnimating={isAnimating}
-            isActive={visualCurrentPlayer === base.id}
+            isActive={activeBasePlayerId === base.id}
           />
         ))}
         

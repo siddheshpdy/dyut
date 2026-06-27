@@ -925,6 +925,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const EasyIcon = DYUT_ICONS.easyDifficulty;
   const HardIcon = DYUT_ICONS.hardDifficulty;
   const StartIcon = DYUT_ICONS.next;
+  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl";
 
   return (
     <>
@@ -1203,17 +1204,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');
                   setSetupStep('seats');
-                }} className="w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 sm:text-4xl">
+                }} className={configPrimaryButtonClass}>
                   {t('next', 'Next')}
                 </button>
               )}
               {setupMode === 'public' && (
-                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className="w-full rounded-xl border border-emerald/50 bg-gradient-to-b from-emerald-300 via-emerald to-emerald-800 py-3.5 font-display text-2xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(52,211,153,0.32),inset_0_2px_10px_rgba(255,255,255,0.28)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-3xl">
+                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className={configPrimaryButtonClass}>
                   {isSearching ? t('searching', 'SEARCHING...') : t('findMatch', 'FIND MATCH')}
                 </button>
               )}
               {setupMode === 'private' && (
-                <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className="w-full rounded-xl border border-sapphire/50 bg-gradient-to-b from-sky-300 via-sapphire to-blue-900 py-3.5 font-display text-2xl font-bold uppercase tracking-widest text-white shadow-[0_0_28px_rgba(56,189,248,0.32),inset_0_2px_10px_rgba(255,255,255,0.28)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-3xl">
+                <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className={configPrimaryButtonClass}>
                   {isHosting ? t('hostingMatch', 'CREATING LOBBY...') : t('createLobby', 'CREATE LOBBY')}
                 </button>
               )}
