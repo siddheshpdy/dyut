@@ -95,7 +95,7 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
 
   return (
     <>
-    <div className="absolute left-2.5 right-2.5 top-2.5 z-50 flex items-center justify-between rounded-xl border border-gold/30 bg-black/55 px-3 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
+    <div className="absolute left-2.5 right-2.5 top-2.5 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 rounded-xl border border-gold/30 bg-black/55 px-3 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
       <div>
         <div className="dyut-title text-[1.7rem] font-bold leading-none tracking-[0.18em] text-gold text-glow-gold">DYUT</div>
         <div className="font-display text-[8px] font-bold uppercase tracking-[0.18em] text-gold/80">{t('gameOfLegends', 'The Game of Legends')}</div>
@@ -110,6 +110,13 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
         <button onClick={handleMenuClick} className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
           <ExitIcon className="h-4.5 w-4.5" aria-hidden="true" />
         </button>
+      </div>
+      <div className="col-span-2 flex justify-center">
+        <div className="flex min-w-[6.6rem] items-center justify-center gap-1.5 rounded-full border border-gold/30 bg-black/35 px-3 py-1 shadow-[inset_0_0_14px_rgba(0,0,0,0.45)]">
+          <TimerIcon className={`h-3.5 w-3.5 ${isTimerCritical ? 'text-ruby' : 'text-gold'}`} aria-hidden="true" />
+          <span className={`font-display text-sm leading-none ${isTimerCritical ? 'text-ruby' : 'text-white/90'}`}>{timerText}</span>
+          <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/60">{t('turnTimer', 'Timer')}</span>
+        </div>
       </div>
     </div>
 

@@ -14,7 +14,7 @@ The repository is already beyond prototype stage. It currently includes:
 - Spawn rules, movement priority, pair shields, pair attacks, safe zones, assassin-style spawn captures, blood debt, and victory handling
 - Single-player bot support with heuristic AI
 - Firebase authentication, player profiles, and online multiplayer sync
-- Public/private lobby flows, host migration, visible turn countdowns, AFK handling, and bot takeover for disconnected online players with player reclaim on return
+- Public/private lobby flows, host migration, visible turn countdowns on desktop and mobile, AFK handling, and bot takeover for disconnected online players with player reclaim on return
 - Tutorial, rules, history, and about screens
 - English, Hindi, and Marathi localization
 - CrazyGames portal integration hooks
