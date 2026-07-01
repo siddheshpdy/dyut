@@ -7,7 +7,11 @@ import { useGame } from './GameContext';
 // Mock hooks and dependencies
 vi.mock('./GameContext', () => ({
     useGame: vi.fn(),
-    ACTION_TYPES: { ROLL_DICE: 'ROLL_DICE', END_TURN: 'END_TURN', CLEAR_QUEUE: 'CLEAR_QUEUE' }
+    ACTION_TYPES: { ROLL_DICE: 'ROLL_DICE', END_TURN: 'END_TURN', CLEAR_QUEUE: 'CLEAR_QUEUE' },
+    getActiveTurnPlayerId: vi.fn((state) => state.currentPlayer),
+    isActiveTurnAutoControlledForLocalClient: vi.fn(() => false),
+    canLocalClientAct: vi.fn(() => true),
+    doesLocalClientOwnActiveTurn: vi.fn(() => true),
 }));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key }) // Returns the translation key as plain text
