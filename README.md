@@ -14,7 +14,7 @@ The repository is already beyond prototype stage. It currently includes:
 - Spawn rules, movement priority, pair shields, pair attacks, safe zones, assassin-style spawn captures, blood debt, and victory handling
 - Single-player bot support with heuristic AI
 - Firebase authentication, player profiles, and online multiplayer sync
-- Public/private lobby flows, host migration, AFK handling, and bot takeover for disconnected online players
+- Public/private lobby flows, host migration, visible turn countdowns, AFK handling, and bot takeover for disconnected online players with player reclaim on return
 - Tutorial, rules, history, and about screens
 - English, Hindi, and Marathi localization
 - CrazyGames portal integration hooks
@@ -131,6 +131,7 @@ The test suite is passing, but coverage is still relatively light compared to th
 - Server-authoritative move validation is not implemented yet; multiplayer currently relies on client logic plus host coordination
 - The README was originally minimal and some internal planning docs are more up to date than public-facing docs
 - Some complex rule behavior is distributed across reducer, logic helpers, and UI flow rather than fully centralized in one engine module
+- The visible turn timer currently reflects synced action/idle time in online play rather than a separate hard per-turn rules engine
 
 ## License
 

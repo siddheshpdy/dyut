@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { generateBoardCells, PLAYER_PATHS, isSafeZone } from './boardMapping';
-import { useGame, ACTION_TYPES } from './GameContext';
+import { useGame, ACTION_TYPES, canLocalClientAct, getActiveTurnPlayerId, isActiveTurnAutoControlledForLocalClient } from './GameContext';
 import MoveSelector from './MoveSelector';
 import VictoryScreen from './VictoryScreen';
 import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } from './gameLogic';
@@ -174,9 +174,9 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
   // Find indices of locked pieces
   const lockedIndices = player.pieces.map((pos, i) => pos === -1 ? i : -1).filter(i => i !== -1);
   
-  const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-  const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
-  const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+  const activePlayerId = getActiveTurnPlayerId(state);
+  const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
+  const isMyTurn = canLocalClientAct(state);
   const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(playerId, r.sum, state));
   const canSpawn = isMyTurn && !isBotPlaying && activePlayerId === playerId && hasValidSpawn && !isRollingPhaseActive && !isAnimating;
 
@@ -294,30 +294,11 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
       ];
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
-  const activeBasePlayerId = getProxyPlayerId(state.currentPlayer, state);
+  const activeBasePlayerId = getActiveTurnPlayerId(state);
   const visibleBases = layoutMode === 'mobile'
     ? activeBases.filter(base => base.id !== activeBasePlayerId)
     : activeBases;
-  const mobileVisibleBaseSlotsByCount = {
-    1: [
-      { row: '2 / span 4', col: '15 / span 4' },
-    ],
-    2: [
-      { row: '2 / span 4', col: '2 / span 4' },
-      { row: '2 / span 4', col: '15 / span 4' },
-    ],
-    3: [
-      { row: '2 / span 4', col: '2 / span 4' },
-      { row: '2 / span 4', col: '15 / span 4' },
-      { row: '15 / span 4', col: '15 / span 4' },
-    ],
-  };
-  const positionedVisibleBases = layoutMode === 'mobile'
-    ? visibleBases.map((base, index) => {
-        const mobileSlot = mobileVisibleBaseSlotsByCount[visibleBases.length]?.[index];
-        return mobileSlot ? { ...base, row: mobileSlot.row, col: mobileSlot.col } : base;
-      })
-    : visibleBases;
+  const positionedVisibleBases = visibleBases;
 
   // --- Animation Engine ---
   // Steps visual state forward until it matches the true GameContext state
@@ -551,9 +532,9 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
 
   const handlePieceClick = (playerId, pieceIndex) => {
     // Can only select pieces if it's your turn and you have rolls in the queue
-    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
-    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+    const activePlayerId = getActiveTurnPlayerId(state);
+    const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
+    const isMyTurn = canLocalClientAct(state);
 
     if (!isMyTurn || isBotPlaying || activePlayerId !== playerId || state.turnQueue.length === 0 || isRollingPhaseActive || isAnimating) {
       setSelectedPiece(null);
@@ -616,9 +597,9 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
   }
 
   const handleSpawnClick = (playerId, pieceIndex) => {
-    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
-    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+    const activePlayerId = getActiveTurnPlayerId(state);
+    const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
+    const isMyTurn = canLocalClientAct(state);
 
     if (!isMyTurn || isBotPlaying || activePlayerId !== playerId || isRollingPhaseActive) return;
     
@@ -711,9 +692,9 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
   // Render active pieces globally over the grid so they don't unmount and can use CSS transitions
   const renderActivePieces = () => {
     const cellGroups = {};
-    const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-    const isBotPlaying = state.bots?.includes(activePlayerId) || state.isAfkTurn;
-    const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
+    const activePlayerId = getActiveTurnPlayerId(state);
+    const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
+    const isMyTurn = canLocalClientAct(state);
 
     Object.entries(visualPlayers).forEach(([playerId, player]) => {
       player.pieces.forEach((pos, pieceIndex) => {

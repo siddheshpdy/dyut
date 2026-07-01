@@ -7,7 +7,7 @@ import RulesScreen from './RulesScreen';
 import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
-import { GameProvider, useGame } from './GameContext';
+import { GameProvider, TURN_TIMEOUT_MS, TURN_TIMER_WARNING_MS, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
@@ -18,6 +18,7 @@ const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+const MOBILE_TRAY_RESERVED_SPACE = 'clamp(15.5rem, 28vh, 18rem)';
 
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -44,9 +45,17 @@ const useIsDesktop = () => {
   return isDesktop;
 };
 
+const formatCountdown = (remainingMs) => {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
 const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
   const { t } = useTranslation();
   const { state, leaveGame } = useGame();
+  const [now, setNow] = useState(() => Date.now());
   const ExitIcon = DYUT_ICONS.exit;
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const HowToPlayIcon = DYUT_ICONS.howToPlay;
@@ -56,6 +65,23 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
   const TimerIcon = DYUT_ICONS.timerAlt;
   const ScoreIcon = DYUT_ICONS.score;
   const activeScore = state.players?.[state.currentPlayer]?.pieces?.filter(pos => pos === 999).length || 0;
+  const hasTurnTimer = state.isOnline && !!state.lastActionTime;
+  const remainingMs = hasTurnTimer ? Math.max(0, TURN_TIMEOUT_MS - (now - state.lastActionTime)) : null;
+  const timerText = remainingMs == null ? '--:--' : formatCountdown(remainingMs);
+  const isTimerCritical = remainingMs != null && remainingMs <= TURN_TIMER_WARNING_MS;
+
+  useEffect(() => {
+    if (!hasTurnTimer) {
+      setNow(Date.now());
+      return undefined;
+    }
+
+    const timerId = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [hasTurnTimer, state.currentPlayer, state.lastActionTime]);
   
   const handleMenuClick = () => {
     const msg = state.isPublic && state.isOnline
@@ -109,7 +135,7 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
           <div className="flex items-center gap-2 px-2.5 py-1 xl:gap-3 xl:px-5 xl:py-2">
             <TimerIcon className="h-5.5 w-5.5 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
             <div className="text-center">
-              <div className="font-display text-lg leading-none text-white/90 xl:text-2xl">--:--</div>
+              <div className={`font-display text-lg leading-none xl:text-2xl ${isTimerCritical ? 'text-ruby' : 'text-white/90'}`}>{timerText}</div>
               <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('turnTimer', 'Turn Timer')}</div>
             </div>
           </div>
@@ -166,7 +192,6 @@ const GameInfoOverlay = ({ infoView, onClose }) => {
 function App() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
-  const mobileTrayRef = useRef(null);
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
@@ -174,11 +199,8 @@ function App() {
   const [lastOnlineGameId, setLastOnlineGameId] = useState(null);
   const [gameInfoView, setGameInfoView] = useState(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
-  const [mobileTrayHeight, setMobileTrayHeight] = useState(0);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
-  const mobileBoardSize = mobileTrayHeight > 0
-    ? `min(calc(96vw - 0.75rem), calc(100dvh - 3.9rem - ${mobileTrayHeight}px - env(safe-area-inset-bottom) - 1.25rem))`
-    : 'calc(96vw - 0.75rem)';
+  const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - 3.9rem - ${MOBILE_TRAY_RESERVED_SPACE} - env(safe-area-inset-bottom) - 1.25rem))`;
 
   const toggleMute = () => {
     setIsMuted(prev => {
@@ -315,33 +337,6 @@ function App() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || isDesktop || view !== 'game') return undefined;
-
-    const trayElement = mobileTrayRef.current;
-    if (!trayElement) return undefined;
-
-    const syncHeight = () => {
-      setMobileTrayHeight(trayElement.getBoundingClientRect().height);
-    };
-
-    syncHeight();
-
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', syncHeight);
-      return () => window.removeEventListener('resize', syncHeight);
-    }
-
-    const observer = new ResizeObserver(syncHeight);
-    observer.observe(trayElement);
-    window.addEventListener('resize', syncHeight);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', syncHeight);
-    };
-  }, [isDesktop, view]);
 
   // Centralized function to call midgame ads and handle audio muting
   const triggerMidgameAd = () => {
@@ -481,7 +476,7 @@ function App() {
                     <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
                   </div>
                 </div>
-                <div ref={mobileTrayRef} className="z-20 px-0 pt-1.5">
+                <div className="z-20 px-0 pt-1.5">
                   <DiceTray layoutMode="mobile" />
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { useGame, ACTION_TYPES } from './GameContext';
-import { hasAnyPlayableMove, getAutoMove, getProxyPlayerId, canSpawnPiece } from './gameLogic';
+import { useGame, ACTION_TYPES, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, isActiveTurnAutoControlledForLocalClient } from './GameContext';
+import { hasAnyPlayableMove, getAutoMove, canSpawnPiece } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { useAIBot } from './useAIBot';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { DYUT_ICONS } from './dyut-icons';
 
 const DICE_FACES = [1, 3, 4, 6];
+const MOBILE_TRAY_HEIGHT = 'clamp(15.5rem, 28vh, 18rem)';
 
 // A single die face component, styled to look like a long die (pasa)
 const Die = ({ value, isRolling, compact = false }) => (
@@ -69,15 +70,14 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     return () => window.removeEventListener('dyut-animating', handleAnim);
   }, []);
 
-  const activeBots = state.isAfkTurn ? [...(state.bots || []), state.currentPlayer] : (state.bots || []);
+  const activePlayerId = getActiveTurnPlayerId(state);
+  const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
+  const activeBots = isBotPlaying ? [...new Set([...(state.bots || []), state.currentPlayer])] : (state.bots || []);
   // Activate AI hook (it safely idles if the current player is not in state.bots)
   useAIBot(activeBots, state.botDifficulty || 'hard');
 
-  const isBotPlaying = activeBots.includes(state.currentPlayer);
-
-  const activePlayerId = getProxyPlayerId(state.currentPlayer, state);
-  const isMyTurn = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid || (isBotPlaying && state.localUid === state.hostUid);
-  const isCurrentUserPlayer = !state.isOnline || state.playerUids?.[activePlayerId] === state.localUid;
+  const isMyTurn = canLocalClientAct(state);
+  const isCurrentUserPlayer = doesLocalClientOwnActiveTurn(state);
   const activePlayer = state.players[activePlayerId];
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
   const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(activePlayerId, r.sum, state));
@@ -176,7 +176,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
 
 
 const trayShellClass = layoutMode === 'mobile'
-    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2.5 rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2.5 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
+    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2.5 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2.5 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
     : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-[min(72vh,620px)] lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3.5 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:h-[min(74vh,660px)] xl:w-[350px] xl:max-w-[350px] xl:gap-4 xl:p-5 xl:pt-4';
 
   return (
@@ -208,7 +208,7 @@ const trayShellClass = layoutMode === 'mobile'
           </div>
         </div>
       )}
-      <div className={trayShellClass}>
+      <div className={trayShellClass} style={layoutMode === 'mobile' ? { height: MOBILE_TRAY_HEIGHT } : undefined}>
         <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-2xl border-l border-t border-gold/70"></span>
         <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-2xl border-r border-t border-gold/70"></span>
         <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-2xl border-b border-l border-gold/70"></span>
@@ -272,7 +272,7 @@ const trayShellClass = layoutMode === 'mobile'
           </div>
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'flex w-full flex-col items-stretch gap-2' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-3.5'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'flex min-h-0 w-full flex-1 flex-col items-stretch gap-2' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-3.5'}`}>
           <button
             onClick={(e) => { if (isBotPlaying && e.isTrusted) return; handleRoll(); }}
             id="dice-roll-btn"
@@ -283,7 +283,7 @@ const trayShellClass = layoutMode === 'mobile'
             {isRolling ? t('rolling') : t('rollDice')}
           </button>
         
-          <div className={`relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[116px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-3 ${layoutMode === 'mobile' ? 'w-full rounded-2xl bg-black/34 p-2' : ''}`}>
+          <div className={`relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[116px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-3 ${layoutMode === 'mobile' ? 'min-h-0 w-full rounded-2xl bg-black/34 p-2' : ''}`}>
             <span className={`${layoutMode === 'mobile' ? 'mb-1 block font-display text-[10px] uppercase tracking-[0.22em] text-gold/80' : 'mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80'}`}>{t('queue')}</span>
             <div className={`${layoutMode === 'mobile' ? 'flex max-h-[7.6rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 sm:max-h-[8.4rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'flex min-h-[4.25rem] max-h-[7.4rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 [scrollbar-width:none] sm:gap-2 lg:gap-2.5 [&::-webkit-scrollbar]:hidden'}`}>
             {state.turnQueue.length > 0 ? (
