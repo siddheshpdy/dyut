@@ -87,46 +87,46 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
       </div>
     </div>
 
-    <div className="absolute left-4 right-4 top-4 z-50 hidden grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[22px] border border-gold/45 bg-[#050403]/75 px-5 py-2.5 shadow-[0_0_34px_rgba(0,0,0,0.76),inset_0_0_36px_rgba(234,179,8,0.07)] backdrop-blur-md lg:grid xl:px-9">
-      <nav className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 justify-self-start text-white/80 xl:gap-x-7">
-        <button onClick={onShowTutorial} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HowToPlayIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('howToPlay', 'How to Play')}</span></button>
-        <button onClick={onShowRules} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><RulesIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('rules', 'Rules')}</span></button>
-        <button onClick={onShowHistory} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HistoryIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('history', 'History')}</span></button>
-        <button onClick={onShowAbout} className="group flex items-center gap-2 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><AboutIcon className="h-5 w-5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-sm xl:text-lg">{t('aboutUs', 'About Us')}</span></button>
+    <div className="absolute left-4 right-4 top-4 z-50 hidden grid-cols-[minmax(0,0.95fr)_auto_minmax(0,0.82fr)] items-center gap-3 rounded-[22px] border border-gold/45 bg-[#050403]/75 px-4 py-1 shadow-[0_0_34px_rgba(0,0,0,0.76),inset_0_0_36px_rgba(234,179,8,0.07)] backdrop-blur-md lg:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-4 xl:px-9 xl:py-1.5">
+      <nav className="flex min-w-0 flex-nowrap items-center gap-3 justify-self-start text-white/80 xl:gap-x-7">
+        <button onClick={onShowTutorial} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HowToPlayIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('howToPlay', 'How to Play')}</span></button>
+        <button onClick={onShowRules} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><RulesIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('rules', 'Rules')}</span></button>
+        <button onClick={onShowHistory} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HistoryIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('history', 'History')}</span></button>
+        <button onClick={onShowAbout} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><AboutIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('aboutUs', 'About Us')}</span></button>
       </nav>
 
       <div className="flex flex-col items-center justify-self-center">
-        <div className="flex items-center gap-3 xl:gap-4">
-          <span className="h-px w-10 bg-gradient-to-r from-transparent via-gold/70 to-gold xl:w-16"></span>
-          <h1 className="dyut-title text-4xl font-bold leading-none tracking-[0.16em] text-gold text-glow-gold xl:text-6xl">DYUT</h1>
-          <span className="h-px w-10 bg-gradient-to-l from-transparent via-gold/70 to-gold xl:w-16"></span>
+        <div className="flex items-center gap-2 xl:gap-4">
+          <span className="h-px w-8 bg-gradient-to-r from-transparent via-gold/70 to-gold xl:w-16"></span>
+          <h1 className="dyut-title text-[2.6rem] font-bold leading-none tracking-[0.14em] text-gold text-glow-gold xl:text-6xl">DYUT</h1>
+          <span className="h-px w-8 bg-gradient-to-l from-transparent via-gold/70 to-gold xl:w-16"></span>
         </div>
-        <span className="-mt-1 font-display text-[10px] font-bold uppercase tracking-[0.24em] text-gold xl:text-xs xl:tracking-[0.28em]">{t('gameOfLegends', 'The Game of Legends')}</span>
+        <span className="-mt-1 font-display text-[9px] font-bold uppercase tracking-[0.2em] text-gold xl:text-xs xl:tracking-[0.28em]">{t('gameOfLegends', 'The Game of Legends')}</span>
       </div>
 
-      <div className="flex items-center justify-end gap-3 justify-self-end xl:gap-5">
+      <div className="flex items-center justify-end gap-2.5 justify-self-end xl:gap-5">
         <div className="flex overflow-hidden rounded-xl border border-gold/35 bg-black/45 shadow-[inset_0_0_18px_rgba(0,0,0,0.55)]">
-          <div className="flex items-center gap-2 px-3 py-2 xl:gap-3 xl:px-5 xl:py-2.5">
-            <TimerIcon className="h-6 w-6 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
+          <div className="flex items-center gap-2 px-2.5 py-1 xl:gap-3 xl:px-5 xl:py-2">
+            <TimerIcon className="h-5.5 w-5.5 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
             <div className="text-center">
-              <div className="font-display text-xl leading-none text-white/90 xl:text-2xl">--:--</div>
+              <div className="font-display text-lg leading-none text-white/90 xl:text-2xl">--:--</div>
               <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('turnTimer', 'Turn Timer')}</div>
             </div>
           </div>
           <div className="w-px bg-gold/25"></div>
-          <div className="flex items-center gap-2 px-3 py-2 xl:gap-3 xl:px-5 xl:py-2.5">
-            <ScoreIcon className="h-6 w-6 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
+          <div className="flex items-center gap-2 px-2.5 py-1 xl:gap-3 xl:px-5 xl:py-2">
+            <ScoreIcon className="h-5.5 w-5.5 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
             <div className="text-center">
-              <div className="font-display text-xl leading-none text-white/90 xl:text-2xl">{activeScore}</div>
+              <div className="font-display text-lg leading-none text-white/90 xl:text-2xl">{activeScore}</div>
               <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('score', 'Score')}</div>
             </div>
           </div>
         </div>
-        <button onClick={toggleMute} className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-gold xl:h-14 xl:w-14" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-          <SoundIcon className={`h-6 w-6 xl:h-7 xl:w-7 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+        <button onClick={toggleMute} className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-gold xl:h-14 xl:w-14" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+          <SoundIcon className={`h-5.5 w-5.5 xl:h-7 xl:w-7 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
         </button>
-        <button onClick={handleMenuClick} className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-ruby xl:h-14 xl:w-14" title={t('exitGame', 'Exit Game')}>
-          <ExitIcon className="h-6 w-6 xl:h-7 xl:w-7" aria-hidden="true" />
+        <button onClick={handleMenuClick} className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-ruby xl:h-14 xl:w-14" title={t('exitGame', 'Exit Game')}>
+          <ExitIcon className="h-5.5 w-5.5 xl:h-7 xl:w-7" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -470,7 +470,7 @@ function App() {
               toggleMute={toggleMute}
             />
             {isDesktop ? (
-              <div className="relative z-10 flex h-[100dvh] w-full flex-row items-center justify-center gap-10 overflow-hidden px-10 pb-6 pt-28 xl:gap-12">
+              <div className="relative z-10 flex h-[100dvh] w-full flex-row items-start justify-center gap-8 overflow-hidden px-8 pb-4 pt-[7.4rem] xl:gap-10 xl:px-10 xl:pt-[7.75rem]">
                 <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="desktop" />
                 <DiceTray layoutMode="desktop" />
               </div>

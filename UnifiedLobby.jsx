@@ -24,7 +24,7 @@ const OrnateDivider = () => (
   </div>
 );
 
-const LobbyModeCard = ({ tone, icon, title, description, onClick }) => {
+const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = false }) => {
   const toneStyles = {
     gold: {
       text: 'text-gold',
@@ -53,18 +53,19 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:bg-black/65 sm:gap-5 sm:p-4 lg:gap-5 lg:p-3.5 ${toneStyles.border} ${toneStyles.glow}`}
+      disabled={disabled}
+      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 sm:gap-5 sm:p-4 lg:gap-4 lg:p-3 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
     >
       <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
       <div className="absolute inset-y-3 right-8 hidden w-44 rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
-      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-[4.75rem] lg:w-[4.75rem] ${toneStyles.icon}`}>
+      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-[4.25rem] lg:w-[4.25rem] lg:text-[2rem] ${toneStyles.icon}`}>
         {icon}
       </div>
       <div className="relative z-10 min-w-0 flex-1">
-        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-[2.15rem] ${toneStyles.text}`}>{title}</div>
-        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base lg:text-[0.95rem]">{description}</p>
+        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-[1.85rem] ${toneStyles.text}`}>{title}</div>
+        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base lg:text-[0.88rem]">{description}</p>
       </div>
-      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 lg:text-[2.6rem] ${toneStyles.text}`}>{'>'}</div>
+      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 lg:text-[2.25rem] ${toneStyles.text}`}>{'>'}</div>
     </button>
   );
 };
@@ -925,7 +926,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const EasyIcon = DYUT_ICONS.easyDifficulty;
   const HardIcon = DYUT_ICONS.hardDifficulty;
   const StartIcon = DYUT_ICONS.next;
-  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-3 lg:text-[2.25rem]";
+  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-2.5 lg:text-[1.95rem]";
 
   return (
     <>
@@ -972,7 +973,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       </header>
 
-      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:justify-start lg:overflow-y-auto ${isSetupConfig ? 'lg:pb-8 lg:pt-20 xl:pt-22' : 'lg:pb-14 lg:pt-28 xl:pb-16 xl:pt-32'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
+      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:justify-start ${isSetupConfig ? 'lg:overflow-hidden lg:pb-6 lg:pt-[4.5rem] xl:pb-8 xl:pt-[5rem]' : isInitialMenu ? 'lg:overflow-hidden lg:pb-10 lg:pt-20 xl:pb-12 xl:pt-24' : 'lg:overflow-y-auto'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
@@ -1007,13 +1008,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       
-      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-1 text-[clamp(2rem,3.8vw,3.35rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
+      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5 lg:mt-0' : isInitialMenu ? 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
       {isLobbyStage && <OrnateDivider />}
       
-      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-2 w-full max-w-[880px] sm:mt-3 lg:max-w-[min(56vw,720px)] xl:max-w-[760px]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
+      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-2 w-full max-w-[860px] sm:mt-3 lg:max-w-[min(58vw,720px)] xl:max-w-[760px]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-4.5 xl:p-5' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-4 xl:p-4.5' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
             {isInitialMenu && (
               <>
                 <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
@@ -1024,28 +1025,43 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             )}
             {import.meta.env.VITE_IS_PORTAL ? (
               <>
-                <button onClick={() => {
-                  const newSeats = {
-                    Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
-                    Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
-                    Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
-                    Player4: { type: 'bot', color: 'amber', name: '', uid: null }
-                  };
-                  executeStart(false, null, { seats: newSeats, isQuickGame: false, isTeamMode: false, botDifficulty: 'easy', isVoidRuleEnabled: true });
-                }} className="w-full py-5 flex items-center justify-center gap-4 bg-gold text-charcoal font-display font-bold text-2xl uppercase rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.5)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
-                  {t('playNow', 'PLAY NOW')}
-                </button>
-                <button onClick={() => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' })} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-4 bg-emerald text-charcoal font-display font-bold text-xl uppercase rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 transition-all">
-                  {isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
-                </button>
-                <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-3 bg-white/10 text-white font-sans text-sm font-bold uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all border border-white/10 mt-2">
-                  {t('customGame', 'CUSTOM GAME')}
-                </button>
+                <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
+                  <LobbyModeCard
+                    tone="gold"
+                    icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                    title={t('playNow', 'PLAY NOW')}
+                    description={t('playNowSubtitle', 'Start an instant offline battle against temple-trained rivals.')}
+                    onClick={() => {
+                      const newSeats = {
+                        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+                        Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
+                        Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
+                        Player4: { type: 'bot', color: 'amber', name: '', uid: null }
+                      };
+                      executeStart(false, null, { seats: newSeats, isQuickGame: false, isTeamMode: false, botDifficulty: 'easy', isVoidRuleEnabled: true });
+                    }}
+                  />
+                  <LobbyModeCard
+                    tone="ruby"
+                    icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                    title={isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
+                    description={t('playOnlineSubtitle', 'Enter matchmaking and face challengers across the realm.')}
+                    onClick={() => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' })}
+                    disabled={isSearching || isHosting}
+                  />
+                  <LobbyModeCard
+                    tone="sapphire"
+                    icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                    title={t('customGame', 'CUSTOM GAME')}
+                    description={t('customGameSubtitle', 'Fine-tune seats, rules, and difficulty before the match begins.')}
+                    onClick={() => { setSetupMode('local'); setSetupStep('config'); }}
+                  />
+                </div>
               </>
             ) : (
               <>
                 {isInitialMenu ? (
-                  <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-3">
+                  <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
                     <LobbyModeCard
                       tone="gold"
                       icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
@@ -1090,7 +1106,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             )}
 
             {(hasCachedGame || lastOnlineGameId) && (
-              <div className={`${isInitialMenu ? 'mx-auto mt-4 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
+              <div className={`${isInitialMenu ? 'mx-auto mt-3.5 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
                   <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
                     <ResumeIcon className="h-4 w-4 text-gold" aria-hidden="true" />
@@ -1115,7 +1131,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {isLobbyStage && (
           <div className={`${isSetupConfig ? 'hidden lg:contents' : 'mt-3 flex'} w-full max-w-[880px] flex-col items-start gap-3 sm:mt-4 lg:contents`}>
-            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[300px] lg:px-4 lg:py-3 xl:bottom-6">
+            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[280px] lg:px-3.5 lg:py-2.5 xl:bottom-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-gold/40 bg-gold/10 text-gold">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z"></path>
@@ -1123,8 +1139,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 </svg>
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-bold text-gold sm:text-base">{t('fairPlayTitle', 'Fair Play. Pure Dyut.')}</div>
-                <div className="text-xs leading-snug text-white/70 sm:text-sm">{t('fairPlaySubtitle', 'Respect the game. Honor the tradition.')}</div>
+                <div className="text-sm font-bold text-gold sm:text-base lg:text-[0.95rem]">{t('fairPlayTitle', 'Fair Play. Pure Dyut.')}</div>
+                <div className="text-xs leading-snug text-white/70 sm:text-sm lg:text-[0.88rem]">{t('fairPlaySubtitle', 'Respect the game. Honor the tradition.')}</div>
               </div>
             </div>
 
@@ -1133,7 +1149,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
         {!activeLobbyId && setupMode && setupStep === 'config' && (
-          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(52vw,660px)] lg:overflow-hidden lg:p-4 xl:max-w-[680px]">
+          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
             <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>

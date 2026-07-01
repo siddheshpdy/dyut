@@ -177,7 +177,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
 
 const trayShellClass = layoutMode === 'mobile'
     ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2.5 rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2.5 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
-    : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:min-h-[660px] lg:w-[350px] lg:max-w-[350px] lg:justify-center lg:gap-7 lg:border-gold/55 lg:bg-[#050403]/68 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:min-h-[700px]';
+    : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-[min(72vh,620px)] lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3.5 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:h-[min(74vh,660px)] xl:w-[350px] xl:max-w-[350px] xl:gap-4 xl:p-5 xl:pt-4';
 
   return (
     <>
@@ -221,11 +221,11 @@ const trayShellClass = layoutMode === 'mobile'
             </div>
           </div>
         )}
-        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-center lg:gap-6'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-start lg:gap-4'}`}>
           <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
             <span className="mb-1 font-display text-xs uppercase tracking-[0.28em] text-white/65 lg:text-sm">{t('active')}</span>
             <div className={`${layoutMode === 'mobile' ? 'flex flex-wrap items-center gap-2' : ''}`}>
-              <div className="font-display text-lg font-bold uppercase leading-none text-gold text-glow-gold sm:text-2xl lg:text-4xl">
+              <div className="font-display text-lg font-bold uppercase leading-none text-gold text-glow-gold sm:text-2xl lg:text-[2.2rem]">
                 {state.players[state.currentPlayer]?.name || state.currentPlayer}
               </div>
               {layoutMode === 'mobile' && isCurrentUserPlayer && (
@@ -234,7 +234,7 @@ const trayShellClass = layoutMode === 'mobile'
                 </span>
               )}
             </div>
-            <div className={`${layoutMode === 'mobile' ? 'mt-2 grid w-full max-w-[7rem] grid-cols-4 gap-1 rounded-lg border border-gold/25 bg-black/34 p-1.5' : 'mt-5 hidden w-full items-center justify-center gap-3 text-gold/85 lg:flex'}`}>
+            <div className={`${layoutMode === 'mobile' ? 'mt-2 grid w-full max-w-[7rem] grid-cols-4 gap-1 rounded-lg border border-gold/25 bg-black/34 p-1.5' : 'mt-3 hidden w-full items-center justify-center gap-3 text-gold/85 lg:flex'}`}>
               {layoutMode === 'mobile' ? (
                 activePlayer?.pieces?.map((piecePosition, pieceIndex) => {
                   const isLocked = piecePosition === -1;
@@ -263,40 +263,47 @@ const trayShellClass = layoutMode === 'mobile'
               )}
             </div>
           </div>
-          <div className={`${layoutMode === 'mobile' ? 'flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2.5 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)]' : 'flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:p-5 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'}`}>
-            <span className={`${layoutMode === 'mobile' ? 'mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85' : 'mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block'}`}>{t('currentDice', 'Current Dice')}</span>
-            <div className="flex gap-2 sm:gap-4 lg:gap-5">
+          <div className={`${layoutMode === 'mobile' ? 'flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2.5 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)]' : 'flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:px-4 lg:py-4 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'}`}>
+            <span className={`${layoutMode === 'mobile' ? 'mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85' : 'mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block lg:text-[0.95rem]'}`}>{t('currentDice', 'Current Dice')}</span>
+            <div className="flex gap-2 sm:gap-4 lg:gap-4">
               <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
               <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
             </div>
           </div>
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'flex w-full flex-col items-stretch gap-2' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-5'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'flex w-full flex-col items-stretch gap-2' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-3.5'}`}>
           <button
             onClick={(e) => { if (isBotPlaying && e.isTrusted) return; handleRoll(); }}
             id="dice-roll-btn"
             disabled={!canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn}
-            className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3 font-display text-lg font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-4 sm:text-xl lg:w-full lg:rounded-2xl lg:py-4 lg:text-2xl ${layoutMode === 'mobile' ? 'w-full rounded-2xl py-2.5 text-base' : ''} ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-2.5 font-display text-base font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-3 sm:text-lg lg:w-full lg:rounded-2xl lg:py-3 lg:text-[1.65rem] ${layoutMode === 'mobile' ? 'w-full rounded-2xl py-2 text-[0.95rem]' : ''} ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
           >
-            <DiceIcon className={`${layoutMode === 'mobile' ? 'h-4.5 w-4.5' : 'h-5 w-5'}`} aria-hidden="true" />
+            <DiceIcon className={`${layoutMode === 'mobile' ? 'h-4 w-4' : 'h-4.5 w-4.5 lg:h-5 lg:w-5'}`} aria-hidden="true" />
             {isRolling ? t('rolling') : t('rollDice')}
           </button>
         
-          <div className={`flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[96px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:p-4 ${layoutMode === 'mobile' ? 'w-full rounded-2xl bg-black/34 p-2' : ''}`}>
+          <div className={`relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[116px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-3 ${layoutMode === 'mobile' ? 'w-full rounded-2xl bg-black/34 p-2' : ''}`}>
             <span className={`${layoutMode === 'mobile' ? 'mb-1 block font-display text-[10px] uppercase tracking-[0.22em] text-gold/80' : 'mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80'}`}>{t('queue')}</span>
-            <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 lg:gap-2.5">
+            <div className={`${layoutMode === 'mobile' ? 'flex max-h-[7.6rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 sm:max-h-[8.4rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'flex min-h-[4.25rem] max-h-[7.4rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 [scrollbar-width:none] sm:gap-2 lg:gap-2.5 [&::-webkit-scrollbar]:hidden'}`}>
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {
                 const rollText = roll.d2 == null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
                 return (
-                  <span key={i} className={`font-bold px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
+                  <span key={i} className={`font-bold px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm ${layoutMode === 'mobile' ? 'min-w-[4.5rem] text-center' : ''} ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
                 );
               })
             ) : (
               <span className="text-white/60 text-[10px] sm:text-xs italic">{t('empty')}</span>
             )}
             </div>
+            {layoutMode !== 'mobile' && state.turnQueue.length > 8 && (
+              <div className="pointer-events-none absolute inset-x-5 bottom-3 h-7 bg-gradient-to-t from-[#050403] via-[#050403]/82 to-transparent">
+                <div className="absolute bottom-0 right-1 font-display text-[9px] uppercase tracking-[0.22em] text-gold/55">
+                  {t('more', 'More')}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
