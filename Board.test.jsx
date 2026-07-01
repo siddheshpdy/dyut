@@ -7,7 +7,10 @@ import { useGame } from './GameContext';
 // Mock dependencies to isolate the Board rendering
 vi.mock('./GameContext', () => ({
     useGame: vi.fn(),
-    ACTION_TYPES: {}
+    ACTION_TYPES: {},
+    getActiveTurnPlayerId: vi.fn((state) => state.currentPlayer),
+    isActiveTurnAutoControlledForLocalClient: vi.fn(() => false),
+    canLocalClientAct: vi.fn(() => true),
 }));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key })

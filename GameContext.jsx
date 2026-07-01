@@ -67,6 +67,41 @@ export const ACTION_TYPES = {
 };
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
+export const TURN_TIMEOUT_MS = 30000;
+export const TURN_TIMER_WARNING_MS = 10000;
+
+export const getActiveTurnPlayerId = (currentState) => getProxyPlayerId(currentState.currentPlayer, currentState);
+
+export const doesLocalClientOwnActiveTurn = (currentState) => {
+  if (!currentState?.isOnline) return true;
+  const activeId = getActiveTurnPlayerId(currentState);
+  return !!currentState.localUid && currentState.playerUids?.[activeId] === currentState.localUid;
+};
+
+export const isActiveTurnAutoControlledForLocalClient = (currentState) => {
+  if (!currentState?.isOnline) return false;
+  if (doesLocalClientOwnActiveTurn(currentState)) return false;
+
+  const activeId = getActiveTurnPlayerId(currentState);
+  return !!(currentState.bots?.includes(activeId) || currentState.isAfkTurn);
+};
+
+export const canLocalClientAct = (currentState) => {
+  if (!currentState?.isOnline) return true;
+  if (doesLocalClientOwnActiveTurn(currentState)) return true;
+  return isActiveTurnAutoControlledForLocalClient(currentState) && currentState.localUid === currentState.hostUid;
+};
+
+function releaseAutoControlForPlayer(state, playerId) {
+  if (!playerId) return state;
+
+  return {
+    ...state,
+    bots: (state.bots || []).filter(id => id !== playerId),
+    afkStrikes: { ...(state.afkStrikes || {}), [playerId]: 0 },
+    isAfkTurn: false,
+  };
+}
 
 function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
   const newPlayers = { ...currentPlayersState };
@@ -389,6 +424,9 @@ export function GameProvider({ gameConfig, children }) {
     }
     
     let nextState = gameReducer(state, action);
+    if (action._clearAutoControlForPlayerId) {
+      nextState = releaseAutoControlForPlayer(nextState, action._clearAutoControlForPlayerId);
+    }
     if (action._updateActivity) {
       nextState = { ...nextState, lastActionTime: Date.now() };
       if (action.type === ACTION_TYPES.END_TURN) {
@@ -491,10 +529,10 @@ const dispatch = useCallback((action) => {
       const currentState = latestStateRef.current;
       if (!currentState || currentState.status === 'finished') return;
 
-      const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
+      const activeId = getActiveTurnPlayerId(currentState);
       if (currentState.bots?.includes(activeId)) return; // Bots don't AFK
 
-      if (currentState.lastActionTime && Date.now() - currentState.lastActionTime > 30000) {
+      if (currentState.lastActionTime && Date.now() - currentState.lastActionTime > TURN_TIMEOUT_MS) {
         if (!currentState.isAfkTurn) {
           dispatch({ type: ACTION_TYPES.TRIGGER_AFK_INTERVENTION, payload: { playerId: activeId } });
         }
@@ -531,11 +569,7 @@ const dispatch = useCallback((action) => {
 
   // Check if the local client has authority over the current active turn
   const checkIsMyTurn = (currentState) => {
-    if (!currentState.isOnline) return true;
-    const activeId = getProxyPlayerId(currentState.currentPlayer, currentState);
-    const isBot = currentState.bots?.includes(activeId) || currentState.isAfkTurn;
-    if (isBot) return currentState.localUid === currentState.hostUid;
-    return currentState.playerUids?.[activeId] === currentState.localUid;
+    return canLocalClientAct(currentState);
   };
 
   // Phase 17.3: The Action Interceptor (Middleware)
@@ -556,6 +590,19 @@ const dispatch = useCallback((action) => {
     }
 
     const actionToDispatch = { ...action };
+    const activeId = getActiveTurnPlayerId(currentState);
+    const localOwnsActiveTurn = doesLocalClientOwnActiveTurn(currentState);
+
+    if (
+      currentState.isOnline &&
+      protectedActions.includes(action.type) &&
+      action.type !== ACTION_TYPES.TRIGGER_AFK_INTERVENTION &&
+      localOwnsActiveTurn &&
+      (currentState.isAfkTurn || currentState.bots?.includes(activeId))
+    ) {
+      actionToDispatch._clearAutoControlForPlayerId = activeId;
+    }
+
     if (protectedActions.includes(action.type)) {
       actionToDispatch._updateActivity = true;
     }

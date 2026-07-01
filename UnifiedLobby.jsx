@@ -24,7 +24,7 @@ const OrnateDivider = () => (
   </div>
 );
 
-const LobbyModeCard = ({ tone, icon, title, description, onClick }) => {
+const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = false }) => {
   const toneStyles = {
     gold: {
       text: 'text-gold',
@@ -53,28 +53,29 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:bg-black/65 sm:gap-5 sm:p-4 lg:gap-6 ${toneStyles.border} ${toneStyles.glow}`}
+      disabled={disabled}
+      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 sm:gap-5 sm:p-4 lg:gap-4 lg:p-3 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
     >
       <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
       <div className="absolute inset-y-3 right-8 hidden w-44 rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
-      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-24 lg:w-24 ${toneStyles.icon}`}>
+      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-[4.25rem] lg:w-[4.25rem] lg:text-[2rem] ${toneStyles.icon}`}>
         {icon}
       </div>
       <div className="relative z-10 min-w-0 flex-1">
-        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-3xl ${toneStyles.text}`}>{title}</div>
-        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base">{description}</p>
+        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-[1.85rem] ${toneStyles.text}`}>{title}</div>
+        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base lg:text-[0.88rem]">{description}</p>
       </div>
-      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 ${toneStyles.text}`}>{'>'}</div>
+      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 lg:text-[2.25rem] ${toneStyles.text}`}>{'>'}</div>
     </button>
   );
 };
 
 const ConfigSectionTitle = ({ children }) => (
-  <div className="flex w-full items-center justify-center gap-3 text-gold/80">
+  <div className="flex w-full items-center justify-center gap-3 text-gold/80 lg:gap-2">
     <span className="h-px flex-1 bg-gradient-to-r from-transparent via-gold/40 to-gold/70"></span>
-    <span className="h-1.5 w-1.5 rotate-45 border border-gold/70"></span>
-    <span className="font-display text-xs font-bold uppercase tracking-[0.22em] sm:text-sm">{children}</span>
-    <span className="h-1.5 w-1.5 rotate-45 border border-gold/70"></span>
+    <span className="h-1.5 w-1.5 rotate-45 border border-gold/70 lg:h-1 lg:w-1"></span>
+    <span className="font-display text-xs font-bold uppercase tracking-[0.22em] sm:text-sm lg:text-[0.68rem]">{children}</span>
+    <span className="h-1.5 w-1.5 rotate-45 border border-gold/70 lg:h-1 lg:w-1"></span>
     <span className="h-px flex-1 bg-gradient-to-l from-transparent via-gold/40 to-gold/70"></span>
   </div>
 );
@@ -102,18 +103,18 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
     <button
       type="button"
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 ${toneClasses} ${className}`}
+      className={`group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 lg:p-2.5 ${toneClasses} ${className}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(255,255,255,0.12),transparent_38%)] opacity-70"></div>
-      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-1.5">
+      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
         {children}
         {icon && (
-          <span className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 ${active ? 'opacity-100' : 'opacity-50'}`}>
+          <span className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-50'}`}>
             {icon}
           </span>
         )}
-        <div className="font-display text-lg font-bold uppercase tracking-wider sm:text-xl">{title}</div>
-        {subtitle && <div className="hidden text-xs leading-snug text-white/70 sm:block sm:text-sm">{subtitle}</div>}
+        <div className="font-display text-lg font-bold uppercase tracking-wider sm:text-xl lg:text-[0.95rem]">{title}</div>
+        {subtitle && <div className="hidden text-xs leading-snug text-white/70 sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
       </div>
     </button>
   );
@@ -142,8 +143,8 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   };
 
   return (
-    <div className={`flex flex-col items-center p-3 rounded-xl border transition-all ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
-      <span className={`text-[9px] uppercase tracking-widest mb-1.5 whitespace-nowrap font-bold ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
+    <div className={`flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
+      <span className={`mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
         {label} {isOwnedByMe && <span className="opacity-80">({t('you', 'YOU')})</span>}
       </span>
       
@@ -153,7 +154,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           value={seat.type} 
           onChange={(e) => onTypeChange(e.target.value)}
           disabled={(isOnline && !isHost) || isLobbyPublic}
-          className={`w-full py-1.5 px-2 appearance-none rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors ${(isOnline && !isHost) || isLobbyPublic ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} text-center outline-none ${typeColor}`}
+          className={`w-full appearance-none rounded-lg border px-2 py-1.5 text-center text-xs font-bold uppercase tracking-wider transition-colors outline-none lg:py-1 lg:text-[11px] ${(isOnline && !isHost) || isLobbyPublic ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} ${typeColor}`}
         >
           <option value="human" className="bg-charcoal text-gold">{t('human', 'Human')}</option>
           <option value="bot" className="bg-charcoal text-sapphire">{t('bot', 'Bot')}</option>
@@ -178,11 +179,11 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           placeholder={t('playerNamePlaceholder', 'Enter Name')}
           maxLength={12}
           spellCheck="false"
-          className={`w-full mt-2 py-1 bg-transparent text-white/90 text-xs font-sans text-center border border-white/10 rounded focus:outline-none focus:border-gold/50 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`mt-2 w-full rounded border border-white/10 bg-transparent py-1 text-center font-sans text-xs text-white/90 transition-opacity focus:outline-none focus:border-gold/50 lg:mt-1.5 lg:text-[11px] ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         />
       )}
 
-      <div className={`flex gap-1.5 mt-3 transition-opacity ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {ALL_COLORS.map(color => {
           const isTaken = activeColors.includes(color.name) && seat.color !== color.name;
           return (
@@ -190,7 +191,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
               key={color.name}
               disabled={!editable || isTaken}
               onClick={() => !isTaken && onColorChange(color.name)}
-              className={`w-5 h-5 rounded-full ${color.tw} jewel-shadow transition-all ${seat.color === color.name ? 'ring-2 ring-white ring-offset-2 ring-offset-charcoal scale-125 z-10' : isTaken ? 'opacity-20 cursor-not-allowed' : 'opacity-60 hover:opacity-100 hover:scale-110'}`}
+              className={`h-5 w-5 rounded-full ${color.tw} jewel-shadow transition-all lg:h-4 lg:w-4 ${seat.color === color.name ? 'ring-2 ring-white ring-offset-2 ring-offset-charcoal scale-125 z-10' : isTaken ? 'opacity-20 cursor-not-allowed' : 'opacity-60 hover:opacity-100 hover:scale-110'}`}
               title={color.name}
             />
           );
@@ -925,7 +926,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const EasyIcon = DYUT_ICONS.easyDifficulty;
   const HardIcon = DYUT_ICONS.hardDifficulty;
   const StartIcon = DYUT_ICONS.next;
-  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl";
+  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-2.5 lg:text-[1.95rem]";
 
   return (
     <>
@@ -938,7 +939,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       {/* Top Navigation Bar */}
-      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-5' : ''}`}>
+      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-4' : ''}`}>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
@@ -972,7 +973,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       </header>
 
-      <div className={`${isLobbyStage ? 'relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:pb-20 lg:pt-20' : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
+      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:justify-start ${isSetupConfig ? 'lg:overflow-hidden lg:pb-6 lg:pt-[4.5rem] xl:pb-8 xl:pt-[5rem]' : isInitialMenu ? 'lg:overflow-hidden lg:pb-10 lg:pt-20 xl:pb-12 xl:pt-24' : 'lg:overflow-y-auto'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
@@ -1007,13 +1008,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       )}
       
-      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? 'mb-1 text-[clamp(3rem,7vw,5.5rem)] leading-none sm:mb-2' : 'mb-8 text-5xl'}`}>DYUT</h1>
+      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5 lg:mt-0' : isInitialMenu ? 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
       {isLobbyStage && <OrnateDivider />}
       
-      <div className={`${isLobbyStage ? 'mt-4 w-full max-w-[880px] sm:mt-5 lg:max-w-[940px]' : 'w-full'}`}>
+      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-2 w-full max-w-[860px] sm:mt-3 lg:max-w-[min(58vw,720px)] xl:max-w-[760px]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-6' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-4 xl:p-4.5' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
             {isInitialMenu && (
               <>
                 <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
@@ -1024,28 +1025,43 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             )}
             {import.meta.env.VITE_IS_PORTAL ? (
               <>
-                <button onClick={() => {
-                  const newSeats = {
-                    Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
-                    Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
-                    Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
-                    Player4: { type: 'bot', color: 'amber', name: '', uid: null }
-                  };
-                  executeStart(false, null, { seats: newSeats, isQuickGame: false, isTeamMode: false, botDifficulty: 'easy', isVoidRuleEnabled: true });
-                }} className="w-full py-5 flex items-center justify-center gap-4 bg-gold text-charcoal font-display font-bold text-2xl uppercase rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.5)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
-                  {t('playNow', 'PLAY NOW')}
-                </button>
-                <button onClick={() => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' })} disabled={isSearching || isHosting} className="w-full py-4 flex items-center justify-center gap-4 bg-emerald text-charcoal font-display font-bold text-xl uppercase rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.4)] hover:bg-emerald-400 hover:scale-[1.02] disabled:opacity-70 disabled:scale-100 transition-all">
-                  {isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
-                </button>
-                <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-3 bg-white/10 text-white font-sans text-sm font-bold uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all border border-white/10 mt-2">
-                  {t('customGame', 'CUSTOM GAME')}
-                </button>
+                <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
+                  <LobbyModeCard
+                    tone="gold"
+                    icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                    title={t('playNow', 'PLAY NOW')}
+                    description={t('playNowSubtitle', 'Start an instant offline battle against temple-trained rivals.')}
+                    onClick={() => {
+                      const newSeats = {
+                        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+                        Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
+                        Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
+                        Player4: { type: 'bot', color: 'amber', name: '', uid: null }
+                      };
+                      executeStart(false, null, { seats: newSeats, isQuickGame: false, isTeamMode: false, botDifficulty: 'easy', isVoidRuleEnabled: true });
+                    }}
+                  />
+                  <LobbyModeCard
+                    tone="ruby"
+                    icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                    title={isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
+                    description={t('playOnlineSubtitle', 'Enter matchmaking and face challengers across the realm.')}
+                    onClick={() => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' })}
+                    disabled={isSearching || isHosting}
+                  />
+                  <LobbyModeCard
+                    tone="sapphire"
+                    icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                    title={t('customGame', 'CUSTOM GAME')}
+                    description={t('customGameSubtitle', 'Fine-tune seats, rules, and difficulty before the match begins.')}
+                    onClick={() => { setSetupMode('local'); setSetupStep('config'); }}
+                  />
+                </div>
               </>
             ) : (
               <>
                 {isInitialMenu ? (
-                  <div className="flex w-full flex-col gap-3 sm:gap-4">
+                  <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
                     <LobbyModeCard
                       tone="gold"
                       icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
@@ -1090,7 +1106,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             )}
 
             {(hasCachedGame || lastOnlineGameId) && (
-              <div className={`${isInitialMenu ? 'mx-auto mt-4 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
+              <div className={`${isInitialMenu ? 'mx-auto mt-3.5 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
                   <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
                     <ResumeIcon className="h-4 w-4 text-gold" aria-hidden="true" />
@@ -1114,8 +1130,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         )}
 
         {isLobbyStage && (
-          <div className={`${isSetupConfig ? 'hidden lg:contents' : 'mt-3 flex'} w-full max-w-[880px] flex-col items-center justify-between gap-3 sm:mt-4 lg:contents`}>
-            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-6 lg:left-8 lg:z-20 lg:max-w-sm lg:px-4 lg:py-3">
+          <div className={`${isSetupConfig ? 'hidden lg:contents' : 'mt-3 flex'} w-full max-w-[880px] flex-col items-start gap-3 sm:mt-4 lg:contents`}>
+            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[280px] lg:px-3.5 lg:py-2.5 xl:bottom-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-gold/40 bg-gold/10 text-gold">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z"></path>
@@ -1123,8 +1139,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 </svg>
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-bold text-gold sm:text-base">{t('fairPlayTitle', 'Fair Play. Pure Dyut.')}</div>
-                <div className="truncate text-xs text-white/70 sm:text-sm">{t('fairPlaySubtitle', 'Respect the game. Honor the tradition.')}</div>
+                <div className="text-sm font-bold text-gold sm:text-base lg:text-[0.95rem]">{t('fairPlayTitle', 'Fair Play. Pure Dyut.')}</div>
+                <div className="text-xs leading-snug text-white/70 sm:text-sm lg:text-[0.88rem]">{t('fairPlaySubtitle', 'Respect the game. Honor the tradition.')}</div>
               </div>
             </div>
 
@@ -1133,26 +1149,26 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
         {!activeLobbyId && setupMode && setupStep === 'config' && (
-          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:p-7">
+          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
             <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
 
-            <div className="mb-3 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:mb-4">
-              <button onClick={() => setSetupMode(null)} className="flex items-center gap-2 rounded-lg border border-gold/30 bg-white/5 px-4 py-2 font-display text-xs font-bold uppercase tracking-widest text-white/70 transition-colors hover:border-gold/60 hover:text-gold">
+            <div className="mb-3 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:mb-4 lg:mb-2">
+              <button onClick={() => setSetupMode(null)} className="flex items-center gap-2 rounded-lg border border-gold/30 bg-white/5 px-4 py-2 font-display text-xs font-bold uppercase tracking-widest text-white/70 transition-colors hover:border-gold/60 hover:text-gold lg:px-3 lg:py-1.5 lg:text-[0.68rem]">
                 <BackIcon className="h-4 w-4" aria-hidden="true" />
                 {t('back', 'BACK')}
               </button>
-              <h2 className="text-center font-display text-2xl font-bold uppercase tracking-widest text-gold text-glow-gold sm:text-3xl">
+              <h2 className="text-center font-display text-2xl font-bold uppercase tracking-widest text-gold text-glow-gold sm:text-3xl lg:text-[1.35rem]">
                 {setupMode === 'public' ? t('publicMatch', 'PUBLIC MATCH') : setupMode === 'private' ? t('privateMatch', 'PRIVATE MATCH') : t('localPlay', 'LOCAL PLAY')}
               </h2>
               <div className="hidden w-[92px] sm:block"></div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2">
               <ConfigSectionTitle>{t('matchType', 'Match Type')}</ConfigSectionTitle>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
                 <ConfigChoiceCard active={matchType === '1v1'} tone="sapphire" title={t('1v1', '1 vs 1')} subtitle={t('oneOnOne', 'Face off one on one')} onClick={() => setMatchType('1v1')}>
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
@@ -1168,11 +1184,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
 
               <ConfigSectionTitle>{t('gameRules', 'Game Rules')}</ConfigSectionTitle>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px]">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
+                <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px] lg:min-h-[64px]">
                   <RulesIcon className="h-8 w-8" aria-hidden="true" />
                 </ConfigChoiceCard>
-                <ConfigChoiceCard active={isQuickGame} tone="gold" title={t('quick', 'Quick')} subtitle={t('fastPacedShortGames', 'Fast-paced & short games')} onClick={() => setIsQuickGame(!isQuickGame)} className="min-h-[92px]">
+                <ConfigChoiceCard active={isQuickGame} tone="gold" title={t('quick', 'Quick')} subtitle={t('fastPacedShortGames', 'Fast-paced & short games')} onClick={() => setIsQuickGame(!isQuickGame)} className="min-h-[92px] lg:min-h-[64px]">
                   <QuickIcon className="h-8 w-8" aria-hidden="true" />
                 </ConfigChoiceCard>
               </div>
@@ -1180,11 +1196,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               {setupMode !== 'public' && (
                 <>
                   <ConfigSectionTitle>{t('botDifficulty', 'Bot Difficulty')}</ConfigSectionTitle>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <ConfigChoiceCard active={botDifficulty === 'easy'} tone="emerald" title={t('easy', 'EASY')} subtitle={t('relaxedChallenge', 'Relaxed challenge')} onClick={() => setBotDifficulty('easy')} className="min-h-[86px]">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
+                    <ConfigChoiceCard active={botDifficulty === 'easy'} tone="emerald" title={t('easy', 'EASY')} subtitle={t('relaxedChallenge', 'Relaxed challenge')} onClick={() => setBotDifficulty('easy')} className="min-h-[86px] lg:min-h-[62px]">
                       <EasyIcon className="h-8 w-8" aria-hidden="true" />
                     </ConfigChoiceCard>
-                    <ConfigChoiceCard active={botDifficulty === 'hard'} tone="ruby" title={t('hard', 'HARD')} subtitle={t('forSeasonedStrategists', 'For seasoned & strategists')} onClick={() => setBotDifficulty('hard')} className="min-h-[86px]">
+                    <ConfigChoiceCard active={botDifficulty === 'hard'} tone="ruby" title={t('hard', 'HARD')} subtitle={t('forSeasonedStrategists', 'For seasoned & strategists')} onClick={() => setBotDifficulty('hard')} className="min-h-[86px] lg:min-h-[62px]">
                       <HardIcon className="h-8 w-8" aria-hidden="true" />
                     </ConfigChoiceCard>
                   </div>
@@ -1192,7 +1208,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               )}
             </div>
 
-            <div className="mx-auto mt-4 w-full max-w-[760px]">
+            <div className="mx-auto mt-4 w-full max-w-[760px] lg:mt-2">
               {setupMode === 'local' && (
                 <button onClick={() => {
                   let newSeats = {};
@@ -1224,16 +1240,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 3: LOCAL PLAY SETUP --- */}
         {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
-          <div className="w-full space-y-6 animate-fade-in">
-            <div className="w-full flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] mb-4">
+          <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
+            <div className="mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
               <button onClick={() => setSetupStep('config')} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
-              <h2 className="text-white/80 font-bold tracking-widest uppercase text-sm">{t('localPlay', 'LOCAL PLAY')}</h2>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-white/80 lg:text-xs">{t('localPlay', 'LOCAL PLAY')}</h2>
               <div className="w-[72px]"></div>
             </div>
 
             <div className="w-full flex flex-col items-center">
-              <h2 className="text-white/70 text-[10px] uppercase tracking-widest mb-4 text-center font-semibold">{t('seatArrangement', 'Seat Arrangement')}</h2>
-              <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
+              <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
+              <div className="grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
@@ -1241,7 +1257,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
             </div>
 
-            <button onClick={() => executeStart(false)} className="w-full py-4 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+            <button onClick={() => executeStart(false)} className="w-full rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
               {t('startMatch', 'START MATCH')}
             </button>
           </div>
@@ -1249,10 +1265,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 4: ACTIVE LOBBY (PUBLIC OR PRIVATE) --- */}
         {activeLobbyId && (
-          <div className="w-full space-y-6 animate-fade-in">
+          <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,440px)] lg:space-y-3.5">
             <div className="w-full flex flex-col items-center">
-              <h2 className="text-white/70 text-[10px] uppercase tracking-widest mb-4 text-center font-semibold">{t('seatArrangement', 'Seat Arrangement')}</h2>
-              <div className="grid grid-cols-2 gap-4 w-full max-w-[280px]">
+              <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
+              <div className="grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
@@ -1260,14 +1276,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 w-full mt-4">
+            <div className="mt-4 flex w-full flex-col gap-2 lg:mt-2.5">
             {isHost ? (
-                <button onClick={handleStartOnlineMatch} className="w-full py-4 flex items-center justify-center gap-2 bg-gold text-charcoal font-display font-bold text-lg rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:bg-yellow-400 hover:scale-[1.02] transition-all">
+                <button onClick={handleStartOnlineMatch} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
                   <StartIcon className="h-6 w-6" aria-hidden="true" />
                   {t('startMatch', 'START MATCH')}
                 </button>
             ) : (
-                <div className="w-full py-4 bg-white/5 text-white/60 flex items-center justify-center gap-2 font-sans font-bold text-sm tracking-widest uppercase rounded-xl border border-white/5">
+                <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/5 py-4 font-sans text-sm font-bold uppercase tracking-widest text-white/60 lg:py-3 lg:text-[0.72rem]">
                   <svg className="animate-spin h-5 w-5 text-white/60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   {t('waitingForHost', 'Waiting for Host...')}
                 </div>
