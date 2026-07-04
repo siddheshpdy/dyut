@@ -1,9 +1,8 @@
 import React, { createContext, useReducer, useContext, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
-import { doc } from 'firebase/firestore';
 import { ref, onValue, set, update, remove } from 'firebase/database';
-import { db, rtdb, updateUserStats } from './firebaseSetup.js';
+import { rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
@@ -45,6 +44,7 @@ const createInitialState = (gameConfig) => {
     localUid,
     isPublic,
     lastPing: null,
+    turnStartedAt: Date.now(),
     lastActionTime: Date.now(),
     afkStrikes: {},
     isAfkTurn: false,
@@ -68,9 +68,18 @@ export const ACTION_TYPES = {
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
 export const TURN_TIMEOUT_MS = 30000;
+export const OFFLINE_TURN_TIMEOUT_MS = 60000;
 export const TURN_TIMER_WARNING_MS = 10000;
 
 export const getActiveTurnPlayerId = (currentState) => getProxyPlayerId(currentState.currentPlayer, currentState);
+export const getTurnStartedAt = (currentState) => currentState?.turnStartedAt || currentState?.lastActionTime || null;
+export const getTurnTimeoutMs = (currentState) => currentState?.isOnline ? TURN_TIMEOUT_MS : OFFLINE_TURN_TIMEOUT_MS;
+export const getTurnRemainingMs = (currentState, now = Date.now()) => {
+  const turnStartedAt = getTurnStartedAt(currentState);
+  if (!turnStartedAt) return null;
+
+  return Math.max(0, getTurnTimeoutMs(currentState) - (now - turnStartedAt));
+};
 
 export const doesLocalClientOwnActiveTurn = (currentState) => {
   if (!currentState?.isOnline) return true;
@@ -101,6 +110,47 @@ function releaseAutoControlForPlayer(state, playerId) {
     afkStrikes: { ...(state.afkStrikes || {}), [playerId]: 0 },
     isAfkTurn: false,
   };
+}
+
+function isGameOverState(currentState) {
+  if (!currentState?.players) return false;
+  if (currentState.status === 'finished') return true;
+
+  if (currentState.isQuickGame) {
+    return Object.values(currentState.players).some(player => player.pieces.some(pos => pos === 999));
+  }
+
+  if (currentState.isTeamMode) {
+    const teams = {};
+    for (const player of Object.values(currentState.players)) {
+      if (!teams[player.team]) teams[player.team] = { allFinished: true };
+      if (!player.pieces.every(pos => pos === 999)) teams[player.team].allFinished = false;
+    }
+    return Object.values(teams).some(team => team.allFinished);
+  }
+
+  return Object.values(currentState.players).some(player => player.pieces.every(pos => pos === 999));
+}
+
+export function applyReducerPostProcessing(nextState, action) {
+  let processedState = nextState;
+  const timestamp = Date.now();
+
+  if (action._clearAutoControlForPlayerId) {
+    processedState = releaseAutoControlForPlayer(processedState, action._clearAutoControlForPlayerId);
+  }
+
+  if (action._updateActivity) {
+    processedState = { ...processedState, lastActionTime: timestamp };
+    if (action.type === ACTION_TYPES.END_TURN || action.type === ACTION_TYPES.ROLL_DICE) {
+      processedState.turnStartedAt = timestamp;
+    }
+    if (action.type === ACTION_TYPES.END_TURN) {
+      processedState.isAfkTurn = false;
+    }
+  }
+
+  return processedState;
 }
 
 function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
@@ -184,6 +234,7 @@ export function gameReducer(state, action) {
         turnQueue: (action.payload.turnQueue || []).map(roll => ({ ...roll, d2: roll.d2 !== undefined ? roll.d2 : null })),
         bots: action.payload.bots || [],
         afkStrikes: action.payload.afkStrikes || {},
+        turnStartedAt: action.payload.turnStartedAt || action.payload.lastActionTime || state.turnStartedAt,
         // Preserve playerUids from local state as they are injected via Lobby config and not stored in RTDB active games
         playerUids: action.payload.playerUids || state.playerUids
       };
@@ -423,17 +474,7 @@ export function GameProvider({ gameConfig, children }) {
       return getInitialState();
     }
     
-    let nextState = gameReducer(state, action);
-    if (action._clearAutoControlForPlayerId) {
-      nextState = releaseAutoControlForPlayer(nextState, action._clearAutoControlForPlayerId);
-    }
-    if (action._updateActivity) {
-      nextState = { ...nextState, lastActionTime: Date.now() };
-      if (action.type === ACTION_TYPES.END_TURN) {
-        nextState.isAfkTurn = false;
-      }
-    }
-    return nextState;
+    return applyReducerPostProcessing(gameReducer(state, action), action);
   };
 
   const [state, baseDispatch] = useReducer(enhancedReducer, gameConfig, (config) => initGameState(createInitialState(config)));
@@ -521,24 +562,29 @@ const dispatch = useCallback((action) => {
     return () => clearInterval(pingInterval);
   }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
 
-  // Host: AFK Idle Timer
+  // Turn Timer: host-enforced online AFK handling, or local offline auto-skip
   useEffect(() => {
-    if (!state.isOnline || !state.gameId || state.localUid !== state.hostUid) return;
+    const canEnforceTurnTimer = state.isOnline ? (state.gameId && state.localUid === state.hostUid) : true;
+    if (!canEnforceTurnTimer) return;
 
-    const afkInterval = setInterval(() => {
+    const turnTimerInterval = setInterval(() => {
       const currentState = latestStateRef.current;
-      if (!currentState || currentState.status === 'finished') return;
+      if (!currentState || isGameOverState(currentState)) return;
+      if (getTurnRemainingMs(currentState) !== 0) return;
 
       const activeId = getActiveTurnPlayerId(currentState);
-      if (currentState.bots?.includes(activeId)) return; // Bots don't AFK
+      if (currentState.isOnline) {
+        if (currentState.bots?.includes(activeId)) return; // Bots don't AFK
 
-      if (currentState.lastActionTime && Date.now() - currentState.lastActionTime > TURN_TIMEOUT_MS) {
         if (!currentState.isAfkTurn) {
           dispatch({ type: ACTION_TYPES.TRIGGER_AFK_INTERVENTION, payload: { playerId: activeId } });
         }
+        return;
       }
+
+      dispatch({ type: ACTION_TYPES.END_TURN });
     }, 1000);
-    return () => clearInterval(afkInterval);
+    return () => clearInterval(turnTimerInterval);
   }, [state.isOnline, state.gameId, state.localUid, state.hostUid, dispatch]);
 
   // Client: Monitor Host Heartbeat and migrate if dead
@@ -622,6 +668,7 @@ const dispatch = useCallback((action) => {
         players: nextState.players,
         hasRolledThisTurn: nextState.hasRolledThisTurn,
         rollingPhaseComplete: nextState.rollingPhaseComplete,
+        turnStartedAt: nextState.turnStartedAt,
         lastActionTime: nextState.lastActionTime,
         afkStrikes: nextState.afkStrikes || {},
         isAfkTurn: nextState.isAfkTurn || false,
@@ -659,6 +706,7 @@ const dispatch = useCallback((action) => {
             isPublic: gameConfig.isPublic || false,
             status: gameConfig.status || 'playing',
             lastPing: Date.now(),
+            turnStartedAt: state.turnStartedAt,
             lastActionTime: Date.now(),
             afkStrikes: {},
             isAfkTurn: false,
@@ -672,19 +720,7 @@ const dispatch = useCallback((action) => {
 
   useEffect(() => {
     if (state.players) {
-      let isGameOver = false;
-      if (state.isQuickGame) {
-        isGameOver = Object.values(state.players).some(p => p.pieces.some(pos => pos === 999));
-      } else if (state.isTeamMode) {
-        const teams = {};
-        for (const player of Object.values(state.players)) {
-          if (!teams[player.team]) teams[player.team] = { allFinished: true };
-          if (!player.pieces.every(pos => pos === 999)) teams[player.team].allFinished = false;
-        }
-        isGameOver = Object.values(teams).some(t => t.allFinished);
-      } else {
-        isGameOver = Object.values(state.players).some(p => p.pieces.every(pos => pos === 999));
-      }
+      const isGameOver = isGameOverState(state);
 
       if (isGameOver) {
         localStorage.removeItem(LOCAL_STORAGE_KEY);

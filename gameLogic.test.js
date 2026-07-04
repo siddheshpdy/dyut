@@ -46,6 +46,15 @@ describe('Game Logic & Rules Engine', () => {
             // Should be allowed
             expect(validMoves.sum).toBe(true);
         });
+
+        it('blocks an overshooting move after entering the home stretch', () => {
+            mockState.players.Player1.pieces = [15, -1, -1, -1];
+            mockState.players.Player1.hasKilled = true;
+
+            const validMoves = getValidMoves(15, { d1: 3, d2: null, sum: 3 }, 'Player1', mockState);
+
+            expect(validMoves.sum).toBe(false);
+        });
     });
 
     describe('Assassin Rule (Spawning)', () => {

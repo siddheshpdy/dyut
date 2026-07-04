@@ -8,6 +8,8 @@ import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } f
 import { usePrevious } from './usePrevious';
 import { playSound } from './audio';
 
+const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+
 const getOccupantOffsetClass = (count, index, spreadPair = false) => {
   if (count === 2) {
     if (spreadPair) {
@@ -442,7 +444,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
   // CrazyGames SDK: Granular Gameplay Tracking
   const cgGameplayActive = useRef(false);
   useEffect(() => {
-    if (!import.meta.env.VITE_IS_PORTAL) return;
+    if (!IS_PORTAL) return;
 
     const startCgGameplay = async () => {
       if (cgGameplayActive.current || winnerInfo) return;
