@@ -3,6 +3,8 @@ import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWi
 import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 
+const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+
 // TODO: Replace this with your actual Firebase project configuration from the console
 // 1. Go to console.firebase.google.com
 // 2. Create a project and add a "Web App"
@@ -86,7 +88,7 @@ export const initializeUserProfile = async (user) => {
 };
 
 export const updateUserStats = async (uid, isWin) => {
-  if (import.meta.env.VITE_IS_PORTAL) {
+  if (IS_PORTAL) {
     if (window.CrazyGames?.SDK) {
       try {
         if (window.cgInitPromise) await window.cgInitPromise;

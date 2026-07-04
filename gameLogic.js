@@ -140,8 +140,6 @@ export function getValidMoves(pieceCurrentPos, roll, playerId, state) {
         return { sum: isMoveValid, high: isMoveValid, low: isMoveValid }; // All flags map to the single move's validity
     }
 
-    // TODO: Add logic for home stretch and winning moves (overshoot)
-    
     const isSumValid = !isSquareBlocked(pieceCurrentPos + roll.sum, playerId, state);
     const isHighValid = !isSquareBlocked(pieceCurrentPos + high, playerId, state);
     const isLowValid = !isSquareBlocked(pieceCurrentPos + low, playerId, state);

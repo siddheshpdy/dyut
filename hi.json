@@ -74,7 +74,7 @@
   "copy": "कॉपी करें",
   "copied": "कॉपी किया गया!",
   "enterMatch": "खेल में प्रवेश करें",
-  "hostingMatch": "कक्ष बना रहा है...",
+  "hostingMatch": "लॉबी बना रहा है...",
   "claimSeat": "स्थान चुनें",
   "taken": "आरक्षित",
   "onlineHumansRequired": "ऑनलाइन खेल के लिए कम से कम 2 इंसानी खिलाड़ियों की आवश्यकता है।",
@@ -157,10 +157,15 @@
   "hostPrivateMatchTitle": "निजी मैच होस्ट करें",
   "resumeOffline": "ऑफ़लाइन फिर से शुरू करें",
   "reconnectOnline": "फिर से कनेक्ट करें",
-  "hostingMatch": "लॉबी बना रहा है...",
   "status_waiting": "प्रतीक्षा कर रहा है...",
   "status_connecting": "कनेक्ट कर रहा है...",
   "status_connected": "कनेक्टेड",
   "status_notFound": "लॉबी नहीं मिली",
-  "quick": "त्वरित"
+  "quick": "त्वरित",
+  "gameOfLegends": "किंवदंतियों का खेल",
+  "turnTimer": "बारी का समय",
+  "score": "स्कोर",
+  "currentDice": "वर्तमान पासे",
+  "more": "और",
+  "tapDiceToRoll": "पासे फेंकें"
 }

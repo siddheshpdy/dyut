@@ -7,7 +7,7 @@ import RulesScreen from './RulesScreen';
 import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
-import { GameProvider, TURN_TIMEOUT_MS, TURN_TIMER_WARNING_MS, useGame } from './GameContext';
+import { GameProvider, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
@@ -16,9 +16,14 @@ import { DYUT_ICONS } from './dyut-icons';
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
+const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
-const MOBILE_TRAY_RESERVED_SPACE = 'clamp(15.5rem, 28vh, 18rem)';
+const SHORT_MOBILE_HEIGHT_MEDIA_QUERY = '(max-height: 740px)';
+const MOBILE_HEADER_RESERVED_SPACE = 'clamp(4.5rem, 10.5vh, 5.35rem)';
+const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
+const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
+const MOBILE_TRAY_RESERVED_SPACE_SHORT = '12.2rem';
 
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -45,43 +50,42 @@ const useIsDesktop = () => {
   return isDesktop;
 };
 
-const formatCountdown = (remainingMs) => {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+const useIsShortMobileHeight = () => {
+  const [isShortMobileHeight, setIsShortMobileHeight] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(SHORT_MOBILE_HEIGHT_MEDIA_QUERY).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia(SHORT_MOBILE_HEIGHT_MEDIA_QUERY);
+    const sync = (event) => setIsShortMobileHeight(event.matches);
+    setIsShortMobileHeight(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', sync);
+      return () => mediaQuery.removeEventListener('change', sync);
+    }
+
+    mediaQuery.addListener(sync);
+    return () => mediaQuery.removeListener(sync);
+  }, []);
+
+  return isShortMobileHeight;
 };
 
 const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
   const { t } = useTranslation();
   const { state, leaveGame } = useGame();
-  const [now, setNow] = useState(() => Date.now());
   const ExitIcon = DYUT_ICONS.exit;
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const HowToPlayIcon = DYUT_ICONS.howToPlay;
   const RulesIcon = DYUT_ICONS.rules;
   const HistoryIcon = DYUT_ICONS.history;
   const AboutIcon = DYUT_ICONS.inviteFriend;
-  const TimerIcon = DYUT_ICONS.timerAlt;
   const ScoreIcon = DYUT_ICONS.score;
   const activeScore = state.players?.[state.currentPlayer]?.pieces?.filter(pos => pos === 999).length || 0;
-  const hasTurnTimer = state.isOnline && !!state.lastActionTime;
-  const remainingMs = hasTurnTimer ? Math.max(0, TURN_TIMEOUT_MS - (now - state.lastActionTime)) : null;
-  const timerText = remainingMs == null ? '--:--' : formatCountdown(remainingMs);
-  const isTimerCritical = remainingMs != null && remainingMs <= TURN_TIMER_WARNING_MS;
-
-  useEffect(() => {
-    if (!hasTurnTimer) {
-      setNow(Date.now());
-      return undefined;
-    }
-
-    const timerId = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [hasTurnTimer, state.currentPlayer, state.lastActionTime]);
   
   const handleMenuClick = () => {
     const msg = state.isPublic && state.isOnline
@@ -95,7 +99,7 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
 
   return (
     <>
-    <div className="absolute left-2.5 right-2.5 top-2.5 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 rounded-xl border border-gold/30 bg-black/55 px-3 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
+    <div className="absolute left-2.5 right-2.5 top-2.5 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-xl border border-gold/30 bg-black/55 px-3 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
       <div>
         <div className="dyut-title text-[1.7rem] font-bold leading-none tracking-[0.18em] text-gold text-glow-gold">DYUT</div>
         <div className="font-display text-[8px] font-bold uppercase tracking-[0.18em] text-gold/80">{t('gameOfLegends', 'The Game of Legends')}</div>
@@ -110,13 +114,6 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
         <button onClick={handleMenuClick} className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
           <ExitIcon className="h-4.5 w-4.5" aria-hidden="true" />
         </button>
-      </div>
-      <div className="col-span-2 flex justify-center">
-        <div className="flex min-w-[6.6rem] items-center justify-center gap-1.5 rounded-full border border-gold/30 bg-black/35 px-3 py-1 shadow-[inset_0_0_14px_rgba(0,0,0,0.45)]">
-          <TimerIcon className={`h-3.5 w-3.5 ${isTimerCritical ? 'text-ruby' : 'text-gold'}`} aria-hidden="true" />
-          <span className={`font-display text-sm leading-none ${isTimerCritical ? 'text-ruby' : 'text-white/90'}`}>{timerText}</span>
-          <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/60">{t('turnTimer', 'Timer')}</span>
-        </div>
       </div>
     </div>
 
@@ -139,14 +136,6 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
 
       <div className="flex items-center justify-end gap-2.5 justify-self-end xl:gap-5">
         <div className="flex overflow-hidden rounded-xl border border-gold/35 bg-black/45 shadow-[inset_0_0_18px_rgba(0,0,0,0.55)]">
-          <div className="flex items-center gap-2 px-2.5 py-1 xl:gap-3 xl:px-5 xl:py-2">
-            <TimerIcon className="h-5.5 w-5.5 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
-            <div className="text-center">
-              <div className={`font-display text-lg leading-none xl:text-2xl ${isTimerCritical ? 'text-ruby' : 'text-white/90'}`}>{timerText}</div>
-              <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('turnTimer', 'Turn Timer')}</div>
-            </div>
-          </div>
-          <div className="w-px bg-gold/25"></div>
           <div className="flex items-center gap-2 px-2.5 py-1 xl:gap-3 xl:px-5 xl:py-2">
             <ScoreIcon className="h-5.5 w-5.5 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
             <div className="text-center">
@@ -199,6 +188,7 @@ const GameInfoOverlay = ({ infoView, onClose }) => {
 function App() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
+  const isShortMobileHeight = useIsShortMobileHeight();
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
@@ -207,7 +197,9 @@ function App() {
   const [gameInfoView, setGameInfoView] = useState(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
-  const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - 3.9rem - ${MOBILE_TRAY_RESERVED_SPACE} - env(safe-area-inset-bottom) - 1.25rem))`;
+  const mobileHeaderReservedSpace = isShortMobileHeight ? MOBILE_HEADER_RESERVED_SPACE_SHORT : MOBILE_HEADER_RESERVED_SPACE;
+  const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
+  const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - ${mobileHeaderReservedSpace} - ${mobileTrayReservedSpace} - env(safe-area-inset-bottom) - ${isShortMobileHeight ? '0.65rem' : '1.25rem'}))`;
 
   const toggleMute = () => {
     setIsMuted(prev => {
@@ -301,7 +293,7 @@ function App() {
     let unsubFunc = null;
     initializeAuth().then(unsub => { 
       unsubFunc = unsub; 
-      if (import.meta.env.VITE_IS_PORTAL) {
+      if (IS_PORTAL) {
         const setupCrazyGames = async () => {
           try {
             if (window.cgInitPromise) await window.cgInitPromise;
@@ -347,7 +339,7 @@ function App() {
 
   // Centralized function to call midgame ads and handle audio muting
   const triggerMidgameAd = () => {
-    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
+    if (IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
       // Save the user's current mute preference before the ad forces a mute
       const wasMuted = localStorage.getItem('dyut_muted') === 'true';
 
@@ -412,7 +404,7 @@ function App() {
     setGameInfoView(null);
     setView('menu');
     triggerMidgameAd();
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+    if (IS_PORTAL && window.CrazyGames?.SDK) {
       try { window.CrazyGames.SDK.game.leftRoom(); } catch (e) {}
     }
   };
@@ -424,7 +416,7 @@ function App() {
     setGameInfoView(null);
     setView('menu');
     triggerMidgameAd();
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+    if (IS_PORTAL && window.CrazyGames?.SDK) {
       try { window.CrazyGames.SDK.game.leftRoom(); } catch (e) {}
     }
   };
@@ -477,8 +469,8 @@ function App() {
                 <DiceTray layoutMode="desktop" />
               </div>
             ) : (
-              <div className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[3.85rem] sm:px-3">
-                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden pt-2 pb-2 [@media(min-height:780px)]:justify-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4">
+              <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
+                <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:justify-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
                   <div style={{ width: mobileBoardSize, height: mobileBoardSize }}>
                     <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
                   </div>

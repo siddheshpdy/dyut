@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { useGame, ACTION_TYPES, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, isActiveTurnAutoControlledForLocalClient } from './GameContext';
+import { useGame, ACTION_TYPES, TURN_TIMER_WARNING_MS, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, getTurnRemainingMs, getTurnTimeoutMs, isActiveTurnAutoControlledForLocalClient } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove, canSpawnPiece } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { DYUT_ICONS } from './dyut-icons';
 
 const DICE_FACES = [1, 3, 4, 6];
-const MOBILE_TRAY_HEIGHT = 'clamp(15.5rem, 28vh, 18rem)';
+const MOBILE_TRAY_HEIGHT = 'clamp(13.5rem, 24.5vh, 15rem)';
 
 // A single die face component, styled to look like a long die (pasa)
 const Die = ({ value, isRolling, compact = false }) => (
@@ -17,6 +17,48 @@ const Die = ({ value, isRolling, compact = false }) => (
     <span className={`font-display font-bold text-white/90 drop-shadow-[0_0_8px_rgba(255,255,255,0.45)] ${compact ? 'text-[1.65rem]' : 'text-3xl sm:text-5xl lg:text-6xl'}`}>{value}</span>
   </div>
 );
+
+const TurnTimerOutline = ({ progress, isCritical }) => {
+  if (progress == null) return null;
+
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  const strokeColor = isCritical ? 'rgba(244, 63, 94, 0.96)' : 'rgba(251, 191, 36, 0.96)';
+  const glowColor = isCritical ? 'rgba(244, 63, 94, 0.42)' : 'rgba(251, 191, 36, 0.34)';
+
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect
+          x="2"
+          y="2"
+          width="96"
+          height="96"
+          rx="12"
+          ry="12"
+          fill="none"
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="2"
+          y="2"
+          width="96"
+          height="96"
+          rx="12"
+          ry="12"
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2.75"
+          strokeLinecap="round"
+          pathLength="1"
+          strokeDasharray={`${clampedProgress} 1`}
+          transform="rotate(-90 50 50)"
+          style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}
+        />
+      </svg>
+    </div>
+  );
+};
 
 const PanelPiece = ({ color, isLocked, isClickable, onClick }) => {
   const bgClass = {
@@ -55,6 +97,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const { t } = useTranslation();
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [now, setNow] = useState(() => Date.now());
   const DiceIcon = DYUT_ICONS.dice;
   const CrownIcon = DYUT_ICONS.currentTurn;
 
@@ -70,6 +113,10 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     return () => window.removeEventListener('dyut-animating', handleAnim);
   }, []);
 
+  useEffect(() => {
+    setLastRoll({ d1: null, d2: null });
+  }, [state.currentPlayer]);
+
   const activePlayerId = getActiveTurnPlayerId(state);
   const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
   const activeBots = isBotPlaying ? [...new Set([...(state.bots || []), state.currentPlayer])] : (state.bots || []);
@@ -81,6 +128,24 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const activePlayer = state.players[activePlayerId];
   const isRollingPhaseActive = state.hasRolledThisTurn && !state.rollingPhaseComplete;
   const hasValidSpawn = state.turnQueue.some(r => r.d1 === r.d2 && canSpawnPiece(activePlayerId, r.sum, state));
+  const remainingMs = getTurnRemainingMs(state, now);
+  const hasTurnTimer = remainingMs != null;
+  const turnTimeoutMs = getTurnTimeoutMs(state);
+  const turnTimerProgress = hasTurnTimer ? remainingMs / turnTimeoutMs : null;
+  const isTimerCritical = remainingMs != null && remainingMs <= TURN_TIMER_WARNING_MS;
+
+  useEffect(() => {
+    if (!hasTurnTimer) {
+      setNow(Date.now());
+      return undefined;
+    }
+
+    const timerId = setInterval(() => {
+      setNow(Date.now());
+    }, 250);
+
+    return () => clearInterval(timerId);
+  }, [hasTurnTimer, state.currentPlayer, state.turnStartedAt]);
 
   // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
   useEffect(() => {
@@ -135,6 +200,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     }, 600);
   };
 
+  const handleRollControl = (event) => {
+    if (isBotPlaying && event?.isTrusted) return;
+    if (!canTriggerRoll) return;
+    handleRoll();
+  };
+
   const hasPlayableMoves = useMemo(() => hasAnyPlayableMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue]);
   const autoMoveAction = useMemo(() => getAutoMove(state.currentPlayer, state), [state.currentPlayer, state.players, state.turnQueue, state.hasRolledThisTurn, state.rollingPhaseComplete]);
 
@@ -143,6 +214,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   
   // A player can roll if they haven't rolled this turn OR they are still in their rolling phase (doubles streak).
   const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
+  const canTriggerRoll = canRoll && !isRolling && !isEvaluating && !showVoidGif && isMyTurn && !isBotPlaying;
 
   const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !isEvaluating && !showVoidGif;
 
@@ -176,7 +248,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
 
 
 const trayShellClass = layoutMode === 'mobile'
-    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2.5 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2.5 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
+    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
     : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-[min(72vh,620px)] lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3.5 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:h-[min(74vh,660px)] xl:w-[350px] xl:max-w-[350px] xl:gap-4 xl:p-5 xl:pt-4';
 
   return (
@@ -221,7 +293,7 @@ const trayShellClass = layoutMode === 'mobile'
             </div>
           </div>
         )}
-        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-start lg:gap-4'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-start lg:gap-4'}`}>
           <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
             <span className="mb-1 font-display text-xs uppercase tracking-[0.28em] text-white/65 lg:text-sm">{t('active')}</span>
             <div className={`${layoutMode === 'mobile' ? 'flex flex-wrap items-center gap-2' : ''}`}>
@@ -263,38 +335,81 @@ const trayShellClass = layoutMode === 'mobile'
               )}
             </div>
           </div>
-          <div className={`${layoutMode === 'mobile' ? 'flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2.5 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)]' : 'flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:px-4 lg:py-4 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'}`}>
-            <span className={`${layoutMode === 'mobile' ? 'mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85' : 'mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block lg:text-[0.95rem]'}`}>{t('currentDice', 'Current Dice')}</span>
-            <div className="flex gap-2 sm:gap-4 lg:gap-4">
-              <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
-              <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
+          {layoutMode === 'mobile' ? (
+            <button
+              type="button"
+              onClick={handleRollControl}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleRollControl(event);
+                }
+              }}
+              disabled={!canTriggerRoll}
+              aria-label={canTriggerRoll ? t('tapDiceToRoll', 'Tap dice to roll') : t('currentDice', 'Current Dice')}
+              className={`relative flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)] transition-all ${canTriggerRoll ? 'cursor-pointer hover:border-gold/45 hover:bg-black/42 active:scale-[0.99]' : 'cursor-default'} disabled:opacity-100`}
+            >
+              <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} />
+              <span className="mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85">{t('currentDice', 'Current Dice')}</span>
+              <div className="flex gap-2 sm:gap-4 lg:gap-4">
+                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact />
+                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact />
+              </div>
+              <span className={`mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] ${canTriggerRoll ? 'text-gold/75' : 'text-white/40'}`}>
+                {canTriggerRoll ? t('tapDiceToRoll', 'Tap dice to roll') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
+              </span>
+            </button>
+          ) : (
+            <div className="relative flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:px-4 lg:py-4 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]">
+              <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} />
+              <span className="mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block lg:text-[0.95rem]">{t('currentDice', 'Current Dice')}</span>
+              <div className="flex gap-2 sm:gap-4 lg:gap-4">
+                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
+                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'flex min-h-0 w-full flex-1 flex-col items-stretch gap-2' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-3.5'}`}>
-          <button
-            onClick={(e) => { if (isBotPlaying && e.isTrusted) return; handleRoll(); }}
-            id="dice-roll-btn"
-            disabled={!canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-2.5 font-display text-base font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-3 sm:text-lg lg:w-full lg:rounded-2xl lg:py-3 lg:text-[1.65rem] ${layoutMode === 'mobile' ? 'w-full rounded-2xl py-2 text-[0.95rem]' : ''} ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
-          >
-            <DiceIcon className={`${layoutMode === 'mobile' ? 'h-4 w-4' : 'h-4.5 w-4.5 lg:h-5 lg:w-5'}`} aria-hidden="true" />
-            {isRolling ? t('rolling') : t('rollDice')}
-          </button>
-        
-          <div className={`relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[116px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-3 ${layoutMode === 'mobile' ? 'min-h-0 w-full rounded-2xl bg-black/34 p-2' : ''}`}>
-            <span className={`${layoutMode === 'mobile' ? 'mb-1 block font-display text-[10px] uppercase tracking-[0.22em] text-gold/80' : 'mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80'}`}>{t('queue')}</span>
-            <div className={`${layoutMode === 'mobile' ? 'flex max-h-[7.6rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 sm:max-h-[8.4rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'flex min-h-[4.25rem] max-h-[7.4rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 [scrollbar-width:none] sm:gap-2 lg:gap-2.5 [&::-webkit-scrollbar]:hidden'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-3.5'}`}>
+          {layoutMode !== 'mobile' && (
+            <button
+              onClick={handleRollControl}
+              id="dice-roll-btn"
+              disabled={!canTriggerRoll}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-2.5 font-display text-base font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-3 sm:text-lg lg:w-full lg:rounded-2xl lg:py-3 lg:text-[1.65rem] ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
+            >
+              <DiceIcon className="h-4.5 w-4.5 lg:h-5 lg:w-5" aria-hidden="true" />
+              {isRolling ? t('rolling') : t('rollDice')}
+            </button>
+          )}
+
+          <div className={`relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[116px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-3 ${layoutMode === 'mobile' ? 'min-h-[4.6rem] w-full rounded-2xl bg-black/34 px-2.5 py-2 items-stretch justify-start' : ''}`}>
+            {layoutMode === 'mobile' ? (
+              <div className="mb-1 flex w-full items-center justify-between gap-2">
+                <span className="font-display text-[10px] uppercase tracking-[0.22em] text-gold/80">{t('queue')}</span>
+                <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-gold/20 bg-black/35 px-1.5 text-[10px] font-bold leading-none text-white/55">
+                  {state.turnQueue.length}
+                </span>
+              </div>
+            ) : (
+              <span className="mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80">{t('queue')}</span>
+            )}
+            <div className={`${layoutMode === 'mobile' ? 'flex min-h-[2.25rem] w-full items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden' : 'flex min-h-[4.25rem] max-h-[7.4rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 [scrollbar-width:none] sm:gap-2 lg:gap-2.5 [&::-webkit-scrollbar]:hidden'}`}>
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {
                 const rollText = roll.d2 == null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
                 return (
-                  <span key={i} className={`font-bold px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm ${layoutMode === 'mobile' ? 'min-w-[4.5rem] text-center' : ''} ${i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10'}`}>{rollText}</span>
+                  <span
+                    key={i}
+                    className={`font-bold px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm ${layoutMode === 'mobile' ? `snap-start shrink-0 rounded-xl border px-3 py-1.5 text-center ${i === 0 ? 'min-w-[5.5rem] bg-gold text-charcoal shadow-[0_0_14px_rgba(251,191,36,0.42)]' : 'min-w-[4.2rem] border-white/10 bg-white/10 text-white/75'}` : ''} ${layoutMode !== 'mobile' ? (i === 0 ? 'bg-gold text-charcoal shadow-[0_0_10px_rgba(251,191,36,0.4)]' : 'bg-white/10 text-white/70 border border-white/10') : ''}`}
+                  >
+                    <span className="block whitespace-nowrap">{rollText}</span>
+                  </span>
                 );
               })
             ) : (
-              <span className="text-white/60 text-[10px] sm:text-xs italic">{t('empty')}</span>
+              <span className={`text-white/60 text-[10px] sm:text-xs italic ${layoutMode === 'mobile' ? 'flex w-full items-center justify-center rounded-xl border border-dashed border-gold/15 bg-black/25 py-1.5 text-center not-italic' : ''}`}>{t('empty')}</span>
             )}
             </div>
             {layoutMode !== 'mobile' && state.turnQueue.length > 8 && (

@@ -14,7 +14,8 @@ The repository is already beyond prototype stage. It currently includes:
 - Spawn rules, movement priority, pair shields, pair attacks, safe zones, assassin-style spawn captures, blood debt, and victory handling
 - Single-player bot support with heuristic AI
 - Firebase authentication, player profiles, and online multiplayer sync
-- Public/private lobby flows, host migration, visible turn countdowns on desktop and mobile, AFK handling, and bot takeover for disconnected online players with player reclaim on return
+- Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling, and bot takeover for disconnected online players with player reclaim on return
+- Mobile play supports tap-to-roll directly on the dice panel, leaving more room for the queue
 - Tutorial, rules, history, and about screens
 - English, Hindi, and Marathi localization
 - CrazyGames portal integration hooks
@@ -33,7 +34,7 @@ The repository is already beyond prototype stage. It currently includes:
 
 Key files:
 
-- [GameContext.jsx](./GameContext.jsx): global reducer, turn state, online sync, persistence, AFK handling, and game lifecycle
+- [GameContext.jsx](./GameContext.jsx): global reducer, turn state, local/online turn-timer enforcement, online sync, AFK handling, and game lifecycle
 - [gameLogic.js](./gameLogic.js): move validation, spawn checks, collision logic, proxy-player logic for team mode, and auto-move helpers
 - [boardMapping.js](./boardMapping.js): board cell generation, player path generation, and safe-zone mapping
 - [Board.jsx](./Board.jsx): board rendering, piece animation, move selection, and victory presentation
@@ -123,6 +124,7 @@ Current automated coverage includes:
 - game-logic unit tests
 - shallow rendering tests for the board
 - shallow rendering tests for the dice tray
+- reducer-level AFK reclaim, AFK escalation, and turn-timer tests
 
 The test suite is passing, but coverage is still relatively light compared to the complexity of the reducer, multiplayer sync, and UI-driven game flow.
 
@@ -131,7 +133,6 @@ The test suite is passing, but coverage is still relatively light compared to th
 - Server-authoritative move validation is not implemented yet; multiplayer currently relies on client logic plus host coordination
 - The README was originally minimal and some internal planning docs are more up to date than public-facing docs
 - Some complex rule behavior is distributed across reducer, logic helpers, and UI flow rather than fully centralized in one engine module
-- The visible turn timer currently reflects synced action/idle time in online play rather than a separate hard per-turn rules engine
 
 ## License
 

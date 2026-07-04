@@ -8,7 +8,10 @@ import { useGame } from './GameContext';
 vi.mock('./GameContext', () => ({
     useGame: vi.fn(),
     ACTION_TYPES: { ROLL_DICE: 'ROLL_DICE', END_TURN: 'END_TURN', CLEAR_QUEUE: 'CLEAR_QUEUE' },
+    TURN_TIMER_WARNING_MS: 10000,
     getActiveTurnPlayerId: vi.fn((state) => state.currentPlayer),
+    getTurnRemainingMs: vi.fn(() => 15000),
+    getTurnTimeoutMs: vi.fn(() => 30000),
     isActiveTurnAutoControlledForLocalClient: vi.fn(() => false),
     canLocalClientAct: vi.fn(() => true),
     doesLocalClientOwnActiveTurn: vi.fn(() => true),
@@ -51,5 +54,23 @@ describe('DiceTray Component', () => {
         // The roll button should be enabled since the queue is empty
         const rollBtn = screen.getByRole('button', { name: 'rollDice' });
         expect(rollBtn).not.toBeDisabled();
+    });
+
+    it('uses a tappable dice panel instead of a roll button on mobile', () => {
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: { Player1: { name: 'Alice', color: 'ruby' } },
+                turnQueue: [],
+                hasRolledThisTurn: false,
+                rollingPhaseComplete: false
+            },
+            dispatch: mockDispatch
+        });
+
+        render(<DiceTray layoutMode="mobile" />);
+
+        expect(screen.queryByRole('button', { name: 'rollDice' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'tapDiceToRoll' })).toBeInTheDocument();
     });
 });

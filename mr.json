@@ -161,5 +161,11 @@
   "status_connecting": "कनेक्ट करत आहे...",
   "status_connected": "कनेक्टेड",
   "status_notFound": "कक्ष सापडला नाही",
-  "quick": "जलद"
+  "quick": "जलद",
+  "gameOfLegends": "आख्यायिकांचा खेळ",
+  "turnTimer": "पाळीचा वेळ",
+  "score": "स्कोर",
+  "currentDice": "सध्याचे फासे",
+  "more": "अधिक",
+  "tapDiceToRoll": "फासे टाका"
 }

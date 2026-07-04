@@ -14,6 +14,7 @@ const ALL_COLORS = [
   { name: 'amber', tw: 'bg-amber' },
 ];
 
+const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 
 const OrnateDivider = () => (
@@ -222,7 +223,7 @@ const PlayerProfile = ({ user }) => {
   const ExitIcon = DYUT_ICONS.exit;
 
   useEffect(() => {
-    if (import.meta.env.VITE_IS_PORTAL) {
+    if (IS_PORTAL) {
       let authListener = null;
 
       const fetchPortalStats = async () => {
@@ -264,9 +265,9 @@ const PlayerProfile = ({ user }) => {
     }
   }, [user]);
 
-  if (!user && !import.meta.env.VITE_IS_PORTAL) return <div className="h-10"></div>;
+  if (!user && !IS_PORTAL) return <div className="h-10"></div>;
 
-  if (import.meta.env.VITE_IS_PORTAL && !cgUser) {
+  if (IS_PORTAL && !cgUser) {
     const handleCgSignIn = async () => {
       if (!window.CrazyGames?.SDK) return;
       setIsSigningIn(true);
@@ -287,7 +288,7 @@ const PlayerProfile = ({ user }) => {
         <span className="text-[10px] font-bold text-white uppercase tracking-wider">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
       </button>
     );
-  } else if (user?.isAnonymous && !import.meta.env.VITE_IS_PORTAL) {
+  } else if (user?.isAnonymous && !IS_PORTAL) {
     const handleSignIn = () => {
       setIsSigningIn(true);
       signInWithGoogle().finally(() => {
@@ -315,12 +316,12 @@ const PlayerProfile = ({ user }) => {
     );
   }
 
-  const displayName = cgUser?.username || stats?.displayName || user?.displayName || (import.meta.env.VITE_IS_PORTAL ? 'Portal Player' : 'Player');
+  const displayName = cgUser?.username || stats?.displayName || user?.displayName || (IS_PORTAL ? 'Portal Player' : 'Player');
   const photoURL = cgUser?.profilePictureUrl || user?.photoURL || stats?.photoURL;
 
   const handleEditSave = async () => {
     if (editName.trim() && editName.trim() !== displayName) {
-      if (import.meta.env.VITE_IS_PORTAL) {
+      if (IS_PORTAL) {
         const newStats = { ...stats, displayName: editName.trim() };
         setStats(newStats);
         if (window.CrazyGames?.SDK) {
@@ -384,7 +385,7 @@ const PlayerProfile = ({ user }) => {
           )}
         </div>
       </div>
-      {!import.meta.env.VITE_IS_PORTAL && (
+      {!IS_PORTAL && (
         <button 
           onClick={logoutUser} 
           className="text-white/30 hover:text-ruby transition-colors ml-1 p-1.5 rounded-full hover:bg-white/5"
@@ -515,7 +516,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   // Push room status updates to CrazyGames SDK for external invite link locking and portal UI
   const updateCrazyGamesRoom = async (action, targetSeats) => {
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK && activeLobbyId) {
+    if (IS_PORTAL && window.CrazyGames?.SDK && activeLobbyId) {
       try {
         if (window.cgInitPromise) await window.cgInitPromise;
         const humanSeats = Object.values(targetSeats).filter(s => s.type === 'human');
@@ -848,7 +849,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const defaultUrl = `${window.location.origin}${window.location.pathname}?join=${activeLobbyId}`;
     let isMounted = true;
 
-    if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+    if (IS_PORTAL && window.CrazyGames?.SDK) {
       const fetchLink = async () => {
         try {
           if (window.cgInitPromise) await window.cgInitPromise;
@@ -874,7 +875,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   // Request CrazyGames Banner Ad on Desktop
   useEffect(() => {
-    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED) {
+    if (IS_PORTAL && CRAZYGAMES_ADS_ENABLED) {
       let isMounted = true;
       const showBanners = async () => {
         try {
@@ -1023,7 +1024,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
               </>
             )}
-            {import.meta.env.VITE_IS_PORTAL ? (
+            {IS_PORTAL ? (
               <>
                 <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
                   <LobbyModeCard
@@ -1121,7 +1122,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 )}
               </div>
             )}
-            {import.meta.env.VITE_IS_PORTAL && (
+            {IS_PORTAL && (
               <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
                 {t('portalLegalNotice', 'By playing Dyut on CrazyGames, you agree to the CrazyGames Terms & Conditions and Privacy Policy.')}
               </p>
@@ -1289,7 +1290,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 </div>
             )}
               <button onClick={async () => {
-                if (import.meta.env.VITE_IS_PORTAL && window.CrazyGames?.SDK) {
+                if (IS_PORTAL && window.CrazyGames?.SDK) {
                   try { await window.CrazyGames.SDK.game.leftRoom(); } catch(e){}
                 }
                 window.location.href = window.location.pathname;
@@ -1303,7 +1304,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     </div>
 
     {/* Desktop Banner Ad Containers */}
-    {import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && (
+    {IS_PORTAL && CRAZYGAMES_ADS_ENABLED && (
       <>
         {/* Left Banner */}
         <div className="hidden xl:flex fixed left-4 2xl:left-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
