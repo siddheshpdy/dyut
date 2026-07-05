@@ -4,6 +4,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestam
 import { getDatabase } from 'firebase/database';
 
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+const SAVED_RESUME_GAME_FIELD = 'savedResumeGame';
 
 // TODO: Replace this with your actual Firebase project configuration from the console
 // 1. Go to console.firebase.google.com
@@ -242,5 +243,44 @@ export const logoutUser = async () => {
     await signInAnonymously(auth); // Fallback to a new anonymous session instantly
   } catch (error) {
     console.error("Error signing out: ", error);
+  }
+};
+
+export const loadAccountResumeGame = async (user = auth.currentUser) => {
+  if (IS_PORTAL || !user || user.isAnonymous) return null;
+
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    return userSnap.exists() ? (userSnap.data()?.[SAVED_RESUME_GAME_FIELD] || null) : null;
+  } catch (error) {
+    console.error("Failed to load saved resume game:", error);
+    return null;
+  }
+};
+
+export const saveAccountResumeGame = async (resumeGame, user = auth.currentUser) => {
+  if (IS_PORTAL || !user || user.isAnonymous || !resumeGame) return;
+
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      [SAVED_RESUME_GAME_FIELD]: resumeGame
+    }, { merge: true });
+  } catch (error) {
+    console.error("Failed to save resume game:", error);
+  }
+};
+
+export const clearAccountResumeGame = async (user = auth.currentUser) => {
+  if (IS_PORTAL || !user || user.isAnonymous) return;
+
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      [SAVED_RESUME_GAME_FIELD]: null
+    }, { merge: true });
+  } catch (error) {
+    console.error("Failed to clear saved resume game:", error);
   }
 };

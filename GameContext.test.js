@@ -11,6 +11,7 @@ vi.mock('./boardMapping', () => ({
 vi.mock('./firebaseSetup.js', () => ({
   db: {},
   rtdb: {},
+  clearAccountResumeGame: vi.fn(),
   updateUserStats: vi.fn(),
 }));
 
@@ -20,6 +21,8 @@ vi.mock('./gameLogic', () => ({
 
 import {
   ACTION_TYPES,
+  AFK_BOT_TAKEOVER_STRIKES,
+  initGameState,
   OFFLINE_TURN_TIMEOUT_MS,
   TURN_TIMEOUT_MS,
   applyReducerPostProcessing,
@@ -136,7 +139,7 @@ describe('GameContext reducer AFK reclaim', () => {
       payload: { playerId: 'Player2' },
     });
 
-    expect(reducedState.afkStrikes.Player2).toBe(6);
+    expect(reducedState.afkStrikes.Player2).toBe(AFK_BOT_TAKEOVER_STRIKES);
     expect(reducedState.bots).toContain('Player2');
   });
 
@@ -188,5 +191,103 @@ describe('GameContext reducer AFK reclaim', () => {
 
     expect(getTurnTimeoutMs(offlineState)).toBe(OFFLINE_TURN_TIMEOUT_MS);
     expect(getTurnRemainingMs(offlineState, 32000)).toBe(30000);
+  });
+
+  it('blocks gameplay mutations after the game is finished', () => {
+    const finishedState = {
+      ...createBaseOnlineState(),
+      status: 'finished',
+      turnStartedAt: 1000,
+      lastActionTime: 1000,
+    };
+
+    const reducedState = gameReducer(finishedState, {
+      type: ACTION_TYPES.ROLL_DICE,
+      payload: { d1: 4, d2: 4, sum: 8 },
+    });
+
+    expect(reducedState).toBe(finishedState);
+  });
+
+  it('does not refresh activity timestamps for blocked finished-game actions', () => {
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(9000);
+    const finishedState = {
+      ...createBaseOnlineState(),
+      status: 'finished',
+      turnStartedAt: 1000,
+      lastActionTime: 1000,
+    };
+    const action = {
+      type: ACTION_TYPES.END_TURN,
+      _updateActivity: true,
+    };
+
+    const processedState = applyReducerPostProcessing(gameReducer(finishedState, action), action);
+
+    expect(processedState).toBe(finishedState);
+    expect(processedState.turnStartedAt).toBe(1000);
+    expect(processedState.lastActionTime).toBe(1000);
+
+    dateNowSpy.mockRestore();
+  });
+
+  it('ignores stale cached online state when hydrating a local offline game', () => {
+    const offlineInitialState = {
+      currentPlayer: 'Player1',
+      turnQueue: [],
+      hasRolledThisTurn: false,
+      rollingPhaseComplete: false,
+      players: {
+        Player1: { color: 'ruby', name: 'Alice', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+        Player2: { color: 'sapphire', name: 'Bot', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+      },
+      isOnline: false,
+      turnStartedAt: 1000,
+      lastActionTime: 1000,
+      afkStrikes: {},
+      isAfkTurn: false,
+    };
+
+    localStorage.setItem('dyut_player_count', '2');
+    localStorage.setItem('dyut_game_state', JSON.stringify({
+      ...offlineInitialState,
+      isOnline: true,
+      afkStrikes: { Player1: 3 },
+      isAfkTurn: true,
+    }));
+
+    const hydratedState = initGameState(offlineInitialState);
+
+    expect(hydratedState).toBe(offlineInitialState);
+    expect(localStorage.getItem('dyut_game_state')).toBeNull();
+    expect(localStorage.getItem('dyut_player_count')).toBeNull();
+  });
+
+  it('ignores orphaned cached state when offline resume metadata is missing', () => {
+    const offlineInitialState = {
+      currentPlayer: 'Player1',
+      turnQueue: [],
+      hasRolledThisTurn: false,
+      rollingPhaseComplete: false,
+      players: {
+        Player1: { color: 'ruby', name: 'Alice', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+        Player2: { color: 'sapphire', name: 'Bot', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+      },
+      isOnline: false,
+      turnStartedAt: 1000,
+      lastActionTime: 1000,
+      afkStrikes: {},
+      isAfkTurn: false,
+    };
+
+    localStorage.setItem('dyut_game_state', JSON.stringify({
+      ...offlineInitialState,
+      afkStrikes: { Player1: 1 },
+    }));
+
+    const hydratedState = initGameState(offlineInitialState);
+
+    expect(hydratedState).toBe(offlineInitialState);
+    expect(localStorage.getItem('dyut_game_state')).toBeNull();
   });
 });

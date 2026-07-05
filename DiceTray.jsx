@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { flushSync } from 'react-dom';
-import { useGame, ACTION_TYPES, TURN_TIMER_WARNING_MS, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, getTurnRemainingMs, getTurnTimeoutMs, isActiveTurnAutoControlledForLocalClient } from './GameContext';
+import { useGame, ACTION_TYPES, TURN_TIMER_WARNING_MS, AFK_BOT_TAKEOVER_STRIKES, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, getTurnRemainingMs, getTurnTimeoutMs, isActiveTurnAutoControlledForLocalClient, isGameOverState } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove, canSpawnPiece } from './gameLogic';
 import { playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
@@ -98,7 +98,6 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
   const [now, setNow] = useState(() => Date.now());
-  const DiceIcon = DYUT_ICONS.dice;
   const CrownIcon = DYUT_ICONS.currentTurn;
 
   useEffect(() => {
@@ -119,10 +118,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
 
   const activePlayerId = getActiveTurnPlayerId(state);
   const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
-  const activeBots = isBotPlaying ? [...new Set([...(state.bots || []), state.currentPlayer])] : (state.bots || []);
-  // Activate AI hook (it safely idles if the current player is not in state.bots)
-  useAIBot(activeBots, state.botDifficulty || 'hard');
-
+  const isLocalAfkTurn = state.isAfkTurn && canLocalClientAct(state);
+  const activeBots = useMemo(() => {
+    if (!isBotPlaying && !isLocalAfkTurn) return state.bots || [];
+    return [...new Set([...(state.bots || []), state.currentPlayer, activePlayerId])];
+  }, [activePlayerId, isBotPlaying, isLocalAfkTurn, state.bots, state.currentPlayer]);
+  const isAutoControlledTurn = activeBots.includes(activePlayerId);
   const isMyTurn = canLocalClientAct(state);
   const isCurrentUserPlayer = doesLocalClientOwnActiveTurn(state);
   const activePlayer = state.players[activePlayerId];
@@ -133,6 +134,10 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const turnTimeoutMs = getTurnTimeoutMs(state);
   const turnTimerProgress = hasTurnTimer ? remainingMs / turnTimeoutMs : null;
   const isTimerCritical = remainingMs != null && remainingMs <= TURN_TIMER_WARNING_MS;
+  const activePlayerStrikeCount = state.afkStrikes?.[activePlayerId] || 0;
+  const isActivePlayerBotControlled = !!state.bots?.includes(activePlayerId);
+  const hasAfkStrikeWarning = state.isOnline && activePlayerStrikeCount > 0;
+  const isGameOver = isGameOverState(state);
 
   useEffect(() => {
     if (!hasTurnTimer) {
@@ -150,17 +155,18 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   // Auto-dismiss Void Roll for both bots (fast) and humans (after a delay)
   useEffect(() => {
     if (showVoidGif) {
-      const delay = isBotPlaying ? 600 : 2000;
+      const delay = isAutoControlledTurn ? 600 : 2000;
       const timer = setTimeout(() => {
         setShowVoidGif(false);
-        if (isMyTurn) dispatch({ type: ACTION_TYPES.END_TURN });
+        if (isMyTurn) dispatch({ type: ACTION_TYPES.END_TURN, _autoControlledAction: isAutoControlledTurn });
         setLastRoll({ d1: null, d2: null });
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [showVoidGif, isBotPlaying, dispatch, isMyTurn]);
+  }, [showVoidGif, isAutoControlledTurn, dispatch, isMyTurn]);
 
-  const handleRoll = () => {
+  const handleRoll = useCallback(({ autoControlled = false } = {}) => {
+    if (isGameOver) return;
     if (isRolling || isEvaluating) return;
     
     if (!isMuted) playSound(`${import.meta.env.BASE_URL}sounds/dice-roll.mp3`);
@@ -188,21 +194,22 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
         // CRITICAL: Check for Void Rule (1+3) before anything else
         if (state.isVoidRuleEnabled && ((final_d1 === 1 && final_d2 === 3) || (final_d1 === 3 && final_d2 === 1))) {
           if (Math.random() < 0.25) setShowVoidGif(true);
-          dispatch({ type: ACTION_TYPES.CLEAR_QUEUE });
+          dispatch({ type: ACTION_TYPES.CLEAR_QUEUE, _autoControlledAction: autoControlled });
         } else {
           dispatch({
             type: ACTION_TYPES.ROLL_DICE,
-            payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 }
+            payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 },
+            _autoControlledAction: autoControlled
           });
         }
         setIsEvaluating(false);
       }, 600);
     }, 600);
-  };
+  }, [dispatch, isEvaluating, isGameOver, isMuted, isRolling, state.isVoidRuleEnabled]);
 
   const handleRollControl = (event) => {
-    if (isBotPlaying && event?.isTrusted) return;
-    if (!canTriggerRoll) return;
+    if (isAutoControlledTurn && event?.isTrusted) return;
+    if (!canAutoRoll) return;
     handleRoll();
   };
 
@@ -214,13 +221,27 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   
   // A player can roll if they haven't rolled this turn OR they are still in their rolling phase (doubles streak).
   const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
-  const canTriggerRoll = canRoll && !isRolling && !isEvaluating && !showVoidGif && isMyTurn && !isBotPlaying;
+  const canAutoRoll = !isGameOver && canRoll && !isRolling && !isEvaluating && !showVoidGif && isMyTurn;
+  const canTriggerRoll = canAutoRoll && !isAutoControlledTurn;
+
+  // Activate AI hook (it safely idles if the current player is not in state.bots)
+  useAIBot(activeBots, state.botDifficulty || 'hard');
+
+  useEffect(() => {
+    if (!isAutoControlledTurn || !canAutoRoll) return;
+
+    const timer = setTimeout(() => {
+      handleRoll({ autoControlled: true });
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [isAutoControlledTurn, canAutoRoll, handleRoll]);
 
   const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !isEvaluating && !showVoidGif;
 
   useEffect(() => {
     // Don't auto-end if the player can still roll, is rolling, is evaluating, or is viewing the Void Roll popup
-    if (canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn) return;
+    if (isGameOver || canRoll || isRolling || isEvaluating || showVoidGif || !isMyTurn) return;
 
     // Pause all logic progression while pieces are actively moving on the board to prevent overlaps
     if (isBoardAnimating) return;
@@ -228,7 +249,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     // Automatically dispatch a move if the player only has exactly 1 valid option
     if (autoMoveAction) {
       const timer = setTimeout(() => {
-        dispatch(autoMoveAction);
+        dispatch({ ...autoMoveAction, _autoControlledAction: isAutoControlledTurn });
       }, 1200); // 1200ms delay to let the user visually track the move
       return () => clearTimeout(timer);
     }
@@ -238,18 +259,18 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
 
     if (isStuck || isDone) {
       const timer = setTimeout(() => {
-        dispatch({ type: ACTION_TYPES.END_TURN });
+        dispatch({ type: ACTION_TYPES.END_TURN, _autoControlledAction: isAutoControlledTurn });
         setLastRoll({ d1: null, d2: null });
       }, 1200); // 1.2-second delay, perfectly safe now because we wait for the board animation to finish.
 
       return () => clearTimeout(timer);
     }
-  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, isEvaluating, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating]);
+  }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, isEvaluating, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating, isGameOver]);
 
 
 const trayShellClass = layoutMode === 'mobile'
-    ? 'relative z-10 flex w-full max-w-none flex-col items-center gap-2 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
-    : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-[min(72vh,620px)] lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3.5 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:h-[min(74vh,660px)] xl:w-[350px] xl:max-w-[350px] xl:gap-4 xl:p-5 xl:pt-4';
+    ? 'relative z-10 flex w-full min-w-0 max-w-none flex-col items-center gap-2 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
+    : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-auto lg:max-h-[min(calc(100dvh-8.75rem),660px)] lg:min-h-0 lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:max-h-[min(calc(100dvh-9rem),700px)] xl:w-[350px] xl:max-w-[350px] xl:gap-3.5 xl:p-5 xl:pt-4';
 
   return (
     <>
@@ -293,7 +314,7 @@ const trayShellClass = layoutMode === 'mobile'
             </div>
           </div>
         )}
-        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full flex-row items-center justify-between gap-4 lg:flex-col lg:justify-start lg:gap-4'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full min-h-0 flex-row items-center justify-between gap-4 lg:flex-none lg:flex-col lg:justify-start lg:gap-3'}`}>
           <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
             <span className="mb-1 font-display text-xs uppercase tracking-[0.28em] text-white/65 lg:text-sm">{t('active')}</span>
             <div className={`${layoutMode === 'mobile' ? 'flex flex-wrap items-center gap-2' : ''}`}>
@@ -306,6 +327,23 @@ const trayShellClass = layoutMode === 'mobile'
                 </span>
               )}
             </div>
+            {hasAfkStrikeWarning && (
+              <div className={`mt-2 rounded-xl border px-2.5 py-1.5 shadow-[0_0_18px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(0,0,0,0.24)] ${isActivePlayerBotControlled ? 'border-ruby/70 bg-[rgba(127,29,29,0.88)] text-white' : 'border-amber-300/75 bg-[rgba(120,53,15,0.88)] text-white'} ${layoutMode === 'mobile' ? 'w-full max-w-[12.5rem]' : 'lg:w-full lg:max-w-[15rem]'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-display text-[0.65rem] font-bold uppercase tracking-[0.2em] text-gold">
+                    {t('afkStrikesLabel', 'AFK Strikes')}
+                  </span>
+                  <span className="font-sans text-xs font-bold tabular-nums text-white">
+                    {activePlayerStrikeCount} / {AFK_BOT_TAKEOVER_STRIKES}
+                  </span>
+                </div>
+                <div className="mt-1 font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-white/95">
+                  {isActivePlayerBotControlled
+                    ? t('afkBotTakeoverWarning', 'Bot control is now active for this player.')
+                    : t('afkStrikeWarning', { count: activePlayerStrikeCount, max: AFK_BOT_TAKEOVER_STRIKES, defaultValue: '{{count}} of {{max}} strikes before bot takeover.' })}
+                </div>
+              </div>
+            )}
             <div className={`${layoutMode === 'mobile' ? 'mt-2 grid w-full max-w-[7rem] grid-cols-4 gap-1 rounded-lg border border-gold/25 bg-black/34 p-1.5' : 'mt-3 hidden w-full items-center justify-center gap-3 text-gold/85 lg:flex'}`}>
               {layoutMode === 'mobile' ? (
                 activePlayer?.pieces?.map((piecePosition, pieceIndex) => {
@@ -338,6 +376,7 @@ const trayShellClass = layoutMode === 'mobile'
           {layoutMode === 'mobile' ? (
             <button
               type="button"
+              id="dice-roll-btn"
               onClick={handleRollControl}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -345,9 +384,9 @@ const trayShellClass = layoutMode === 'mobile'
                   handleRollControl(event);
                 }
               }}
-              disabled={!canTriggerRoll}
+              disabled={!canAutoRoll}
               aria-label={canTriggerRoll ? t('tapDiceToRoll', 'Tap dice to roll') : t('currentDice', 'Current Dice')}
-              className={`relative flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)] transition-all ${canTriggerRoll ? 'cursor-pointer hover:border-gold/45 hover:bg-black/42 active:scale-[0.99]' : 'cursor-default'} disabled:opacity-100`}
+              className={`relative flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)] transition-all ${canTriggerRoll ? 'cursor-pointer hover:border-gold/45 hover:bg-black/42 active:scale-[0.99]' : 'cursor-default'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
             >
               <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} />
               <span className="mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85">{t('currentDice', 'Current Dice')}</span>
@@ -360,31 +399,35 @@ const trayShellClass = layoutMode === 'mobile'
               </span>
             </button>
           ) : (
-            <div className="relative flex flex-col items-center lg:w-full lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:px-4 lg:py-4 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]">
+            <button
+              type="button"
+              id="dice-roll-btn"
+              onClick={handleRollControl}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleRollControl(event);
+                }
+              }}
+              disabled={!canAutoRoll}
+              aria-label={canTriggerRoll ? t('rollDice') : t('currentDice', 'Current Dice')}
+              className={`relative flex flex-col items-center lg:w-full lg:shrink-0 lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:px-4 lg:py-3 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)] transition-all ${canTriggerRoll ? 'cursor-pointer hover:border-gold/45 hover:bg-black/42 active:scale-[0.99]' : 'cursor-default'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
+            >
               <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} />
               <span className="mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block lg:text-[0.95rem]">{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
                 <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
                 <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
               </div>
-            </div>
+              <span className={`mt-2 hidden font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] lg:block ${canTriggerRoll ? 'text-gold/75' : 'text-white/40'}`}>
+                {canTriggerRoll ? t('rollDice') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
+              </span>
+            </button>
           )}
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full' : 'flex w-full flex-row items-stretch gap-3 sm:gap-4 lg:flex-col lg:items-center lg:gap-3.5'}`}>
-          {layoutMode !== 'mobile' && (
-            <button
-              onClick={handleRollControl}
-              id="dice-roll-btn"
-              disabled={!canTriggerRoll}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border border-yellow-200/60 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-2.5 font-display text-base font-bold uppercase tracking-wider text-charcoal shadow-[0_0_22px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-none disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none sm:py-3 sm:text-lg lg:w-full lg:rounded-2xl lg:py-3 lg:text-[1.65rem] ${isBotPlaying ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''}`}
-            >
-              <DiceIcon className="h-4.5 w-4.5 lg:h-5 lg:w-5" aria-hidden="true" />
-              {isRolling ? t('rolling') : t('rollDice')}
-            </button>
-          )}
-
-          <div className={`relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:min-h-[116px] lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-3 ${layoutMode === 'mobile' ? 'min-h-[4.6rem] w-full rounded-2xl bg-black/34 px-2.5 py-2 items-stretch justify-start' : ''}`}>
+        <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full min-w-0' : 'w-full min-h-0 lg:h-[8.75rem] lg:flex-none xl:h-[9.25rem]'}`}>
+          <div className={`relative flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:h-full lg:min-h-0 lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-2 ${layoutMode === 'mobile' ? 'min-h-[4.6rem] w-full rounded-2xl bg-black/34 px-2.5 py-2 items-stretch justify-start' : ''}`}>
             {layoutMode === 'mobile' ? (
               <div className="mb-1 flex w-full items-center justify-between gap-2">
                 <span className="font-display text-[10px] uppercase tracking-[0.22em] text-gold/80">{t('queue')}</span>
@@ -393,9 +436,9 @@ const trayShellClass = layoutMode === 'mobile'
                 </span>
               </div>
             ) : (
-              <span className="mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-3 lg:block lg:font-display lg:text-xs lg:text-gold/80">{t('queue')}</span>
+              <span className="mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-2 lg:block lg:font-display lg:text-xs lg:text-gold/80">{t('queue')}</span>
             )}
-            <div className={`${layoutMode === 'mobile' ? 'flex min-h-[2.25rem] w-full items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden' : 'flex min-h-[4.25rem] max-h-[7.4rem] w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 [scrollbar-width:none] sm:gap-2 lg:gap-2.5 [&::-webkit-scrollbar]:hidden'}`}>
+            <div className={`${layoutMode === 'mobile' ? 'flex min-h-[2.25rem] w-full items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden' : 'flex min-h-0 flex-1 w-full flex-wrap items-center justify-center gap-1 overflow-y-auto pr-1 [scrollbar-width:none] sm:gap-2 lg:gap-2.5 [&::-webkit-scrollbar]:hidden'}`}>
             {state.turnQueue.length > 0 ? (
               state.turnQueue.map((roll, i) => {
                 const rollText = roll.d2 == null ? roll.d1 : `${roll.d1} + ${roll.d2}`;
