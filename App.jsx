@@ -624,7 +624,7 @@ function App() {
           resumeOnlineGameId={resumeOnlineGameId}
           joinGameId={joinGameId} 
           user={user} 
-          autoStartPortalIntro={portalAutoStartPending}
+          autoStartPortalIntro={IS_PORTAL && portalAutoStartPending}
           onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
           onReconnectOnline={handleReconnectOnline}
         />;

@@ -18,7 +18,7 @@ The repository is already beyond prototype stage. It currently includes:
 - Mobile and desktop play both support rolling directly from the dice panel, keeping manual play and bot/AFK auto-roll on the same interaction path
 - Tutorial, rules, history, and about screens
 - English, Hindi, and Marathi localization
-- CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match
+- CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match while standard local play opens the Human/Bot seat-selection lobby
 
 Resume behavior is intentionally split by mode:
 

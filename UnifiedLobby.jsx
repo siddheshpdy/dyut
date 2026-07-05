@@ -721,7 +721,19 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   const openLocalSetup = () => promptForSavedResume('local', () => {
     setSetupMode('local');
-    setSetupStep('config');
+    if (IS_PORTAL) {
+      setSetupStep('config');
+      return;
+    }
+
+    setSeats({
+      Player4: { type: 'closed', color: 'amber', name: '', uid: null },
+      Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
+      Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+      Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
+    });
+    setIsTeamMode(false);
+    setSetupStep('seats');
   });
 
   const openPublicSetup = () => promptForSavedResume('online', () => {
@@ -1309,7 +1321,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
           <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
             <div className="mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
-              <button onClick={() => setSetupStep('config')} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
+              <button onClick={() => IS_PORTAL ? setSetupStep('config') : setSetupMode(null)} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
               <h2 className="text-sm font-bold uppercase tracking-widest text-white/80 lg:text-xs">{t('localPlay', 'LOCAL PLAY')}</h2>
               <div className="w-[72px]"></div>
             </div>
