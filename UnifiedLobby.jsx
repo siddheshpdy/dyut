@@ -398,7 +398,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, joinGameId, user, lastOnlineGameId, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, onReconnectOnline }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -667,6 +667,73 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     if (playerCount !== 4) setIsTeamMode(false); // Team mode strictly 2v2
   }, [playerCount]);
 
+  const startPortalBotMatch = () => {
+    const newSeats = {
+      Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+      Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
+      Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
+      Player4: { type: 'bot', color: 'amber', name: '', uid: null }
+    };
+
+    executeStart(false, null, {
+      seats: newSeats,
+      isQuickGame: false,
+      isTeamMode: false,
+      botDifficulty: 'easy',
+      isVoidRuleEnabled: true
+    });
+  };
+
+  const promptForSavedResume = (mode, continueAction) => {
+    if (mode === 'local' && hasCachedGame) {
+      const shouldResumeOffline = window.confirm(
+        t(
+          'resumeOfflineBeforeLocalPrompt',
+          'A saved offline game exists on this device. Press OK to resume it, or Cancel to stay on the menu.'
+        )
+      );
+
+      if (shouldResumeOffline) {
+        onResumeGame();
+        return;
+      }
+
+      return;
+    }
+
+    if (resumeOnlineGameId) {
+      const promptKey = mode === 'local' ? 'resumeOnlineBeforeLocalPrompt' : 'resumeOnlineBeforeOnlinePrompt';
+      const fallbackMessage = mode === 'local'
+        ? 'A saved online match is linked to your account. Press OK to resume it, or Cancel to stay on the menu.'
+        : 'A saved online match is linked to your account. Press OK to resume it, or Cancel to stay on the menu.';
+      const shouldResumeOnline = window.confirm(t(promptKey, fallbackMessage));
+
+      if (shouldResumeOnline) {
+        onReconnectOnline(resumeOnlineGameId);
+        return;
+      }
+
+      return;
+    }
+
+    continueAction();
+  };
+
+  const openLocalSetup = () => promptForSavedResume('local', () => {
+    setSetupMode('local');
+    setSetupStep('config');
+  });
+
+  const openPublicSetup = () => promptForSavedResume('online', () => {
+    setSetupMode('public');
+    setSetupStep('config');
+  });
+
+  const openPrivateSetup = () => promptForSavedResume('online', () => {
+    setSetupMode('private');
+    setSetupStep('config');
+  });
+
   const executeStart = (isOnline = false, targetGameId = null, overrideData = null) => {
     const currentSeats = overrideData?.seats || seats;
     const currentActiveSeats = Object.entries(currentSeats).filter(([_, s]) => s.type !== 'closed');
@@ -705,6 +772,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       isPublic: overrideData?.isPublic ?? isLobbyPublic
     });
   };
+
+  useEffect(() => {
+    if (!IS_PORTAL || !autoStartPortalIntro || activeLobbyId || setupMode) return;
+
+    onPortalAutoStartConsumed?.();
+    startPortalBotMatch();
+  }, [autoStartPortalIntro, activeLobbyId, setupMode, user?.displayName, onPortalAutoStartConsumed]);
 
   const handleHostOnlineClick = async (isPublicLobby = false, overrideConfig = null) => {
     const isPublic = typeof isPublicLobby === 'boolean' ? isPublicLobby : false;
@@ -1032,22 +1106,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                     icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                     title={t('playNow', 'PLAY NOW')}
                     description={t('playNowSubtitle', 'Start an instant offline battle against temple-trained rivals.')}
-                    onClick={() => {
-                      const newSeats = {
-                        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
-                        Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
-                        Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
-                        Player4: { type: 'bot', color: 'amber', name: '', uid: null }
-                      };
-                      executeStart(false, null, { seats: newSeats, isQuickGame: false, isTeamMode: false, botDifficulty: 'easy', isVoidRuleEnabled: true });
-                    }}
+                    onClick={() => promptForSavedResume('local', startPortalBotMatch)}
                   />
                   <LobbyModeCard
                     tone="ruby"
                     icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                     title={isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
                     description={t('playOnlineSubtitle', 'Enter matchmaking and face challengers across the realm.')}
-                    onClick={() => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' })}
+                    onClick={() => promptForSavedResume('online', () => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' }))}
                     disabled={isSearching || isHosting}
                   />
                   <LobbyModeCard
@@ -1055,7 +1121,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                     icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                     title={t('customGame', 'CUSTOM GAME')}
                     description={t('customGameSubtitle', 'Fine-tune seats, rules, and difficulty before the match begins.')}
-                    onClick={() => { setSetupMode('local'); setSetupStep('config'); }}
+                    onClick={openLocalSetup}
                   />
                 </div>
               </>
@@ -1068,36 +1134,36 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                       icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                       title={t('localPlay', 'LOCAL PLAY')}
                       description={t('localPlaySubtitle', 'Play with friends on the same device.')}
-                      onClick={() => { setSetupMode('local'); setSetupStep('config'); }}
+                      onClick={openLocalSetup}
                     />
                     <LobbyModeCard
                       tone="ruby"
                       icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                       title={t('onlineMatch', 'ONLINE MATCH')}
                       description={t('onlineMatchSubtitle', 'Compete with players around the world.')}
-                      onClick={() => { setSetupMode('public'); setSetupStep('config'); }}
+                      onClick={openPublicSetup}
                     />
                     <LobbyModeCard
                       tone="sapphire"
                       icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                       title={t('privateMatch', 'PRIVATE MATCH')}
                       description={t('privateMatchSubtitle', 'Create or join a private room.')}
-                      onClick={() => { setSetupMode('private'); setSetupStep('config'); }}
+                      onClick={openPrivateSetup}
                     />
                   </div>
                 ) : (
                   <>
-                    <button onClick={() => { setSetupMode('local'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
+                    <button onClick={openLocalSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-[var(--color-gold)] hover:bg-white/5 transition-all" title={t('localPlayTitle', 'Local Play')}>
                       <LocalModeIcon className="h-6 w-6 text-[var(--color-gold)]" aria-hidden="true" />
                       <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
                     </button>
 
-                    <button onClick={() => { setSetupMode('public'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
+                    <button onClick={openPublicSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
                       <OnlineModeIcon className="h-6 w-6 text-emerald-500" aria-hidden="true" />
                       <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
                     </button>
 
-                    <button onClick={() => { setSetupMode('private'); setSetupStep('config'); }} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
+                    <button onClick={openPrivateSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
                       <PrivateModeIcon className="h-6 w-6 text-sky-400" aria-hidden="true" />
                       <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
                     </button>
@@ -1106,7 +1172,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </>
             )}
 
-            {(hasCachedGame || lastOnlineGameId) && (
+            {(hasCachedGame || resumeOnlineGameId) && (
               <div className={`${isInitialMenu ? 'mx-auto mt-3.5 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
                   <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
@@ -1114,8 +1180,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                     {t('resumeOffline', 'Resume Offline')}
                   </button>
                 )}
-                {lastOnlineGameId && (
-                  <button onClick={() => onReconnectOnline(lastOnlineGameId)} className="flex-1 py-3 bg-white/5 text-sapphire font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                {resumeOnlineGameId && (
+                  <button onClick={() => onReconnectOnline(resumeOnlineGameId)} className="flex-1 py-3 bg-white/5 text-sapphire font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
                     <ReconnectIcon className="h-4 w-4" aria-hidden="true" />
                     {t('reconnectOnline', 'Reconnect')}
                   </button>

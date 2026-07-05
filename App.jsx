@@ -9,13 +9,14 @@ import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
 import { GameProvider, useGame } from './GameContext';
 import blehMochiGif from './assets/bleh-mochi.gif';
-import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile } from './firebaseSetup.js';
+import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile, loadAccountResumeGame, saveAccountResumeGame } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
 import { DYUT_ICONS } from './dyut-icons';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
+const CRAZYGAMES_STATS_KEY = 'dyut_stats';
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
@@ -24,6 +25,7 @@ const MOBILE_HEADER_RESERVED_SPACE = 'clamp(4.5rem, 10.5vh, 5.35rem)';
 const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
 const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
 const MOBILE_TRAY_RESERVED_SPACE_SHORT = '12.2rem';
+const hasOfflineResumeCache = () => !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
 
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -193,13 +195,69 @@ function App() {
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
   const [joinGameId, setJoinGameId] = useState(null);
-  const [lastOnlineGameId, setLastOnlineGameId] = useState(null);
+  const [hasCachedGame, setHasCachedGame] = useState(() => hasOfflineResumeCache());
+  const [deviceOnlineGameId, setDeviceOnlineGameId] = useState(() => localStorage.getItem(ONLINE_GAME_ID_KEY));
+  const [accountOnlineGameId, setAccountOnlineGameId] = useState(null);
+  const [gameSessionKey, setGameSessionKey] = useState(0);
   const [gameInfoView, setGameInfoView] = useState(null);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [portalAutoStartPending, setPortalAutoStartPending] = useState(false);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const mobileHeaderReservedSpace = isShortMobileHeight ? MOBILE_HEADER_RESERVED_SPACE_SHORT : MOBILE_HEADER_RESERVED_SPACE;
   const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
   const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - ${mobileHeaderReservedSpace} - ${mobileTrayReservedSpace} - env(safe-area-inset-bottom) - ${isShortMobileHeight ? '0.65rem' : '1.25rem'}))`;
+  const viewRef = useRef(view);
+  const joinGameIdRef = useRef(joinGameId);
+  const portalAutoStartQueuedRef = useRef(false);
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  useEffect(() => {
+    joinGameIdRef.current = joinGameId;
+  }, [joinGameId]);
+
+  useEffect(() => {
+    if (view !== 'menu') return;
+
+    setHasCachedGame(hasOfflineResumeCache());
+    setDeviceOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
+  }, [view]);
+
+  useEffect(() => {
+    if (IS_PORTAL) return undefined;
+
+    let isMounted = true;
+    const syncAccountResume = async () => {
+      if (!user || user.isAnonymous) {
+        if (isMounted) setAccountOnlineGameId(null);
+        return;
+      }
+
+      const savedResume = await loadAccountResumeGame();
+      if (isMounted) {
+        setAccountOnlineGameId(savedResume?.gameId || null);
+      }
+    };
+
+    syncAccountResume();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.uid, user?.isAnonymous]);
+
+  const clearOfflineResumeCache = () => {
+    localStorage.removeItem(PLAYER_COUNT_KEY);
+    localStorage.removeItem(GAME_STATE_KEY);
+    setHasCachedGame(false);
+  };
+
+  const handleReconnectOnline = (id) => {
+    if (!id) return;
+    setJoinGameId(id);
+    window.history.pushState({}, '', `?join=${id}`);
+  };
 
   const toggleMute = () => {
     setIsMuted(prev => {
@@ -210,7 +268,7 @@ function App() {
     });
   };
 
-  const hasCachedGame = !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
+  const resumeOnlineGameId = accountOnlineGameId || deviceOnlineGameId;
 
   // Preload heavy assets (sounds and gifs) in the background so they are instantly ready during gameplay
   useEffect(() => {
@@ -239,13 +297,13 @@ function App() {
     }
 
     if (joinId) {
+      joinGameIdRef.current = joinId;
       setJoinGameId(joinId);
     }
 
-    setLastOnlineGameId(localStorage.getItem(ONLINE_GAME_ID_KEY));
-
     let isMounted = true;
     let cgJoinListener = null;
+    let cgAuthListener = null;
 
     const initializeAuth = async () => {
       // First, check for a redirect result. This needs to be awaited to prevent
@@ -300,22 +358,77 @@ function App() {
             if (!isMounted) return;
             
             window.CrazyGames.SDK.game.loadingStop();
+            const maybeQueuePortalFirstSession = async () => {
+              if (
+                !isMounted ||
+                portalAutoStartQueuedRef.current ||
+                viewRef.current !== 'menu' ||
+                joinGameIdRef.current ||
+                localStorage.getItem(GAME_STATE_KEY) ||
+                localStorage.getItem(PLAYER_COUNT_KEY)
+              ) {
+                return;
+              }
+
+              try {
+                if (!window.CrazyGames.SDK.user.isUserAccountAvailable) return;
+
+                const systemUser = await window.CrazyGames.SDK.user.getUser();
+                if (!systemUser || portalAutoStartQueuedRef.current) return;
+
+                let stats = await window.CrazyGames.SDK.data.getItem(CRAZYGAMES_STATS_KEY);
+                if (typeof stats === 'string') stats = JSON.parse(stats);
+                if (stats) return;
+
+                portalAutoStartQueuedRef.current = true;
+                await window.CrazyGames.SDK.data.setItem(CRAZYGAMES_STATS_KEY, {
+                  gamesPlayed: 0,
+                  wins: 0,
+                  hasSeenPortalIntro: true
+                });
+
+                if (
+                  isMounted &&
+                  viewRef.current === 'menu' &&
+                  !joinGameIdRef.current &&
+                  !localStorage.getItem(GAME_STATE_KEY) &&
+                  !localStorage.getItem(PLAYER_COUNT_KEY)
+                ) {
+                  setPortalAutoStartPending(true);
+                }
+              } catch (e) {
+                console.error("CrazyGames first-session check failed:", e);
+              }
+            };
             
             // 1. Check for boot-time invites via inviteParams property
             try {
               const inviteParams = window.CrazyGames.SDK.game.inviteParams;
               if (inviteParams && inviteParams.roomId) {
+                joinGameIdRef.current = inviteParams.roomId;
                 setJoinGameId(inviteParams.roomId);
               }
             } catch (e) { console.warn("CrazyGames inviteParams error:", e); }
 
+            await maybeQueuePortalFirstSession();
+
             cgJoinListener = (inviteParams) => {
               if (inviteParams && inviteParams.roomId) {
                 setView('menu'); // Force route to lobby if they are in a match/tutorial
+                joinGameIdRef.current = inviteParams.roomId;
                 setJoinGameId(inviteParams.roomId);
               }
             };
             window.CrazyGames.SDK.game.addJoinRoomListener(cgJoinListener);
+
+            if (window.CrazyGames.SDK.user?.addAuthListener) {
+              cgAuthListener = (systemUser) => {
+                if (systemUser) {
+                  maybeQueuePortalFirstSession();
+                }
+              };
+              window.CrazyGames.SDK.user.addAuthListener(cgAuthListener);
+            }
           } catch (e) {
             console.error("CrazyGames SDK setup failed:", e);
           }
@@ -333,6 +446,9 @@ function App() {
       window.removeEventListener('dyut-mute-change', handleMuteChange);
       if (cgJoinListener && window.CrazyGames?.SDK) {
         try { window.CrazyGames.SDK.game.removeJoinRoomListener(cgJoinListener); } catch (e) {}
+      }
+      if (cgAuthListener && window.CrazyGames?.SDK?.user?.removeAuthListener) {
+        try { window.CrazyGames.SDK.user.removeAuthListener(cgAuthListener); } catch (e) {}
       }
     };
   }, []);
@@ -359,15 +475,7 @@ function App() {
   };
 
   const handleStartNewGame = (config) => {
-    if (hasCachedGame) {
-      if (window.confirm(t('wipeProgressConfirm', "A saved game exists. Starting a new game will wipe your progress. Are you sure?"))) {
-        localStorage.removeItem(PLAYER_COUNT_KEY);
-        localStorage.removeItem(GAME_STATE_KEY);
-        handleGameSetupComplete(config);
-      }
-    } else {
-      handleGameSetupComplete(config);
-    }
+    handleGameSetupComplete(config);
   };
 
   const handleResumeGame = () => {
@@ -375,30 +483,47 @@ function App() {
     // We don't need to load the full config, just enough for the provider to work.
     // The provider itself will load the full state from storage.
     setGameConfig({ playerCount: parseInt(savedCount, 10) });
+    setGameSessionKey(prev => prev + 1);
     setView('game');
   };
 
   const handleGameSetupComplete = (config) => {
-    localStorage.setItem(PLAYER_COUNT_KEY, config.playerCount);
+    setPortalAutoStartPending(false);
+    if (!config.isOnline) {
+      localStorage.removeItem(GAME_STATE_KEY);
+      localStorage.setItem(PLAYER_COUNT_KEY, config.playerCount);
+      setHasCachedGame(true);
+    }
+
     if (config.isOnline && config.gameId) {
       if (!config.isPublic) {
         localStorage.setItem(ONLINE_GAME_ID_KEY, config.gameId);
-        setLastOnlineGameId(config.gameId);
+        setDeviceOnlineGameId(config.gameId);
+        if (!IS_PORTAL && user && !user.isAnonymous) {
+          saveAccountResumeGame({
+            gameId: config.gameId,
+            savedAt: Date.now()
+          }).then(() => setAccountOnlineGameId(config.gameId));
+        }
       } else {
         // Strip the URL so users don't accidentally auto-rejoin a public game on refresh
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
     setGameConfig(config);
+    setGameSessionKey(prev => prev + 1);
     setGameInfoView(null);
     setView('game');
   };
 
   const handleWipeAndGoToMenu = () => {
     window.history.pushState({}, '', window.location.pathname);
-    localStorage.removeItem(PLAYER_COUNT_KEY);
-    localStorage.removeItem(GAME_STATE_KEY);
-    localStorage.removeItem(ONLINE_GAME_ID_KEY);
+    if (gameConfig?.isOnline && gameConfig?.isPublic) {
+      localStorage.removeItem(ONLINE_GAME_ID_KEY);
+      setDeviceOnlineGameId(null);
+    } else if (!gameConfig?.isOnline) {
+      clearOfflineResumeCache();
+    }
     setJoinGameId(null);
     setGameConfig(null);
     setGameInfoView(null);
@@ -449,7 +574,10 @@ function App() {
         );
       case 'game':
         return (
-          <GameProvider gameConfig={gameConfig}>
+          <GameProvider
+            key={`${gameSessionKey}:${gameConfig?.isOnline ? 'online' : 'offline'}:${gameConfig?.gameId || 'local'}:${gameConfig?.playerCount || 0}`}
+            gameConfig={gameConfig}
+          >
             <div className="absolute inset-0 overflow-hidden bg-[#060504]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(80,38,16,0.34),transparent_42%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(10,8,6,0.58)_24%,rgba(10,8,6,0.58)_76%,rgba(0,0,0,0.96))]"></div>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_52%,rgba(234,179,8,0.08),transparent_30%),radial-gradient(circle_at_50%_50%,transparent_0,rgba(0,0,0,0.2)_45%,rgba(0,0,0,0.78)_100%)]"></div>
@@ -493,13 +621,12 @@ function App() {
           onShowHistory={() => setView('history')}
           onShowAbout={() => setView('about')}
           hasCachedGame={hasCachedGame} 
+          resumeOnlineGameId={resumeOnlineGameId}
           joinGameId={joinGameId} 
           user={user} 
-          lastOnlineGameId={lastOnlineGameId}
-          onReconnectOnline={(id) => {
-            setJoinGameId(id);
-            window.history.pushState({}, '', `?join=${id}`);
-          }}
+          autoStartPortalIntro={portalAutoStartPending}
+          onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
+          onReconnectOnline={handleReconnectOnline}
         />;
     }
   };

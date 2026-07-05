@@ -2,7 +2,7 @@ import React, { createContext, useReducer, useContext, useEffect, useRef, useCal
 import { useTranslation } from 'react-i18next';
 import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { ref, onValue, set, update, remove } from 'firebase/database';
-import { rtdb, updateUserStats } from './firebaseSetup.js';
+import { clearAccountResumeGame, rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 
 // Function to create the initial state based on player count
@@ -66,10 +66,23 @@ export const ACTION_TYPES = {
   DUAL_SPAWN_ATTACK: 'DUAL_SPAWN_ATTACK',
 };
 
+const TERMINAL_GAMEPLAY_ACTIONS = new Set([
+  ACTION_TYPES.ROLL_DICE,
+  ACTION_TYPES.SPAWN_PIECE,
+  ACTION_TYPES.MOVE_WITH_FULL_ROLL,
+  ACTION_TYPES.MOVE_AND_SPLIT_ROLL,
+  ACTION_TYPES.EXECUTE_PAIR_ATTACK,
+  ACTION_TYPES.CLEAR_QUEUE,
+  ACTION_TYPES.END_TURN,
+  ACTION_TYPES.TRIGGER_AFK_INTERVENTION,
+  ACTION_TYPES.DUAL_SPAWN_ATTACK,
+]);
+
 const FINISHED_STATE = 999; // A value to signify a piece has finished
 export const TURN_TIMEOUT_MS = 30000;
 export const OFFLINE_TURN_TIMEOUT_MS = 60000;
 export const TURN_TIMER_WARNING_MS = 10000;
+export const AFK_BOT_TAKEOVER_STRIKES = 6;
 
 export const getActiveTurnPlayerId = (currentState) => getProxyPlayerId(currentState.currentPlayer, currentState);
 export const getTurnStartedAt = (currentState) => currentState?.turnStartedAt || currentState?.lastActionTime || null;
@@ -112,7 +125,7 @@ function releaseAutoControlForPlayer(state, playerId) {
   };
 }
 
-function isGameOverState(currentState) {
+export function isGameOverState(currentState) {
   if (!currentState?.players) return false;
   if (currentState.status === 'finished') return true;
 
@@ -133,6 +146,10 @@ function isGameOverState(currentState) {
 }
 
 export function applyReducerPostProcessing(nextState, action) {
+  if (isGameOverState(nextState) && TERMINAL_GAMEPLAY_ACTIONS.has(action.type)) {
+    return nextState;
+  }
+
   let processedState = nextState;
   const timestamp = Date.now();
 
@@ -224,6 +241,10 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
 
 // Central Game Reducer
 export function gameReducer(state, action) {
+  if (isGameOverState(state) && TERMINAL_GAMEPLAY_ACTIONS.has(action.type)) {
+    return state;
+  }
+
   switch (action.type) {
     case ACTION_TYPES.SYNC_FROM_CLOUD:
       if (!state.isOnline) return state;
@@ -429,7 +450,7 @@ export function gameReducer(state, action) {
       const { playerId } = action.payload;
       const strikes = (state.afkStrikes?.[playerId] || 0) + 1;
       
-      if (strikes >= 6) {
+      if (strikes >= AFK_BOT_TAKEOVER_STRIKES) {
         const newBots = [...new Set([...(state.bots || []), playerId])];
         return { ...state, bots: newBots, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
       } else {
@@ -446,17 +467,33 @@ export function gameReducer(state, action) {
 export const GameContext = createContext();
 
 const LOCAL_STORAGE_KEY = 'dyut_game_state';
+const LOCAL_PLAYER_COUNT_KEY = 'dyut_player_count';
 
-const initGameState = (initialState) => {
+export const initGameState = (initialState) => {
+  if (initialState.isOnline) {
+    return initialState;
+  }
+
   try {
     const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const savedPlayerCount = localStorage.getItem(LOCAL_PLAYER_COUNT_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
-      // Validate that the saved state has the same number of players
-      if (Object.keys(parsedState.players).length === Object.keys(initialState.players).length) {
+      const initialPlayerCount = Object.keys(initialState.players).length;
+      const parsedPlayerCount = Object.keys(parsedState.players || {}).length;
+      const hasMatchingPlayerCount = parsedPlayerCount === initialPlayerCount;
+      const hasMatchingPlayerCountKey = Number.parseInt(savedPlayerCount || '', 10) === initialPlayerCount;
+      const isOfflineResumeState = parsedState.isOnline === false;
+
+      // Only hydrate device-local offline saves with matching resume metadata;
+      // discard stale or orphaned state that could leak online flags into local play.
+      if (isOfflineResumeState && hasMatchingPlayerCount && hasMatchingPlayerCountKey) {
         // Spread initialState first to provide fallback defaults for older saves to prevent crashes
         return { ...initialState, rollingPhaseComplete: false, ...parsedState };
       }
+
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_PLAYER_COUNT_KEY);
     }
   } catch (error) {
     console.error("Failed to load game state from local storage:", error);
@@ -502,6 +539,8 @@ const dispatch = useCallback((action) => {
         
         // If the last human player leaves, completely wipe the game and lobby from the database to save space
         if (activeHumans.length === 0) {
+          localStorage.removeItem('dyut_last_online_id');
+          clearAccountResumeGame().catch(() => {});
           remove(ref(rtdb, 'games/' + currentState.gameId)).catch(() => {});
           remove(ref(rtdb, 'lobbies/' + currentState.gameId)).catch(() => {});
           return;
@@ -628,6 +667,10 @@ const dispatch = useCallback((action) => {
       ACTION_TYPES.MOVE_AND_SPLIT_ROLL, ACTION_TYPES.EXECUTE_PAIR_ATTACK, ACTION_TYPES.CLEAR_QUEUE, ACTION_TYPES.END_TURN,
       ACTION_TYPES.TRIGGER_AFK_INTERVENTION, ACTION_TYPES.DUAL_SPAWN_ATTACK
     ];
+
+    if (protectedActions.includes(action.type) && isGameOverState(currentState)) {
+      return;
+    }
     
     if (action.type === ACTION_TYPES.TRIGGER_AFK_INTERVENTION) {
       if (currentState.localUid !== currentState.hostUid) return;
@@ -643,6 +686,7 @@ const dispatch = useCallback((action) => {
       currentState.isOnline &&
       protectedActions.includes(action.type) &&
       action.type !== ACTION_TYPES.TRIGGER_AFK_INTERVENTION &&
+      !action._autoControlledAction &&
       localOwnsActiveTurn &&
       (currentState.isAfkTurn || currentState.bots?.includes(activeId))
     ) {
@@ -723,8 +767,10 @@ const dispatch = useCallback((action) => {
       const isGameOver = isGameOverState(state);
 
       if (isGameOver) {
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-        localStorage.removeItem('dyut_player_count');
+        if (!state.isOnline) {
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+          localStorage.removeItem('dyut_player_count');
+        }
         
         // Calculate and push stats for the local user if they are playing
         if (state.localUid) {
@@ -744,15 +790,10 @@ const dispatch = useCallback((action) => {
 
         if (state.isOnline) {
           localStorage.removeItem('dyut_last_online_id');
+          clearAccountResumeGame().catch(console.error);
           if (state.gameId && state.localUid === state.hostUid) {
             update(ref(rtdb, 'games/' + state.gameId), { status: 'finished' }).catch(console.error);
             remove(ref(rtdb, 'lobbies/' + state.gameId)).catch(console.error);
-            
-            // Schedule automatic deletion of the game node after 10 seconds.
-            // This gives all connected clients enough time to receive the final move, complete their animations, and safely display the Victory Screen.
-            setTimeout(() => {
-              remove(ref(rtdb, 'games/' + state.gameId)).catch(() => {});
-            }, 10000);
           }
         }
       } else if (!state.isOnline) {
