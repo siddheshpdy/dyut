@@ -398,7 +398,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, onReconnectOnline }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -426,6 +426,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
   const [inviteUrl, setInviteUrl] = useState('');
+  const [offlineResumeAction, setOfflineResumeAction] = useState(null);
 
   const { t } = useTranslation();
 
@@ -684,20 +685,23 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     });
   };
 
+  const closeOfflineResumeDialog = () => setOfflineResumeAction(null);
+
+  const handleResumeExistingOffline = () => {
+    closeOfflineResumeDialog();
+    onResumeGame();
+  };
+
+  const handleStartNewOffline = () => {
+    const continueAction = offlineResumeAction;
+    closeOfflineResumeDialog();
+    onClearOfflineResume?.();
+    continueAction?.();
+  };
+
   const promptForSavedResume = (mode, continueAction) => {
     if (mode === 'local' && hasCachedGame) {
-      const shouldResumeOffline = window.confirm(
-        t(
-          'resumeOfflineBeforeLocalPrompt',
-          'A saved offline game exists on this device. Press OK to resume it, or Cancel to stay on the menu.'
-        )
-      );
-
-      if (shouldResumeOffline) {
-        onResumeGame();
-        return;
-      }
-
+      setOfflineResumeAction(() => continueAction);
       return;
     }
 
@@ -1017,6 +1021,38 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   return (
     <>
+      {offlineResumeAction && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/86 px-4 backdrop-blur-md">
+          <div role="dialog" aria-modal="true" aria-labelledby="offline-resume-title" className="relative w-full max-w-md overflow-hidden rounded-[24px] border border-gold/55 bg-[#050403] p-5 text-center shadow-[0_0_70px_rgba(0,0,0,0.95),inset_0_0_34px_rgba(234,179,8,0.08)] sm:p-6">
+            <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/75"></span>
+            <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/75"></span>
+            <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/75"></span>
+            <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/75"></span>
+
+            <div className="font-display text-xs font-bold uppercase tracking-[0.28em] text-gold/70">
+              {t('savedOfflineGame', 'Saved Offline Game')}
+            </div>
+            <h2 id="offline-resume-title" className="mt-3 font-display text-3xl font-bold uppercase tracking-[0.12em] text-gold text-glow-gold sm:text-4xl">
+              {t('resumeExistingGameTitle', 'Resume Game?')}
+            </h2>
+            <p className="mx-auto mt-4 max-w-sm text-[0.95rem] font-semibold leading-relaxed text-[#fff4c7] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+              {t('resumeOfflineBeforeLocalPrompt', 'A saved offline game exists on this device. Choose how you want to continue.')}
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button type="button" onClick={handleResumeExistingOffline} className="w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3 font-display text-lg font-bold uppercase tracking-[0.16em] text-charcoal shadow-[0_0_24px_rgba(234,179,8,0.34),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110">
+                {t('resumeExisting', 'Resume Existing')}
+              </button>
+              <button type="button" onClick={handleStartNewOffline} className="w-full rounded-xl border border-gold/35 bg-white/10 py-3 font-display text-base font-bold uppercase tracking-[0.16em] text-gold transition-all hover:border-gold/65 hover:bg-gold/15">
+                {t('newGame', 'New Game')}
+              </button>
+              <button type="button" onClick={closeOfflineResumeDialog} className="w-full rounded-xl border border-white/10 bg-transparent py-3 font-sans text-xs font-bold uppercase tracking-[0.18em] text-white/55 transition-colors hover:border-white/25 hover:text-white/85">
+                {t('goToMenu', 'Go to Menu')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isLobbyStage && (
         <div className="fixed inset-0 z-0 overflow-hidden bg-[#070605]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.34),transparent_36%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(8,6,5,0.48)_28%,rgba(8,6,5,0.48)_72%,rgba(0,0,0,0.96))]"></div>

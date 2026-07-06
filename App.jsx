@@ -616,6 +616,7 @@ function App() {
         return <UnifiedLobby 
           onStartGame={handleStartNewGame} 
           onResumeGame={handleResumeGame} 
+          onClearOfflineResume={clearOfflineResumeCache}
           onShowRules={() => setView('rules')} 
           onShowTutorial={() => setView('tutorial')}
           onShowHistory={() => setView('history')}

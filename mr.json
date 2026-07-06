@@ -170,7 +170,12 @@
   "afkStrikesLabel": "एएफके स्ट्राइक्स",
   "afkStrikeWarning": "बॉट ताब्यापूर्वी {{max}} पैकी {{count}} स्ट्राइक्स.",
   "afkBotTakeoverWarning": "या खेळाडूसाठी आता बॉट ताबा सक्रिय आहे.",
-  "resumeOfflineBeforeLocalPrompt": "या डिव्हाइसवर एक जतन केलेला ऑफलाइन गेम उपलब्ध आहे. तो पुन्हा सुरू करण्यासाठी OK दाबा, किंवा मेन्यूवरच राहण्यासाठी Cancel दाबा.",
+  "resumeOfflineBeforeLocalPrompt": "या डिव्हाइसवर एक जतन केलेला ऑफलाइन गेम उपलब्ध आहे. पुढे कसे जायचे ते निवडा.",
+  "savedOfflineGame": "जतन केलेला ऑफलाइन खेळ",
+  "resumeExistingGameTitle": "खेळ पुन्हा सुरू करायचा?",
+  "resumeExisting": "जुना खेळ चालू ठेवा",
+  "newGame": "नवीन खेळ",
+  "goToMenu": "मेन्यूवर जा",
   "resumeOnlineBeforeLocalPrompt": "तुमच्या अकाउंटशी जोडलेला जतन केलेला ऑनलाइन मॅच उपलब्ध आहे. तो पुन्हा सुरू करण्यासाठी OK दाबा, किंवा मेन्यूवरच राहण्यासाठी Cancel दाबा.",
   "resumeOnlineBeforeOnlinePrompt": "तुमच्या अकाउंटशी जोडलेला जतन केलेला ऑनलाइन मॅच उपलब्ध आहे. तो पुन्हा सुरू करण्यासाठी OK दाबा, किंवा मेन्यूवरच राहण्यासाठी Cancel दाबा.",
   "tapDiceToRoll": "फासे टाका"

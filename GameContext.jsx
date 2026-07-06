@@ -79,10 +79,16 @@ const TERMINAL_GAMEPLAY_ACTIONS = new Set([
 ]);
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
-export const TURN_TIMEOUT_MS = 30000;
-export const OFFLINE_TURN_TIMEOUT_MS = 60000;
-export const TURN_TIMER_WARNING_MS = 10000;
-export const AFK_BOT_TAKEOVER_STRIKES = 6;
+export function readPositiveIntegerEnv(env, key, fallbackValue) {
+  const rawValue = env?.[key];
+  const parsedValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : fallbackValue;
+}
+
+export const TURN_TIMEOUT_MS = readPositiveIntegerEnv(import.meta.env, 'VITE_ONLINE_TURN_TIMEOUT_MS', 30000);
+export const OFFLINE_TURN_TIMEOUT_MS = readPositiveIntegerEnv(import.meta.env, 'VITE_LOCAL_TURN_TIMEOUT_MS', 60000);
+export const TURN_TIMER_WARNING_MS = readPositiveIntegerEnv(import.meta.env, 'VITE_TURN_TIMER_WARNING_MS', 10000);
+export const AFK_BOT_TAKEOVER_STRIKES = readPositiveIntegerEnv(import.meta.env, 'VITE_AFK_BOT_TAKEOVER_STRIKES', 6);
 
 export const getActiveTurnPlayerId = (currentState) => getProxyPlayerId(currentState.currentPlayer, currentState);
 export const getTurnStartedAt = (currentState) => currentState?.turnStartedAt || currentState?.lastActionTime || null;
@@ -168,6 +174,12 @@ export function applyReducerPostProcessing(nextState, action) {
   }
 
   return processedState;
+}
+
+export function buildPublicPresenceLossUpdates(currentState, activeHumanIds) {
+  if (!currentState?.isPublic) return {};
+  if (activeHumanIds.length === 0) return { status: 'finished' };
+  return {};
 }
 
 function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
@@ -559,20 +571,7 @@ const dispatch = useCallback((action) => {
           hostUid: newHostUid
         };
 
-        if (currentState.isPublic) {
-          if (activeHumans.length === 1) {
-            const remainingHumanId = activeHumans[0];
-            const newPlayers = { ...currentState.players };
-            newPlayers[remainingHumanId] = {
-              ...newPlayers[remainingHumanId],
-              pieces: [999, 999, 999, 999]
-            };
-            updates.players = newPlayers;
-            updates.status = 'finished';
-          } else if (activeHumans.length === 0) {
-            updates.status = 'finished';
-          }
-        }
+        Object.assign(updates, buildPublicPresenceLossUpdates(currentState, activeHumans));
 
         update(ref(rtdb, 'games/' + currentState.gameId), updates).catch(console.error);
         if (updates.status === 'finished') {
@@ -641,10 +640,7 @@ const dispatch = useCallback((action) => {
           const newBots = [...new Set([...(state.bots || []), deadHostId].filter(Boolean))];
           const updates = { hostUid: state.localUid, bots: newBots, lastPing: Date.now() };
           
-          if (state.isPublic && activeHumans.length === 1) {
-            const newPlayers = { ...state.players, [activeHumans[0]]: { ...state.players[activeHumans[0]], pieces: [999, 999, 999, 999] } };
-            updates.players = newPlayers; updates.status = 'finished';
-          }
+          Object.assign(updates, buildPublicPresenceLossUpdates(state, activeHumans));
           update(ref(rtdb, 'games/' + state.gameId), updates).catch(console.error);
         }
       }

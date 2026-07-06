@@ -22,6 +22,7 @@ vi.mock('./gameLogic', () => ({
 import {
   ACTION_TYPES,
   AFK_BOT_TAKEOVER_STRIKES,
+  buildPublicPresenceLossUpdates,
   initGameState,
   OFFLINE_TURN_TIMEOUT_MS,
   TURN_TIMEOUT_MS,
@@ -30,6 +31,7 @@ import {
   gameReducer,
   getTurnRemainingMs,
   getTurnTimeoutMs,
+  readPositiveIntegerEnv,
 } from './GameContext';
 
 const createBaseOnlineState = () => ({
@@ -54,6 +56,27 @@ const createBaseOnlineState = () => ({
 });
 
 describe('GameContext reducer AFK reclaim', () => {
+  it('exports positive timer and AFK configuration values', () => {
+    expect(TURN_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(OFFLINE_TURN_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(AFK_BOT_TAKEOVER_STRIKES).toBeGreaterThan(0);
+  });
+
+  it('parses only positive whole-number env configuration values', () => {
+    const env = {
+      GOOD_VALUE: '45000',
+      ZERO_VALUE: '0',
+      DECIMAL_VALUE: '2.5',
+      BAD_VALUE: 'soon',
+    };
+
+    expect(readPositiveIntegerEnv(env, 'GOOD_VALUE', 30000)).toBe(45000);
+    expect(readPositiveIntegerEnv(env, 'ZERO_VALUE', 30000)).toBe(30000);
+    expect(readPositiveIntegerEnv(env, 'DECIMAL_VALUE', 30000)).toBe(30000);
+    expect(readPositiveIntegerEnv(env, 'BAD_VALUE', 30000)).toBe(30000);
+    expect(readPositiveIntegerEnv(env, 'MISSING_VALUE', 30000)).toBe(30000);
+  });
+
   it('clears temporary auto-control when the active player reclaims their turn', () => {
     const baseState = {
       ...createBaseOnlineState(),
@@ -162,13 +185,14 @@ describe('GameContext reducer AFK reclaim', () => {
   });
 
   it('bases the visible countdown on turn start instead of the last action', () => {
+    const now = 1000 + TURN_TIMEOUT_MS - 1;
     const countdownState = {
       ...createBaseOnlineState(),
       turnStartedAt: 1000,
-      lastActionTime: 24000,
+      lastActionTime: now,
     };
 
-    expect(getTurnRemainingMs(countdownState, 25000)).toBe(6000);
+    expect(getTurnRemainingMs(countdownState, now)).toBe(1);
   });
 
   it('falls back to lastActionTime when turnStartedAt is missing from older synced data', () => {
@@ -182,6 +206,7 @@ describe('GameContext reducer AFK reclaim', () => {
   });
 
   it('uses a 60 second timer for offline turns', () => {
+    const now = 2000 + OFFLINE_TURN_TIMEOUT_MS - 1;
     const offlineState = {
       ...createBaseOnlineState(),
       isOnline: false,
@@ -190,7 +215,7 @@ describe('GameContext reducer AFK reclaim', () => {
     };
 
     expect(getTurnTimeoutMs(offlineState)).toBe(OFFLINE_TURN_TIMEOUT_MS);
-    expect(getTurnRemainingMs(offlineState, 32000)).toBe(30000);
+    expect(getTurnRemainingMs(offlineState, now)).toBe(1);
   });
 
   it('blocks gameplay mutations after the game is finished', () => {
@@ -289,5 +314,27 @@ describe('GameContext reducer AFK reclaim', () => {
 
     expect(hydratedState).toBe(offlineInitialState);
     expect(localStorage.getItem('dyut_game_state')).toBeNull();
+  });
+
+  it('does not force-finish the remaining public player after another player drops', () => {
+    const publicState = {
+      ...createBaseOnlineState(),
+      isPublic: true,
+    };
+
+    const updates = buildPublicPresenceLossUpdates(publicState, ['Player2']);
+
+    expect(updates).toEqual({});
+  });
+
+  it('marks a public match finished only when no human players remain', () => {
+    const publicState = {
+      ...createBaseOnlineState(),
+      isPublic: true,
+    };
+
+    const updates = buildPublicPresenceLossUpdates(publicState, []);
+
+    expect(updates).toEqual({ status: 'finished' });
   });
 });

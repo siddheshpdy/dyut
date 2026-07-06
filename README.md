@@ -14,7 +14,7 @@ The repository is already beyond prototype stage. It currently includes:
 - Spawn rules, movement priority, pair shields, pair attacks, safe zones, assassin-style spawn captures, blood debt, and terminal victory handling that locks further play until a new game starts
 - Single-player bot support with heuristic AI
 - Firebase authentication, player profiles, and online multiplayer sync
-- Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling with visible strike warnings, reliable auto-roll handoff for bot/AFK-controlled turns, bot takeover for disconnected online players with player reclaim on return, and signed-in account-backed resume for resumable private online matches across devices
+- Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling with visible strike warnings, reliable auto-roll handoff for bot/AFK-controlled turns, bot takeover for disconnected online players without force-finishing the remaining human, player reclaim on return, and signed-in account-backed resume for resumable private online matches across devices
 - Mobile and desktop play both support rolling directly from the dice panel, keeping manual play and bot/AFK auto-roll on the same interaction path
 - Tutorial, rules, history, and about screens
 - English, Hindi, and Marathi localization
@@ -25,7 +25,7 @@ Resume behavior is intentionally split by mode:
 - Offline/local games resume only on the same device using local storage
 - Starting a new offline/local match clears the previous local resume snapshot; only explicit resume uses the saved local state
 - Resumable private online matches store their reconnect target on the signed-in Firebase account so the same player can reconnect from another device
-- The resume prompt appears from the main menu before entering local or online setup, avoiding late prompts after an online lobby has already started; dismissing that prompt keeps the player on the menu
+- The resume dialog appears from the main menu before entering local or online setup, avoiding late prompts after an online lobby has already started; the offline/local dialog offers Resume Existing, New Game, and Go to Menu actions
 
 ## Tech Stack
 
@@ -123,6 +123,13 @@ The project expects Firebase environment variables, including:
 
 There is also portal-specific behavior gated by `VITE_IS_PORTAL`.
 CrazyGames ad calls are gated separately by `VITE_CG_ENABLE_ADS`; the Basic Launch portal build keeps this set to `false`.
+
+Gameplay timing can be tuned with positive whole-number millisecond values:
+
+- `VITE_ONLINE_TURN_TIMEOUT_MS` controls online turn duration, default `30000`
+- `VITE_LOCAL_TURN_TIMEOUT_MS` controls local/offline turn duration, default `60000`
+- `VITE_TURN_TIMER_WARNING_MS` controls the warning threshold, default `10000`
+- `VITE_AFK_BOT_TAKEOVER_STRIKES` controls AFK strikes before bot takeover, default `6`
 
 ## Testing
 
