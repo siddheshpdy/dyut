@@ -15,8 +15,9 @@ The repository is already beyond prototype stage. It currently includes:
 - Single-player bot support with heuristic AI
 - Firebase authentication, player profiles, and online multiplayer sync
 - Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling with visible strike warnings, reliable auto-roll handoff for bot/AFK-controlled turns, bot takeover for disconnected online players without force-finishing the remaining human, player reclaim on return, and signed-in account-backed resume for resumable private online matches across devices
-- Mobile and desktop play both support rolling directly from the dice panel, keeping manual play and bot/AFK auto-roll on the same interaction path
+- Mobile and desktop play both support rolling directly from the dice panel, with the dice area muted for inactive turns and gold-highlighted when the local human player can roll
 - Tutorial, rules, history, and about screens
+- First-time players see a compact in-game helper for rolling, spawning, and moving without opening the full tutorial during gameplay
 - English, Hindi, and Marathi localization
 - CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match while standard local play opens the Human/Bot seat-selection lobby
 

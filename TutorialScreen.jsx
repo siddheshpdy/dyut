@@ -71,7 +71,7 @@ const TutorialScreen = ({ onBack }) => {
               {isSuccess && <div className="animate-hop font-display text-base font-bold uppercase tracking-[0.16em] text-emerald sm:text-lg">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
               {(!needsAction && !isSuccess) && <div className="animate-pulse font-display text-sm font-bold uppercase tracking-[0.14em] text-emerald/90">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
               {needsAction && !isSuccess && (
-                <div className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-white/55 sm:text-sm">
+                <div className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-white/60 sm:text-sm">
                   {t('completePrompt', 'Complete the required move on the board')}
                 </div>
               )}
@@ -85,7 +85,7 @@ const TutorialScreen = ({ onBack }) => {
               }} className="dyut-muted-button px-4 py-2 text-xs sm:px-6 sm:text-sm">
                 {t('reset', 'Reset')}
               </button>
-              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'dyut-primary-button shadow-[0_0_18px_rgba(251,191,36,0.4)]' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
+              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'border-gold/55 bg-gold/12 text-gold shadow-[0_0_18px_rgba(251,191,36,0.24)] hover:bg-gold/20' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
             </div>
           </div>
         </SecondaryScreenShell>

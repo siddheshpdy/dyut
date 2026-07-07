@@ -1040,13 +1040,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             </p>
 
             <div className="mt-6 flex flex-col gap-3">
-              <button type="button" onClick={handleResumeExistingOffline} className="w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3 font-display text-lg font-bold uppercase tracking-[0.16em] text-charcoal shadow-[0_0_24px_rgba(234,179,8,0.34),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110">
+              <button type="button" onClick={handleResumeExistingOffline} className="w-full rounded-xl border border-gold/55 bg-gold/12 py-3 font-display text-lg font-bold uppercase tracking-[0.16em] text-gold shadow-[0_0_24px_rgba(234,179,8,0.22),inset_0_0_18px_rgba(234,179,8,0.08)] transition-all hover:scale-[1.01] hover:bg-gold/20">
                 {t('resumeExisting', 'Resume Existing')}
               </button>
               <button type="button" onClick={handleStartNewOffline} className="w-full rounded-xl border border-gold/35 bg-white/10 py-3 font-display text-base font-bold uppercase tracking-[0.16em] text-gold transition-all hover:border-gold/65 hover:bg-gold/15">
                 {t('newGame', 'New Game')}
               </button>
-              <button type="button" onClick={closeOfflineResumeDialog} className="w-full rounded-xl border border-white/10 bg-transparent py-3 font-sans text-xs font-bold uppercase tracking-[0.18em] text-white/55 transition-colors hover:border-white/25 hover:text-white/85">
+              <button type="button" onClick={closeOfflineResumeDialog} className="w-full rounded-xl border border-white/10 bg-transparent py-3 font-sans text-xs font-bold uppercase tracking-[0.18em] text-white/60 transition-colors hover:border-white/25 hover:text-white/90">
                 {t('goToMenu', 'Go to Menu')}
               </button>
             </div>

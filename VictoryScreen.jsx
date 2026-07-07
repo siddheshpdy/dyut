@@ -64,7 +64,7 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
 
         <button
           onClick={handlePlayAgain}
-          className="dyut-primary-button mt-6 w-full max-w-xs px-8 py-3 text-base text-[#140b00] [text-shadow:0_1px_0_rgba(255,255,255,0.38)] sm:mt-8 sm:max-w-sm sm:px-14 sm:py-4 sm:text-2xl"
+          className="mt-6 w-full max-w-xs rounded-2xl border border-gold/55 bg-gold/12 px-8 py-3 font-display text-base font-bold uppercase tracking-[0.18em] text-gold shadow-[0_0_24px_rgba(251,191,36,0.26),inset_0_0_22px_rgba(234,179,8,0.08)] transition-all hover:scale-[1.03] hover:bg-gold/20 sm:mt-8 sm:max-w-sm sm:px-14 sm:py-4 sm:text-2xl"
         >
           {t('playAgain', 'Play Again')}
         </button>

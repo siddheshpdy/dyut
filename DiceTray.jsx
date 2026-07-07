@@ -12,18 +12,19 @@ const DICE_FACES = [1, 3, 4, 6];
 const MOBILE_TRAY_HEIGHT = 'clamp(13.5rem, 24.5vh, 15rem)';
 
 // A single die face component, styled to look like a long die (pasa)
-const Die = ({ value, isRolling, compact = false }) => (
-  <div className={`flex items-center justify-center border border-gold/45 bg-black/45 shadow-[inset_0_0_18px_rgba(255,255,255,0.05),0_0_18px_rgba(0,0,0,0.55)] transition-transform ${compact ? 'h-[3.35rem] w-[3.35rem] rounded-lg' : 'h-14 w-14 rounded-xl sm:h-20 sm:w-20 lg:h-24 lg:w-24 lg:rounded-2xl lg:border-gold/55'} ${isRolling ? 'animate-shake' : ''}`}>
+const Die = ({ value, isRolling, compact = false, isHighlighted = false }) => (
+  <div className={`flex items-center justify-center border bg-black/45 shadow-[inset_0_0_18px_rgba(255,255,255,0.05),0_0_18px_rgba(0,0,0,0.55)] transition-transform ${isHighlighted ? 'border-gold/55' : 'border-white/20'} ${compact ? 'h-[3.35rem] w-[3.35rem] rounded-lg' : `h-14 w-14 rounded-xl sm:h-20 sm:w-20 lg:h-24 lg:w-24 lg:rounded-2xl ${isHighlighted ? 'lg:border-gold/55' : 'lg:border-white/20'}`} ${isRolling ? 'animate-shake' : ''}`}>
     <span className={`font-display font-bold text-white/90 drop-shadow-[0_0_8px_rgba(255,255,255,0.45)] ${compact ? 'text-[1.65rem]' : 'text-3xl sm:text-5xl lg:text-6xl'}`}>{value}</span>
   </div>
 );
 
-const TurnTimerOutline = ({ progress, isCritical }) => {
+const TurnTimerOutline = ({ progress, isCritical, isActive = false }) => {
   if (progress == null) return null;
 
   const clampedProgress = Math.max(0, Math.min(1, progress));
-  const strokeColor = isCritical ? 'rgba(244, 63, 94, 0.96)' : 'rgba(251, 191, 36, 0.96)';
-  const glowColor = isCritical ? 'rgba(244, 63, 94, 0.42)' : 'rgba(251, 191, 36, 0.34)';
+  const strokeColor = !isActive ? 'rgba(148, 163, 184, 0.7)' : isCritical ? 'rgba(244, 63, 94, 0.96)' : 'rgba(251, 191, 36, 0.96)';
+  const glowColor = !isActive ? 'rgba(148, 163, 184, 0.18)' : isCritical ? 'rgba(244, 63, 94, 0.56)' : 'rgba(251, 191, 36, 0.58)';
+  const strokeWidth = isActive ? 4 : 2.75;
 
   return (
     <div className="pointer-events-none absolute inset-0">
@@ -48,7 +49,7 @@ const TurnTimerOutline = ({ progress, isCritical }) => {
           ry="12"
           fill="none"
           stroke={strokeColor}
-          strokeWidth="2.75"
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
           pathLength="1"
           strokeDasharray={`${clampedProgress} 1`}
@@ -223,6 +224,9 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
   const canAutoRoll = !isGameOver && canRoll && !isRolling && !isEvaluating && !showVoidGif && isMyTurn;
   const canTriggerRoll = canAutoRoll && !isAutoControlledTurn;
+  const activeRollHighlightClass = canTriggerRoll
+    ? 'border-gold/80 bg-gold/10 shadow-[0_0_34px_rgba(251,191,36,0.55),inset_0_0_28px_rgba(234,179,8,0.16)] ring-2 ring-gold/30 hover:border-gold hover:bg-gold/20'
+    : 'border-white/15 bg-black/28 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)] grayscale-[0.18]';
 
   // Activate AI hook (it safely idles if the current player is not in state.bots)
   useAIBot(activeBots, state.botDifficulty || 'hard');
@@ -386,15 +390,15 @@ const trayShellClass = layoutMode === 'mobile'
               }}
               disabled={!canAutoRoll}
               aria-label={canTriggerRoll ? t('tapDiceToRoll', 'Tap dice to roll') : t('currentDice', 'Current Dice')}
-              className={`relative flex flex-col items-center rounded-2xl border border-gold/25 bg-black/34 px-2 py-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)] transition-all ${canTriggerRoll ? 'cursor-pointer hover:border-gold/45 hover:bg-black/42 active:scale-[0.99]' : 'cursor-default'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
+              className={`relative flex flex-col items-center rounded-2xl border px-2 py-2 transition-all ${activeRollHighlightClass} ${canTriggerRoll ? 'cursor-pointer active:scale-[0.99]' : 'cursor-default'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
             >
-              <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} />
-              <span className="mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] text-gold/85">{t('currentDice', 'Current Dice')}</span>
+              <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} isActive={canTriggerRoll} />
+              <span className={`mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
-                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact />
-                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact />
+                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact isHighlighted={canTriggerRoll} />
+                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact isHighlighted={canTriggerRoll} />
               </div>
-              <span className={`mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] ${canTriggerRoll ? 'text-gold/75' : 'text-white/40'}`}>
+              <span className={`mt-1.5 text-center text-[10px] font-bold uppercase tracking-[0.18em] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
                 {canTriggerRoll ? t('tapDiceToRoll', 'Tap dice to roll') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
               </span>
             </button>
@@ -411,15 +415,15 @@ const trayShellClass = layoutMode === 'mobile'
               }}
               disabled={!canAutoRoll}
               aria-label={canTriggerRoll ? t('rollDice') : t('currentDice', 'Current Dice')}
-              className={`relative flex flex-col items-center lg:w-full lg:shrink-0 lg:rounded-2xl lg:border lg:border-gold/25 lg:bg-black/38 lg:px-4 lg:py-3 lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)] transition-all ${canTriggerRoll ? 'cursor-pointer hover:border-gold/45 hover:bg-black/42 active:scale-[0.99]' : 'cursor-default'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
+              className={`relative flex flex-col items-center transition-all lg:w-full lg:shrink-0 lg:rounded-2xl lg:border lg:px-4 lg:py-3 ${canTriggerRoll ? 'cursor-pointer border-gold/80 bg-gold/10 shadow-[0_0_38px_rgba(251,191,36,0.55),inset_0_0_30px_rgba(234,179,8,0.16)] ring-2 ring-gold/30 hover:border-gold hover:bg-gold/20 active:scale-[0.99]' : 'cursor-default border-white/15 bg-black/30 grayscale-[0.18] lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
             >
-              <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} />
-              <span className="mb-2 hidden font-display text-sm font-bold uppercase tracking-widest text-gold lg:block lg:text-[0.95rem]">{t('currentDice', 'Current Dice')}</span>
+              <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} isActive={canTriggerRoll} />
+              <span className={`mb-2 hidden font-display text-sm font-bold uppercase tracking-widest lg:block lg:text-[0.95rem] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
-                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
-                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} />
+                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} isHighlighted={canTriggerRoll} />
+                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} isHighlighted={canTriggerRoll} />
               </div>
-              <span className={`mt-2 hidden font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] lg:block ${canTriggerRoll ? 'text-gold/75' : 'text-white/40'}`}>
+              <span className={`mt-2 hidden text-center font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] lg:block ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
                 {canTriggerRoll ? t('rollDice') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
               </span>
             </button>

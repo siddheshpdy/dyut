@@ -188,5 +188,17 @@
   "playNow": "PLAY NOW",
   "playOnline": "PLAY ONLINE",
   "customGame": "CUSTOM GAME",
-  "tapDiceToRoll": "Tap Dice To Roll"
+  "tapDiceToRoll": "Tap Dice To Roll",
+  "firstGameHelpEyebrow": "Quick Tip",
+  "firstGameHelpTitleRoll": "Roll the dice",
+  "firstGameHelpBodyRoll": "Tap the dice panel to roll. Doubles can let you spawn a piece from your base.",
+  "firstGameHelpTitleSpawn": "Spawn a piece",
+  "firstGameHelpBodySpawn": "You rolled a double. Select a highlighted base piece, then choose Spawn.",
+  "firstGameHelpTitleMove": "Move a piece",
+  "firstGameHelpBodyMove": "Select a highlighted piece on the board, then choose one of the available move values.",
+  "firstGameHelpTitleWatch": "Watch the turn",
+  "firstGameHelpBodyWatch": "When it is your turn, the dice and playable pieces will light up.",
+  "firstGameHelpTitleWait": "No move available",
+  "firstGameHelpBodyWait": "If no legal move is possible, the game will end this turn automatically.",
+  "firstGameHelpDismiss": "Got it"
 }

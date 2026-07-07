@@ -7,7 +7,8 @@ import RulesScreen from './RulesScreen';
 import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
-import { GameProvider, useGame } from './GameContext';
+import { GameProvider, useGame, canLocalClientAct, getActiveTurnPlayerId, isGameOverState } from './GameContext';
+import { canSpawnPiece, hasAnyPlayableMove } from './gameLogic';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile, loadAccountResumeGame, saveAccountResumeGame } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
@@ -16,6 +17,7 @@ import { DYUT_ICONS } from './dyut-icons';
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
+const FIRST_GAME_HELP_KEY = 'dyut_has_seen_in_game_how_to_play';
 const CRAZYGAMES_STATS_KEY = 'dyut_stats';
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
@@ -26,6 +28,15 @@ const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
 const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
 const MOBILE_TRAY_RESERVED_SPACE_SHORT = '12.2rem';
 const hasOfflineResumeCache = () => !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
+const shouldShowFirstGameHelp = () => {
+  try {
+    if (localStorage.getItem(FIRST_GAME_HELP_KEY) === 'true') return false;
+    localStorage.setItem(FIRST_GAME_HELP_KEY, 'true');
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -187,6 +198,87 @@ const GameInfoOverlay = ({ infoView, onClose }) => {
   );
 };
 
+const FirstGameHelper = ({ isVisible, onClose }) => {
+  const { t } = useTranslation();
+  const { state } = useGame();
+  const CloseIcon = DYUT_ICONS.close;
+
+  if (!isVisible || !state || isGameOverState(state)) return null;
+
+  const activePlayerId = getActiveTurnPlayerId(state);
+  const activePlayer = state.players?.[activePlayerId];
+  const isBotTurn = state.bots?.includes(activePlayerId);
+  const isMyTurn = canLocalClientAct(state) && !isBotTurn;
+  const turnQueue = state.turnQueue || [];
+  const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
+  const canSpawn = isMyTurn && turnQueue.some((roll) => (
+    roll.d1 === roll.d2 && activePlayer?.pieces?.some((position) => position === -1) && canSpawnPiece(activePlayerId, roll.sum, state)
+  ));
+  const hasPlayableMove = isMyTurn && turnQueue.length > 0 && hasAnyPlayableMove(activePlayerId, state);
+
+  let titleKey = 'firstGameHelpTitleWatch';
+  let titleFallback = 'Watch the turn';
+  let bodyKey = 'firstGameHelpBodyWatch';
+  let bodyFallback = 'When it is your turn, the dice and playable pieces will light up.';
+
+  if (isMyTurn && canRoll) {
+    titleKey = 'firstGameHelpTitleRoll';
+    titleFallback = 'Roll the dice';
+    bodyKey = 'firstGameHelpBodyRoll';
+    bodyFallback = 'Tap the dice panel to roll. Doubles can let you spawn a piece from your base.';
+  } else if (canSpawn) {
+    titleKey = 'firstGameHelpTitleSpawn';
+    titleFallback = 'Spawn a piece';
+    bodyKey = 'firstGameHelpBodySpawn';
+    bodyFallback = 'You rolled a double. Select a highlighted base piece, then choose Spawn.';
+  } else if (hasPlayableMove) {
+    titleKey = 'firstGameHelpTitleMove';
+    titleFallback = 'Move a piece';
+    bodyKey = 'firstGameHelpBodyMove';
+    bodyFallback = 'Select a highlighted piece on the board, then choose one of the available move values.';
+  } else if (isMyTurn && turnQueue.length > 0) {
+    titleKey = 'firstGameHelpTitleWait';
+    titleFallback = 'No move available';
+    bodyKey = 'firstGameHelpBodyWait';
+    bodyFallback = 'If no legal move is possible, the game will end this turn automatically.';
+  }
+
+  return (
+    <div className="pointer-events-none fixed inset-x-3 bottom-[calc(clamp(13.5rem,24.5vh,15rem)+1rem)] z-[115] flex justify-center lg:inset-x-auto lg:bottom-6 lg:left-6 lg:block">
+      <div className="pointer-events-auto w-full max-w-sm rounded-2xl border border-gold/45 bg-[#050403]/94 p-4 text-left shadow-[0_0_34px_rgba(0,0,0,0.78),inset_0_0_28px_rgba(234,179,8,0.08)] backdrop-blur-md">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="font-sans text-[10px] font-bold uppercase tracking-[0.22em] text-white/60">
+              {t('firstGameHelpEyebrow', 'Quick Tip')}
+            </div>
+            <h2 className="mt-1 font-display text-lg font-bold uppercase tracking-[0.12em] text-gold text-glow-gold sm:text-xl">
+              {t(titleKey, titleFallback)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/70 transition-colors hover:text-gold"
+            aria-label={t('close', 'Close')}
+          >
+            <CloseIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="mt-3 font-sans text-sm font-semibold leading-relaxed text-white/90">
+          {t(bodyKey, bodyFallback)}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 rounded-xl border border-gold/55 bg-gold/12 px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] text-gold shadow-[0_0_18px_rgba(251,191,36,0.2)] transition-all hover:scale-[1.02] hover:bg-gold/20"
+        >
+          {t('firstGameHelpDismiss', 'Got it')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
@@ -200,6 +292,7 @@ function App() {
   const [accountOnlineGameId, setAccountOnlineGameId] = useState(null);
   const [gameSessionKey, setGameSessionKey] = useState(0);
   const [gameInfoView, setGameInfoView] = useState(null);
+  const [showFirstGameHelper, setShowFirstGameHelper] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
   const [portalAutoStartPending, setPortalAutoStartPending] = useState(false);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
@@ -484,6 +577,8 @@ function App() {
     // The provider itself will load the full state from storage.
     setGameConfig({ playerCount: parseInt(savedCount, 10) });
     setGameSessionKey(prev => prev + 1);
+    setGameInfoView(null);
+    setShowFirstGameHelper(shouldShowFirstGameHelp());
     setView('game');
   };
 
@@ -513,6 +608,7 @@ function App() {
     setGameConfig(config);
     setGameSessionKey(prev => prev + 1);
     setGameInfoView(null);
+    setShowFirstGameHelper(shouldShowFirstGameHelp());
     setView('game');
   };
 
@@ -527,6 +623,7 @@ function App() {
     setJoinGameId(null);
     setGameConfig(null);
     setGameInfoView(null);
+    setShowFirstGameHelper(false);
     setView('menu');
     triggerMidgameAd();
     if (IS_PORTAL && window.CrazyGames?.SDK) {
@@ -539,6 +636,7 @@ function App() {
     setJoinGameId(null);
     setGameConfig(null);
     setGameInfoView(null);
+    setShowFirstGameHelper(false);
     setView('menu');
     triggerMidgameAd();
     if (IS_PORTAL && window.CrazyGames?.SDK) {
@@ -608,6 +706,7 @@ function App() {
                 </div>
               </div>
             )}
+            <FirstGameHelper isVisible={showFirstGameHelper && !gameInfoView} onClose={() => setShowFirstGameHelper(false)} />
             <GameInfoOverlay infoView={gameInfoView} onClose={() => setGameInfoView(null)} />
           </GameProvider>
         );
