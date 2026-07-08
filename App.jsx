@@ -23,6 +23,7 @@ const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 const SHORT_MOBILE_HEIGHT_MEDIA_QUERY = '(max-height: 740px)';
+const COMPACT_LANDSCAPE_MEDIA_QUERY = '(orientation: landscape) and (min-width: 760px) and (max-height: 740px)';
 const MOBILE_HEADER_RESERVED_SPACE = 'clamp(4.5rem, 10.5vh, 5.35rem)';
 const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
 const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
@@ -86,6 +87,31 @@ const useIsShortMobileHeight = () => {
   }, []);
 
   return isShortMobileHeight;
+};
+
+const useIsCompactLandscape = () => {
+  const [isCompactLandscape, setIsCompactLandscape] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(COMPACT_LANDSCAPE_MEDIA_QUERY).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia(COMPACT_LANDSCAPE_MEDIA_QUERY);
+    const sync = (event) => setIsCompactLandscape(event.matches);
+    setIsCompactLandscape(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', sync);
+      return () => mediaQuery.removeEventListener('change', sync);
+    }
+
+    mediaQuery.addListener(sync);
+    return () => mediaQuery.removeListener(sync);
+  }, []);
+
+  return isCompactLandscape;
 };
 
 const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
@@ -283,6 +309,7 @@ function App() {
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
   const isShortMobileHeight = useIsShortMobileHeight();
+  const isCompactLandscape = useIsCompactLandscape();
   const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
@@ -299,6 +326,8 @@ function App() {
   const mobileHeaderReservedSpace = isShortMobileHeight ? MOBILE_HEADER_RESERVED_SPACE_SHORT : MOBILE_HEADER_RESERVED_SPACE;
   const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
   const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - ${mobileHeaderReservedSpace} - ${mobileTrayReservedSpace} - env(safe-area-inset-bottom) - ${isShortMobileHeight ? '0.65rem' : '1.25rem'}))`;
+  const shouldUseCompactLandscapeLayout = !isDesktop && isCompactLandscape;
+  const compactLandscapeBoardSize = `min(calc(100dvh - ${mobileHeaderReservedSpace} - env(safe-area-inset-bottom) - 1rem), 58vw)`;
   const viewRef = useRef(view);
   const joinGameIdRef = useRef(joinGameId);
   const portalAutoStartQueuedRef = useRef(false);
@@ -693,6 +722,17 @@ function App() {
               <div className="relative z-10 flex h-[100dvh] w-full flex-row items-start justify-center gap-8 overflow-hidden px-8 pb-4 pt-[7.4rem] xl:gap-10 xl:px-10 xl:pt-[7.75rem]">
                 <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="desktop" />
                 <DiceTray layoutMode="desktop" />
+              </div>
+            ) : shouldUseCompactLandscapeLayout ? (
+              <div className={`relative z-10 flex h-[100dvh] w-full overflow-hidden px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
+                <div className="flex min-h-0 w-full items-center justify-center gap-3 sm:gap-4">
+                  <div className="shrink-0" style={{ width: compactLandscapeBoardSize, height: compactLandscapeBoardSize }}>
+                    <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" hideActiveBaseOnMobile={false} />
+                  </div>
+                  <div className="z-20 min-w-[18rem] max-w-[360px] flex-1">
+                    <DiceTray layoutMode="desktop" />
+                  </div>
+                </div>
               </div>
             ) : (
               <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>

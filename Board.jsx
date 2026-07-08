@@ -260,7 +260,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
 };
 
 // The main Board container
-const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
+const Board = ({ onGoToMenu, layoutMode = 'desktop', hideActiveBaseOnMobile = true }) => {
   const { state, dispatch } = useGame();
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
@@ -297,7 +297,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop' }) => {
 
   const activeBases = allBases.filter(base => visualPlayers[base.id]);
   const activeBasePlayerId = getActiveTurnPlayerId(state);
-  const visibleBases = layoutMode === 'mobile'
+  const visibleBases = layoutMode === 'mobile' && hideActiveBaseOnMobile
     ? activeBases.filter(base => base.id !== activeBasePlayerId)
     : activeBases;
   const positionedVisibleBases = visibleBases;
