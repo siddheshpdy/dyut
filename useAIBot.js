@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { isGameOverState, useGame } from './GameContext';
+import { getActiveTurnPlayerId, isGameOverState, useGame } from './GameContext';
 import { getBestAIMove } from './aiLogic';
 
 export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
@@ -13,7 +13,8 @@ export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
         // Phase 17.4: Only the Host should execute Bot logic to prevent multiple overlapping writes
         if (state.isOnline && state.hostUid !== state.localUid) return;
 
-        const isBotTurn = botPlayerIds.includes(state.currentPlayer);
+        const activePlayerId = getActiveTurnPlayerId(state);
+        const isBotTurn = botPlayerIds.includes(activePlayerId);
         if (!isBotTurn) return;
 
         const actionTimer = setTimeout(() => {
@@ -26,12 +27,12 @@ export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
             if (state.turnQueue.length === 0) return;
 
             // 3. Request logic layer for the optimal move and execute with view transitions
-            const action = getBestAIMove(state.currentPlayer, state, difficulty);
+            const action = getBestAIMove(activePlayerId, state, difficulty);
             if (action) {
                 dispatch({ ...action, _autoControlledAction: true });
             }
         }, 800); // Wait 800ms to simulate "thinking" and make tracking moves easier for humans
 
         return () => clearTimeout(actionTimer);
-    }, [state.currentPlayer, state.hasRolledThisTurn, state.rollingPhaseComplete, state.turnQueue, botPlayerIds, difficulty, dispatch, isGameOver]);
+    }, [state, botPlayerIds, difficulty, dispatch, isGameOver]);
 }

@@ -32,6 +32,7 @@ import {
   getTurnRemainingMs,
   getTurnTimeoutMs,
   readPositiveIntegerEnv,
+  shouldLocalClientAutoControlTurn,
 } from './GameContext';
 
 const createBaseOnlineState = () => ({
@@ -164,6 +165,8 @@ describe('GameContext reducer AFK reclaim', () => {
 
     expect(reducedState.afkStrikes.Player2).toBe(AFK_BOT_TAKEOVER_STRIKES);
     expect(reducedState.bots).toContain('Player2');
+    expect(reducedState.status).toBe('finished');
+    expect(reducedState.winnerPlayerId).toBe('Player1');
   });
 
   it('lets only the host auto-play a reclaimed remote turn', () => {
@@ -182,6 +185,19 @@ describe('GameContext reducer AFK reclaim', () => {
 
     expect(canLocalClientAct(remoteAfkTurnForHost)).toBe(true);
     expect(canLocalClientAct(remoteAfkTurnForNonHost)).toBe(false);
+    expect(shouldLocalClientAutoControlTurn(remoteAfkTurnForHost)).toBe(true);
+    expect(shouldLocalClientAutoControlTurn(remoteAfkTurnForNonHost)).toBe(false);
+  });
+
+  it('keeps permanent bot auto-control on the host while a multiplayer match remains active', () => {
+    const permanentBotTurnForHost = {
+      ...createBaseOnlineState(),
+      currentPlayer: 'Player2',
+      localUid: 'host-1',
+      bots: ['Player2'],
+    };
+
+    expect(shouldLocalClientAutoControlTurn(permanentBotTurnForHost)).toBe(true);
   });
 
   it('bases the visible countdown on turn start instead of the last action', () => {
@@ -316,25 +332,28 @@ describe('GameContext reducer AFK reclaim', () => {
     expect(localStorage.getItem('dyut_game_state')).toBeNull();
   });
 
-  it('does not force-finish the remaining public player after another player drops', () => {
-    const publicState = {
+  it('marks an online match finished when fewer than two human players remain', () => {
+    const onlineState = {
       ...createBaseOnlineState(),
-      isPublic: true,
     };
 
-    const updates = buildPublicPresenceLossUpdates(publicState, ['Player2']);
+    const updates = buildPublicPresenceLossUpdates(onlineState, ['Player2']);
 
-    expect(updates).toEqual({});
+    expect(updates).toEqual({ status: 'finished', winnerPlayerId: 'Player2' });
   });
 
-  it('marks a public match finished only when no human players remain', () => {
-    const publicState = {
+  it('keeps an online match alive while at least two human players remain', () => {
+    const onlineState = {
       ...createBaseOnlineState(),
-      isPublic: true,
+      players: {
+        ...createBaseOnlineState().players,
+        Player3: { color: 'emerald', name: 'Cara', hasKilled: false, pieces: [0, -1, -1, -1], team: 0 },
+      },
+      playerUids: { Player1: 'user-1', Player2: 'user-2', Player3: 'user-3' },
     };
 
-    const updates = buildPublicPresenceLossUpdates(publicState, []);
+    const updates = buildPublicPresenceLossUpdates(onlineState, ['Player2', 'Player3']);
 
-    expect(updates).toEqual({ status: 'finished' });
+    expect(updates).toEqual({});
   });
 });

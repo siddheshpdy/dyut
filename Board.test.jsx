@@ -15,7 +15,7 @@ vi.mock('./GameContext', () => ({
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key })
 }));
-vi.mock('./audio', () => ({ playSound: vi.fn() }));
+vi.mock('./audio', () => ({ getEffectiveMuteState: vi.fn(() => false), playSound: vi.fn() }));
 vi.mock('./usePrevious', () => ({ usePrevious: vi.fn(() => null) }));
 
 // Keep the mock board small for performance
@@ -59,5 +59,27 @@ describe('Board Component', () => {
         // Should show team badges because isTeamMode is true
         expect(screen.getByText('T1')).toBeInTheDocument();
         expect(screen.getByText('T2')).toBeInTheDocument();
+    });
+
+    it('shows the remaining human as winner when an online match ends by takeover', () => {
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player2',
+                players: {
+                    Player1: { name: 'Alice', color: 'ruby', pieces: [0, -1, -1, -1], hasKilled: false, team: 0 },
+                    Player2: { name: 'Bot', color: 'sapphire', pieces: [0, -1, -1, -1], hasKilled: false, team: 0 }
+                },
+                turnQueue: [],
+                isTeamMode: false,
+                isOnline: true,
+                status: 'finished',
+                winnerPlayerId: 'Player1'
+            },
+            dispatch: vi.fn()
+        });
+
+        render(<Board onGoToMenu={vi.fn()} />);
+
+        expect(screen.getByTestId('victory-screen')).toHaveTextContent('Winner: Alice');
     });
 });

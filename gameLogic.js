@@ -121,7 +121,6 @@ function isSquareBlocked(targetPathIndex, movingPlayerId, state) {
     return false; // The square is not blocked
 }
 
-
 /**
  * Enforces the "Max Value Rule" to determine which moves are valid.
  * @param {number} pieceCurrentPos - The current path index of the piece.
@@ -140,18 +139,10 @@ export function getValidMoves(pieceCurrentPos, roll, playerId, state) {
         return { sum: isMoveValid, high: isMoveValid, low: isMoveValid }; // All flags map to the single move's validity
     }
 
-    const isSumValid = !isSquareBlocked(pieceCurrentPos + roll.sum, playerId, state);
-    const isHighValid = !isSquareBlocked(pieceCurrentPos + high, playerId, state);
-    const isLowValid = !isSquareBlocked(pieceCurrentPos + low, playerId, state);
-
-    // The "Max Value Rule" is a strategic choice presented to the user.
-    // By returning the validity of each move, we allow the UI to present all
-    // possible choices for the selected piece, including splitting the roll.
-    // If a user has a choice, they can pick a lower value to split the move.
     return {
-        sum: isSumValid,
-        high: isHighValid,
-        low: isLowValid,
+        sum: !isSquareBlocked(pieceCurrentPos + roll.sum, playerId, state),
+        high: !isSquareBlocked(pieceCurrentPos + high, playerId, state),
+        low: !isSquareBlocked(pieceCurrentPos + low, playerId, state),
     };
 }
 

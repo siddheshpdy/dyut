@@ -35,5 +35,5 @@ When calculating `getValidMoves()`, you must enforce the "Max Value Rule". A pla
 - **Spawning:** Pieces start locked (-1). They require a double to spawn, landing directly on path indices mapping to 2, 6, 8, or 12.
 - **Blood Debt:** A piece CANNOT enter its final "home stretch" (middle column returning to center) unless its team's `hasKilled` boolean is `true`. (One kill unlocks the home stretch for all 4 pieces).
 - **Winning:** All 4 pieces must reach the center. 
-  - *Overshoot:* A piece 2 squares away can use a 3 or 4 to win. 
+  - *Exact Finish:* A piece must use the exact remaining distance to reach the center. Overshooting is blocked.
   - *Mandatory Remainder:* If partial dice value is used to win, the remaining dice value MUST be applied to another piece on the board if a valid move exists.

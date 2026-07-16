@@ -4,6 +4,7 @@ import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { ref, onValue, set, update, remove } from 'firebase/database';
 import { clearAccountResumeGame, rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
+import { clearCrazyGamesOfflineResume, saveCrazyGamesOfflineResume } from './crazyGamesStorage';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
@@ -120,6 +121,15 @@ export const canLocalClientAct = (currentState) => {
   return isActiveTurnAutoControlledForLocalClient(currentState) && currentState.localUid === currentState.hostUid;
 };
 
+export const shouldLocalClientAutoControlTurn = (currentState) => {
+  if (!currentState?.players) return false;
+  const activeId = getActiveTurnPlayerId(currentState);
+  const needsAutoControl = currentState.isAfkTurn || currentState.bots?.includes(activeId);
+  if (!needsAutoControl) return false;
+  if (!currentState.isOnline) return true;
+  return !!currentState.localUid && currentState.localUid === currentState.hostUid;
+};
+
 function releaseAutoControlForPlayer(state, playerId) {
   if (!playerId) return state;
 
@@ -131,9 +141,8 @@ function releaseAutoControlForPlayer(state, playerId) {
   };
 }
 
-export function isGameOverState(currentState) {
+function hasGameplayWinnerState(currentState) {
   if (!currentState?.players) return false;
-  if (currentState.status === 'finished') return true;
 
   if (currentState.isQuickGame) {
     return Object.values(currentState.players).some(player => player.pieces.some(pos => pos === 999));
@@ -149,6 +158,12 @@ export function isGameOverState(currentState) {
   }
 
   return Object.values(currentState.players).some(player => player.pieces.every(pos => pos === 999));
+}
+
+export function isGameOverState(currentState) {
+  if (!currentState?.players) return false;
+  if (currentState.status === 'finished') return true;
+  return hasGameplayWinnerState(currentState);
 }
 
 export function applyReducerPostProcessing(nextState, action) {
@@ -177,9 +192,18 @@ export function applyReducerPostProcessing(nextState, action) {
 }
 
 export function buildPublicPresenceLossUpdates(currentState, activeHumanIds) {
-  if (!currentState?.isPublic) return {};
-  if (activeHumanIds.length === 0) return { status: 'finished' };
+  if (!currentState?.isOnline) return {};
+  if (activeHumanIds.length < 2) {
+    return {
+      status: 'finished',
+      ...(activeHumanIds[0] ? { winnerPlayerId: activeHumanIds[0] } : {}),
+    };
+  }
   return {};
+}
+
+function getActiveHumanPlayerIds(currentState, bots = currentState?.bots || []) {
+  return Object.keys(currentState?.playerUids || {}).filter(key => currentState.playerUids[key] && !bots.includes(key));
 }
 
 function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
@@ -464,7 +488,8 @@ export function gameReducer(state, action) {
       
       if (strikes >= AFK_BOT_TAKEOVER_STRIKES) {
         const newBots = [...new Set([...(state.bots || []), playerId])];
-        return { ...state, bots: newBots, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
+        const activeHumans = getActiveHumanPlayerIds(state, newBots);
+        return { ...state, bots: newBots, afkStrikes: { ...state.afkStrikes, [playerId]: strikes }, ...buildPublicPresenceLossUpdates(state, activeHumans) };
       } else {
         return { ...state, isAfkTurn: true, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
       }
@@ -547,7 +572,7 @@ const dispatch = useCallback((action) => {
         const newBots = [...new Set([...(currentState.bots || []), myPlayerId])];
         let newHostUid = currentState.hostUid;
         
-        const activeHumans = Object.keys(currentState.playerUids || {}).filter(key => currentState.playerUids[key] && !newBots.includes(key));
+        const activeHumans = getActiveHumanPlayerIds(currentState, newBots);
         
         // If the last human player leaves, completely wipe the game and lobby from the database to save space
         if (activeHumans.length === 0) {
@@ -639,8 +664,9 @@ const dispatch = useCallback((action) => {
           const deadHostId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.hostUid);
           const newBots = [...new Set([...(state.bots || []), deadHostId].filter(Boolean))];
           const updates = { hostUid: state.localUid, bots: newBots, lastPing: Date.now() };
+          const remainingHumans = getActiveHumanPlayerIds(state, newBots);
           
-          Object.assign(updates, buildPublicPresenceLossUpdates(state, activeHumans));
+          Object.assign(updates, buildPublicPresenceLossUpdates(state, remainingHumans));
           update(ref(rtdb, 'games/' + state.gameId), updates).catch(console.error);
         }
       }
@@ -712,7 +738,9 @@ const dispatch = useCallback((action) => {
         lastActionTime: nextState.lastActionTime,
         afkStrikes: nextState.afkStrikes || {},
         isAfkTurn: nextState.isAfkTurn || false,
-        bots: nextState.bots || []
+        bots: nextState.bots || [],
+        ...(nextState.status ? { status: nextState.status } : {}),
+        ...(nextState.winnerPlayerId ? { winnerPlayerId: nextState.winnerPlayerId } : {})
       }).catch(e => console.error("Firestore sync failed:", e));
     }
   };
@@ -761,15 +789,17 @@ const dispatch = useCallback((action) => {
   useEffect(() => {
     if (state.players) {
       const isGameOver = isGameOverState(state);
+      const hasGameplayWinner = hasGameplayWinnerState(state);
 
       if (isGameOver) {
         if (!state.isOnline) {
           localStorage.removeItem(LOCAL_STORAGE_KEY);
           localStorage.removeItem('dyut_player_count');
+          clearCrazyGamesOfflineResume().catch(console.error);
         }
         
         // Calculate and push stats for the local user if they are playing
-        if (state.localUid) {
+        if (state.localUid && hasGameplayWinner) {
           const myPlayerId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid);
           if (myPlayerId && !state.bots?.includes(myPlayerId)) {
             let localUserWon = false;
@@ -794,6 +824,7 @@ const dispatch = useCallback((action) => {
         }
       } else if (!state.isOnline) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+        saveCrazyGamesOfflineResume(state).catch(console.error);
       }
     }
   }, [state]);

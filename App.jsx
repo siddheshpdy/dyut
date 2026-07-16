@@ -13,6 +13,9 @@ import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile, loadAccountResumeGame, saveAccountResumeGame } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
 import { DYUT_ICONS } from './dyut-icons';
+import { bindCrazyGamesMuteSetting, dispatchMuteState, getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { clearCrazyGamesOfflineResume, loadCrazyGamesOfflineResumeToLocal } from './crazyGamesStorage';
+import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
@@ -320,8 +323,9 @@ function App() {
   const [gameSessionKey, setGameSessionKey] = useState(0);
   const [gameInfoView, setGameInfoView] = useState(null);
   const [showFirstGameHelper, setShowFirstGameHelper] = useState(false);
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const [portalAutoStartPending, setPortalAutoStartPending] = useState(false);
+  const [portalInstantMultiplayerPending, setPortalInstantMultiplayerPending] = useState(false);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const mobileHeaderReservedSpace = isShortMobileHeight ? MOBILE_HEADER_RESERVED_SPACE_SHORT : MOBILE_HEADER_RESERVED_SPACE;
   const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
@@ -331,6 +335,7 @@ function App() {
   const viewRef = useRef(view);
   const joinGameIdRef = useRef(joinGameId);
   const portalAutoStartQueuedRef = useRef(false);
+  const portalInstantMultiplayerQueuedRef = useRef(false);
 
   useEffect(() => {
     viewRef.current = view;
@@ -372,6 +377,7 @@ function App() {
   const clearOfflineResumeCache = () => {
     localStorage.removeItem(PLAYER_COUNT_KEY);
     localStorage.removeItem(GAME_STATE_KEY);
+    clearCrazyGamesOfflineResume().catch(console.error);
     setHasCachedGame(false);
   };
 
@@ -382,12 +388,7 @@ function App() {
   };
 
   const toggleMute = () => {
-    setIsMuted(prev => {
-      const next = !prev;
-      localStorage.setItem('dyut_muted', next);
-      window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: next }));
-      return next;
-    });
+    setIsMuted(toggleUserMutePreference());
   };
 
   const resumeOnlineGameId = accountOnlineGameId || deviceOnlineGameId;
@@ -480,10 +481,14 @@ function App() {
             if (!isMounted) return;
             
             window.CrazyGames.SDK.game.loadingStop();
+            const hasPortalOfflineResume = await loadCrazyGamesOfflineResumeToLocal();
+            if (isMounted && hasPortalOfflineResume) setHasCachedGame(true);
+
             const maybeQueuePortalFirstSession = async () => {
               if (
                 !isMounted ||
                 portalAutoStartQueuedRef.current ||
+                portalInstantMultiplayerQueuedRef.current ||
                 viewRef.current !== 'menu' ||
                 joinGameIdRef.current ||
                 localStorage.getItem(GAME_STATE_KEY) ||
@@ -498,16 +503,16 @@ function App() {
                 const systemUser = await window.CrazyGames.SDK.user.getUser();
                 if (!systemUser || portalAutoStartQueuedRef.current) return;
 
-                let stats = await window.CrazyGames.SDK.data.getItem(CRAZYGAMES_STATS_KEY);
-                if (typeof stats === 'string') stats = JSON.parse(stats);
-                if (stats) return;
+                const storedStats = await window.CrazyGames.SDK.data.getItem(CRAZYGAMES_STATS_KEY);
+                const stats = parseCrazyGamesStoredValue(storedStats);
+                if (stats || storedStats != null) return;
 
                 portalAutoStartQueuedRef.current = true;
-                await window.CrazyGames.SDK.data.setItem(CRAZYGAMES_STATS_KEY, {
+                await window.CrazyGames.SDK.data.setItem(CRAZYGAMES_STATS_KEY, serializeCrazyGamesStoredValue({
                   gamesPlayed: 0,
                   wins: 0,
                   hasSeenPortalIntro: true
-                });
+                }));
 
                 if (
                   isMounted &&
@@ -532,12 +537,26 @@ function App() {
               }
             } catch (e) { console.warn("CrazyGames inviteParams error:", e); }
 
-            await maybeQueuePortalFirstSession();
+            if (
+              window.CrazyGames.SDK.game.isInstantMultiplayer &&
+              isMounted &&
+              viewRef.current === 'menu' &&
+              !joinGameIdRef.current &&
+              !portalInstantMultiplayerQueuedRef.current
+            ) {
+              portalInstantMultiplayerQueuedRef.current = true;
+              setPortalAutoStartPending(false);
+              setPortalInstantMultiplayerPending(true);
+            } else {
+              await maybeQueuePortalFirstSession();
+            }
 
             cgJoinListener = (inviteParams) => {
               if (inviteParams && inviteParams.roomId) {
                 setView('menu'); // Force route to lobby if they are in a match/tutorial
                 joinGameIdRef.current = inviteParams.roomId;
+                setPortalInstantMultiplayerPending(false);
+                setPortalAutoStartPending(false);
                 setJoinGameId(inviteParams.roomId);
               }
             };
@@ -586,10 +605,12 @@ function App() {
           window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true }));
         },
         adFinished: () => {
-          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: wasMuted }));
+          localStorage.setItem('dyut_muted', wasMuted);
+          dispatchMuteState();
         },
         adError: () => {
-          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: wasMuted }));
+          localStorage.setItem('dyut_muted', wasMuted);
+          dispatchMuteState();
         },
       };
       window.CrazyGames.SDK.ad.requestAd('midgame', callbacks);
@@ -611,10 +632,35 @@ function App() {
     setView('game');
   };
 
+  useEffect(() => {
+    let cleanup;
+    let cancelled = false;
+
+    if (!IS_PORTAL) return undefined;
+
+    const bindSettings = async () => {
+      try {
+        cleanup = await bindCrazyGamesMuteSetting();
+        if (!cancelled) setIsMuted(getEffectiveMuteState());
+      } catch (error) {
+        console.error('CrazyGames mute setting setup failed:', error);
+      }
+    };
+
+    bindSettings();
+
+    return () => {
+      cancelled = true;
+      if (cleanup) cleanup();
+    };
+  }, []);
+
   const handleGameSetupComplete = (config) => {
     setPortalAutoStartPending(false);
+    setPortalInstantMultiplayerPending(false);
     if (!config.isOnline) {
       localStorage.removeItem(GAME_STATE_KEY);
+      clearCrazyGamesOfflineResume().catch(console.error);
       localStorage.setItem(PLAYER_COUNT_KEY, config.playerCount);
       setHasCachedGame(true);
     }
@@ -766,6 +812,8 @@ function App() {
           user={user} 
           autoStartPortalIntro={IS_PORTAL && portalAutoStartPending}
           onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
+          autoStartInstantMultiplayer={IS_PORTAL && portalInstantMultiplayerPending}
+          onInstantMultiplayerConsumed={() => setPortalInstantMultiplayerPending(false)}
           onReconnectOnline={handleReconnectOnline}
         />;
     }

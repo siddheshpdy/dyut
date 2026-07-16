@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { flushSync } from 'react-dom';
-import { useGame, ACTION_TYPES, TURN_TIMER_WARNING_MS, AFK_BOT_TAKEOVER_STRIKES, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, getTurnRemainingMs, getTurnTimeoutMs, isActiveTurnAutoControlledForLocalClient, isGameOverState } from './GameContext';
+import { useGame, ACTION_TYPES, TURN_TIMER_WARNING_MS, AFK_BOT_TAKEOVER_STRIKES, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, getTurnRemainingMs, getTurnTimeoutMs, isGameOverState, shouldLocalClientAutoControlTurn } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove, canSpawnPiece } from './gameLogic';
-import { playSound } from './audio';
+import { getEffectiveMuteState, playSound } from './audio';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { useAIBot } from './useAIBot';
 import { useTranslation } from 'react-i18next';
@@ -97,7 +97,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const [isBoardAnimating, setIsBoardAnimating] = useState(false);
   const { t } = useTranslation();
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const [now, setNow] = useState(() => Date.now());
   const CrownIcon = DYUT_ICONS.currentTurn;
 
@@ -118,13 +118,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   }, [state.currentPlayer]);
 
   const activePlayerId = getActiveTurnPlayerId(state);
-  const isBotPlaying = isActiveTurnAutoControlledForLocalClient(state);
-  const isLocalAfkTurn = state.isAfkTurn && canLocalClientAct(state);
+  const isAutoControlledTurn = shouldLocalClientAutoControlTurn(state);
+  const isBotPlaying = isAutoControlledTurn;
   const activeBots = useMemo(() => {
-    if (!isBotPlaying && !isLocalAfkTurn) return state.bots || [];
+    if (!isAutoControlledTurn) return state.bots || [];
     return [...new Set([...(state.bots || []), state.currentPlayer, activePlayerId])];
-  }, [activePlayerId, isBotPlaying, isLocalAfkTurn, state.bots, state.currentPlayer]);
-  const isAutoControlledTurn = activeBots.includes(activePlayerId);
+  }, [activePlayerId, isAutoControlledTurn, state.bots, state.currentPlayer]);
   const isMyTurn = canLocalClientAct(state);
   const isCurrentUserPlayer = doesLocalClientOwnActiveTurn(state);
   const activePlayer = state.players[activePlayerId];

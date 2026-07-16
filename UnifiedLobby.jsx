@@ -6,6 +6,8 @@ import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as r
 import { db, rtdb, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 import { DYUT_ICONS } from './dyut-icons';
+import { getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -16,6 +18,12 @@ const ALL_COLORS = [
 
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+const INSTANT_MULTIPLAYER_CONFIG = {
+  matchType: '1v1',
+  isQuickGame: false,
+  isVoidRuleEnabled: true,
+  botDifficulty: 'easy'
+};
 
 const OrnateDivider = () => (
   <div className="flex items-center justify-center gap-3 text-gold/60">
@@ -241,8 +249,8 @@ const PlayerProfile = ({ user }) => {
               window.CrazyGames.SDK.user.addAuthListener(authListener);
             } catch (e) { console.error("CrazyGames user error:", e); }
 
-            let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
-            if (typeof data === 'string') data = JSON.parse(data);
+            const storedData = await window.CrazyGames.SDK.data.getItem('dyut_stats');
+            const data = parseCrazyGamesStoredValue(storedData);
             if (data) setStats(data);
           } catch (e) { console.error(e); }
         }
@@ -327,9 +335,9 @@ const PlayerProfile = ({ user }) => {
         if (window.CrazyGames?.SDK) {
           const saveStats = async () => {
             if (window.cgInitPromise) await window.cgInitPromise;
-            window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+            await window.CrazyGames.SDK.data.setItem('dyut_stats', serializeCrazyGamesStoredValue(newStats));
           };
-          saveStats();
+          saveStats().catch(console.error);
         }
       } else {
         await updateUserName(editName.trim());
@@ -398,7 +406,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, onReconnectOnline }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -424,21 +432,21 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [hostLastPing, setHostLastPing] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
+  const [portalUser, setPortalUser] = useState(null);
   const [inviteUrl, setInviteUrl] = useState('');
   const [offlineResumeAction, setOfflineResumeAction] = useState(null);
 
   const { t } = useTranslation();
 
   const toggleMute = () => {
-    const next = !isMuted;
-    localStorage.setItem('dyut_muted', next);
-    window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: next }));
+    setIsMuted(toggleUserMutePreference());
   };
 
   const activeLobbyId = joinGameId || pendingGameId;
   const isHost = (activeLobbyId && pendingGameId !== null) || (user && lobbyHostUid === user.uid);
   const hasClaimedSeat = Object.values(seats).some(s => s.uid === user?.uid);
+  const localPlayerName = portalUser?.username || user?.displayName || '';
 
   const activeSeats = Object.entries(seats).filter(([_, s]) => s.type !== 'closed');
   const playerCount = activeSeats.length;
@@ -449,6 +457,43 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const handleMuteChange = (e) => setIsMuted(e.detail);
     window.addEventListener('dyut-mute-change', handleMuteChange);
     return () => window.removeEventListener('dyut-mute-change', handleMuteChange);
+  }, []);
+
+  useEffect(() => {
+    if (!IS_PORTAL) return undefined;
+
+    let isMounted = true;
+    let authListener = null;
+
+    const loadPortalUser = async () => {
+      if (!window.CrazyGames?.SDK) return;
+
+      try {
+        if (window.cgInitPromise) await window.cgInitPromise;
+        if (!isMounted) return;
+
+        const systemUser = await window.CrazyGames.SDK.user.getUser();
+        if (isMounted) setPortalUser(systemUser || null);
+
+        if (window.CrazyGames.SDK.user?.addAuthListener) {
+          authListener = (systemUserUpdate) => {
+            if (isMounted) setPortalUser(systemUserUpdate || null);
+          };
+          window.CrazyGames.SDK.user.addAuthListener(authListener);
+        }
+      } catch {
+        if (isMounted) setPortalUser(null);
+      }
+    };
+
+    loadPortalUser();
+
+    return () => {
+      isMounted = false;
+      if (authListener && window.CrazyGames?.SDK?.user?.removeAuthListener) {
+        try { window.CrazyGames.SDK.user.removeAuthListener(authListener); } catch {}
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -516,8 +561,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   }, [lobbyExpiresAt, activeLobbyId, lobbyStatus]);
 
   // Push room status updates to CrazyGames SDK for external invite link locking and portal UI
-  const updateCrazyGamesRoom = async (action, targetSeats) => {
-    if (IS_PORTAL && window.CrazyGames?.SDK && activeLobbyId) {
+  const updateCrazyGamesRoom = async (action, targetSeats, roomId = activeLobbyId) => {
+    if (IS_PORTAL && window.CrazyGames?.SDK && roomId) {
       try {
         if (window.cgInitPromise) await window.cgInitPromise;
         const humanSeats = Object.values(targetSeats).filter(s => s.type === 'human');
@@ -526,12 +571,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         
         if (typeof window.CrazyGames.SDK.game.updateRoom === 'function') {
           window.CrazyGames.SDK.game.updateRoom({
-            roomId: activeLobbyId,
+            roomId,
             action: action === 'start' || isFull ? 'start' : 'update',
             playerCount: claimedSeats.length,
             maxPlayerCount: humanSeats.length,
             isJoinable: action !== 'start' && !isFull,
-            inviteParams: { roomId: activeLobbyId }
+            inviteParams: { roomId }
           });
         }
       } catch (e) { console.error("CrazyGames updateRoom error:", e); }
@@ -606,7 +651,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
   const handleClaimSeat = (playerId) => {
     // Forcing type to 'human' allows joiners to overtake bot/closed slots
-    const newSeats = { ...seats, [playerId]: { ...seats[playerId], type: 'human', uid: user.uid, name: user?.displayName || '' } };
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], type: 'human', uid: user.uid, name: localPlayerName } };
     setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
@@ -670,7 +715,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
   const startPortalBotMatch = () => {
     const newSeats = {
-      Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
       Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
       Player4: { type: 'bot', color: 'amber', name: '', uid: null }
@@ -733,7 +778,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setSeats({
       Player4: { type: 'closed', color: 'amber', name: '', uid: null },
       Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
-      Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
     });
     setIsTeamMode(false);
@@ -794,7 +839,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
     onPortalAutoStartConsumed?.();
     startPortalBotMatch();
-  }, [autoStartPortalIntro, activeLobbyId, setupMode, user?.displayName, onPortalAutoStartConsumed]);
+  }, [autoStartPortalIntro, activeLobbyId, setupMode, localPlayerName, onPortalAutoStartConsumed]);
 
   const handleHostOnlineClick = async (isPublicLobby = false, overrideConfig = null) => {
     const isPublic = typeof isPublicLobby === 'boolean' ? isPublicLobby : false;
@@ -809,14 +854,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       newSeats = {
         Player4: { type: 'closed', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
         Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
       };
     } else {
       newSeats = {
         Player4: { type: 'human', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
         Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
       };
     }
@@ -830,7 +875,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const firstHuman = preferredOrder.find(id => newSeats[id].type === 'human');
     if (firstHuman) {
       newSeats[firstHuman].uid = user?.uid || null;
-      newSeats[firstHuman].name = user?.displayName || '';
+      newSeats[firstHuman].name = localPlayerName;
     }
     
     const expiresAt = isPublic ? Date.now() + 60000 : null; // 60 second matchmaking timer
@@ -848,6 +893,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       setSeats(newSeats);
       setIsTeamMode(isTeamModeLocal);
       setPendingGameId(newGameId);
+      await updateCrazyGamesRoom('update', newSeats, newGameId);
       
       if (overrideConfig) {
         setMatchType(currentMatchType);
@@ -861,6 +907,23 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       setIsHosting(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !IS_PORTAL ||
+      !autoStartInstantMultiplayer ||
+      activeLobbyId ||
+      setupMode ||
+      !user ||
+      isHosting ||
+      isSearching
+    ) {
+      return;
+    }
+
+    onInstantMultiplayerConsumed?.();
+    handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
+  }, [autoStartInstantMultiplayer, activeLobbyId, setupMode, user, isHosting, isSearching, localPlayerName, onInstantMultiplayerConsumed]);
 
   const handleFindMatch = async (overrideConfig = null) => {
     setIsSearching(true);
@@ -1328,9 +1391,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                 <button onClick={() => {
                   let newSeats = {};
                   if (matchType === '1v1') {
-                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
                   } else {
-                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
                   }
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');

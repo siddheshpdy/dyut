@@ -2,7 +2,7 @@ import React from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DiceTray from './DiceTray';
-import { isActiveTurnAutoControlledForLocalClient, isGameOverState, useGame } from './GameContext';
+import { isGameOverState, shouldLocalClientAutoControlTurn, useGame } from './GameContext';
 import { useAIBot } from './useAIBot';
 import { playSound } from './audio';
 
@@ -15,7 +15,7 @@ vi.mock('./GameContext', () => ({
     getActiveTurnPlayerId: vi.fn((state) => state.currentPlayer),
     getTurnRemainingMs: vi.fn(() => 15000),
     getTurnTimeoutMs: vi.fn(() => 30000),
-    isActiveTurnAutoControlledForLocalClient: vi.fn(() => false),
+    shouldLocalClientAutoControlTurn: vi.fn(() => false),
     isGameOverState: vi.fn(() => false),
     canLocalClientAct: vi.fn(() => true),
     doesLocalClientOwnActiveTurn: vi.fn(() => true),
@@ -23,7 +23,7 @@ vi.mock('./GameContext', () => ({
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key }) // Returns the translation key as plain text
 }));
-vi.mock('./audio', () => ({ playSound: vi.fn() }));
+vi.mock('./audio', () => ({ getEffectiveMuteState: vi.fn(() => false), playSound: vi.fn() }));
 vi.mock('./useAIBot', () => ({ useAIBot: vi.fn() }));
 vi.mock('./gameLogic', () => ({
     hasAnyPlayableMove: vi.fn(() => true),
@@ -37,7 +37,7 @@ describe('DiceTray Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.useRealTimers();
-        isActiveTurnAutoControlledForLocalClient.mockReturnValue(false);
+        shouldLocalClientAutoControlTurn.mockReturnValue(false);
         isGameOverState.mockReturnValue(false);
     });
 
@@ -103,7 +103,7 @@ describe('DiceTray Component', () => {
     });
 
     it('keeps the dice panel programmatically enabled for bot automation on auto-controlled turns', () => {
-        isActiveTurnAutoControlledForLocalClient.mockReturnValue(true);
+        shouldLocalClientAutoControlTurn.mockReturnValue(true);
         useGame.mockReturnValue({
             state: {
                 currentPlayer: 'Player1',
@@ -123,7 +123,7 @@ describe('DiceTray Component', () => {
 
     it('keeps bot automation inputs stable across countdown re-renders', () => {
         vi.useFakeTimers();
-        isActiveTurnAutoControlledForLocalClient.mockReturnValue(true);
+        shouldLocalClientAutoControlTurn.mockReturnValue(true);
         useGame.mockReturnValue({
             state: {
                 currentPlayer: 'Player1',
@@ -152,7 +152,7 @@ describe('DiceTray Component', () => {
 
     it('automatically starts rolling on an auto-controlled turn after the tray delay', () => {
         vi.useFakeTimers();
-        isActiveTurnAutoControlledForLocalClient.mockReturnValue(true);
+        shouldLocalClientAutoControlTurn.mockReturnValue(true);
         useGame.mockReturnValue({
             state: {
                 currentPlayer: 'Player1',
@@ -178,7 +178,7 @@ describe('DiceTray Component', () => {
 
     it('auto-rolls a local-owned AFK turn with automation metadata', () => {
         vi.useFakeTimers();
-        isActiveTurnAutoControlledForLocalClient.mockReturnValue(false);
+        shouldLocalClientAutoControlTurn.mockReturnValue(true);
         useGame.mockReturnValue({
             state: {
                 currentPlayer: 'Player1',
@@ -208,7 +208,7 @@ describe('DiceTray Component', () => {
 
     it('does not auto-roll after the game is over', () => {
         vi.useFakeTimers();
-        isActiveTurnAutoControlledForLocalClient.mockReturnValue(true);
+        shouldLocalClientAutoControlTurn.mockReturnValue(true);
         isGameOverState.mockReturnValue(true);
         useGame.mockReturnValue({
             state: {

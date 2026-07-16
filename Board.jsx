@@ -6,7 +6,7 @@ import MoveSelector from './MoveSelector';
 import VictoryScreen from './VictoryScreen';
 import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } from './gameLogic';
 import { usePrevious } from './usePrevious';
-import { playSound } from './audio';
+import { getEffectiveMuteState, playSound } from './audio';
 
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 
@@ -268,7 +268,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop', hideActiveBaseOnMobile = tr
   const [captureAnimationCellId, setCaptureAnimationCellId] = useState(null);
   // Generate the 97 cells (96 path squares + 1 center) exactly once
   const cells = useMemo(() => generateBoardCells(), []);
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const isMutedRef = useRef(isMuted);
 
   useEffect(() => {
@@ -409,6 +409,11 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop', hideActiveBaseOnMobile = tr
   }, [isAnimating]);
 
   const winnerInfo = useMemo(() => {
+    if (state.status === 'finished' && state.winnerPlayerId && visualPlayers[state.winnerPlayerId]) {
+      const winner = visualPlayers[state.winnerPlayerId];
+      return { id: winner.name || state.winnerPlayerId, data: winner };
+    }
+
     if (state.isQuickGame) {
       const winnerEntry = Object.entries(visualPlayers).find(([id, player]) => player.pieces.some(p => p === 999));
       if (winnerEntry) {
@@ -439,7 +444,7 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop', hideActiveBaseOnMobile = tr
 
     const winnerEntry = Object.entries(visualPlayers).find(([id, player]) => player.pieces.every(p => p === 999));
     return winnerEntry ? { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] } : null;
-  }, [visualPlayers, state.isQuickGame, state.isTeamMode]);
+  }, [visualPlayers, state.isQuickGame, state.isTeamMode, state.status, state.winnerPlayerId]);
 
   // CrazyGames SDK: Granular Gameplay Tracking
   const cgGameplayActive = useRef(false);

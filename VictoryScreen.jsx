@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { dispatchMuteState } from './audio';
 
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const cornerClass = 'pointer-events-none absolute h-8 w-8 border-gold/75';
@@ -14,9 +15,9 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
         try {
           if (window.cgInitPromise) await window.cgInitPromise;
           window.CrazyGames.SDK.ad.requestAd('midgame', {
-            adStarted: () => console.log('Ad started'),
-            adFinished: () => onNewGame(),
-            adError: (error) => { console.error('Ad error', error); onNewGame(); },
+            adStarted: () => window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true })),
+            adFinished: () => { dispatchMuteState(); onNewGame(); },
+            adError: () => { dispatchMuteState(); onNewGame(); },
           });
         } catch(e) { onNewGame(); }
       };
