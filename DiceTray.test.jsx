@@ -61,6 +61,24 @@ describe('DiceTray Component', () => {
         expect(rollBtn).not.toBeDisabled();
     });
 
+    it('keeps a long active player name within the desktop tray', () => {
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: { Player1: { name: 'SiddheshPatilLongPlayerName', color: 'ruby' } },
+                turnQueue: [],
+                hasRolledThisTurn: false,
+                rollingPhaseComplete: false
+            },
+            dispatch: mockDispatch
+        });
+
+        render(<DiceTray />);
+
+        const activeName = screen.getByText('SiddheshPatilLongPlayerName');
+        expect(activeName).toHaveClass('w-full', 'max-w-full', 'truncate');
+    });
+
     it('uses a tappable dice panel instead of a roll button on mobile', () => {
         useGame.mockReturnValue({
             state: {
@@ -79,6 +97,24 @@ describe('DiceTray Component', () => {
         const mobileRollSurface = screen.getByRole('button', { name: 'tapDiceToRoll' });
         expect(mobileRollSurface).toBeInTheDocument();
         expect(mobileRollSurface).toHaveAttribute('id', 'dice-roll-btn');
+    });
+
+    it('stacks the active player above the dice in compact landscape mode', () => {
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: { Player1: { name: 'Alice', color: 'ruby' } },
+                turnQueue: [],
+                hasRolledThisTurn: false,
+                rollingPhaseComplete: false
+            },
+            dispatch: mockDispatch
+        });
+
+        render(<DiceTray layoutMode="compact" />);
+
+        expect(screen.getByText('Alice')).toHaveClass('w-full', 'text-center');
+        expect(screen.getByRole('button', { name: 'rollDice' })).toHaveClass('w-full', 'rounded-xl');
     });
 
     it('shows AFK strike warning progress for the active online player', () => {
@@ -100,6 +136,7 @@ describe('DiceTray Component', () => {
 
         expect(screen.getByText('afkStrikesLabel')).toBeInTheDocument();
         expect(screen.getByText('2 / 6')).toBeInTheDocument();
+        expect(screen.getByLabelText('afkStrikeWarning')).toHaveAttribute('title', 'afkStrikeWarning');
     });
 
     it('keeps the dice panel programmatically enabled for bot automation on auto-controlled turns', () => {

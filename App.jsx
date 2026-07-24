@@ -775,8 +775,8 @@ function App() {
                   <div className="shrink-0" style={{ width: compactLandscapeBoardSize, height: compactLandscapeBoardSize }}>
                     <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" hideActiveBaseOnMobile={false} />
                   </div>
-                  <div className="z-20 min-w-[18rem] max-w-[360px] flex-1">
-                    <DiceTray layoutMode="desktop" />
+                  <div className="z-20 min-w-[18rem] max-w-[360px] flex-1 self-stretch">
+                    <DiceTray layoutMode="compact" />
                   </div>
                 </div>
               </div>

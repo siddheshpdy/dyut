@@ -26,7 +26,7 @@ const INSTANT_MULTIPLAYER_CONFIG = {
 };
 
 const OrnateDivider = () => (
-  <div className="flex items-center justify-center gap-3 text-gold/60">
+  <div className="flex shrink-0 items-center justify-center gap-3 text-gold/60">
     <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold/20"></span>
     <span className="h-2 w-2 rotate-45 border border-gold/70"></span>
     <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold/20"></span>
@@ -63,18 +63,18 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = fal
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 sm:gap-5 sm:p-4 lg:gap-4 lg:p-3 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
+      className={`group relative flex min-h-[clamp(4.8rem,13dvh,6.6rem)] w-full items-center gap-[clamp(0.6rem,1.25vw,0.9rem)] overflow-hidden rounded-[clamp(0.9rem,1.5vw,1.125rem)] border bg-black/45 p-[clamp(0.5rem,1.2vw,0.85rem)] text-left transition-all duration-300 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
     >
       <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
-      <div className="absolute inset-y-3 right-8 hidden w-44 rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
-      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-[4.25rem] lg:w-[4.25rem] lg:text-[2rem] ${toneStyles.icon}`}>
+      <div className="absolute inset-y-[12%] right-[8%] hidden w-[22%] rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
+      <div className={`relative z-10 flex h-[clamp(2.75rem,6vw,4rem)] w-[clamp(2.75rem,6vw,4rem)] shrink-0 items-center justify-center rounded-full border text-[clamp(1.25rem,2.8vw,2rem)] [&_svg]:h-[clamp(1.5rem,2.6vw,2rem)] [&_svg]:w-[clamp(1.5rem,2.6vw,2rem)] ${toneStyles.icon}`}>
         {icon}
       </div>
       <div className="relative z-10 min-w-0 flex-1">
-        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-[1.85rem] ${toneStyles.text}`}>{title}</div>
-        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base lg:text-[0.88rem]">{description}</p>
+        <div className={`font-display text-[clamp(1rem,2.5vw,1.55rem)] font-bold uppercase leading-[1.05] tracking-[0.08em] ${toneStyles.text}`}>{title}</div>
+        <p className="mt-[clamp(0.1rem,0.35dvh,0.25rem)] text-[clamp(0.72rem,1.35vw,0.9rem)] leading-snug text-white/70">{description}</p>
       </div>
-      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 lg:text-[2.25rem] ${toneStyles.text}`}>{'>'}</div>
+      <div className={`relative z-10 pr-[clamp(0.1rem,0.45vw,0.35rem)] font-display text-[clamp(1.5rem,3vw,2rem)] transition-transform group-hover:translate-x-1 ${toneStyles.text}`}>{'>'}</div>
     </button>
   );
 };
@@ -1159,7 +1159,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       </header>
 
-      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:justify-start ${isSetupConfig ? 'lg:overflow-hidden lg:pb-6 lg:pt-[4.5rem] xl:pb-8 xl:pt-[5rem]' : isInitialMenu ? 'lg:overflow-hidden lg:pb-10 lg:pt-20 xl:pb-12 xl:pt-24' : 'lg:overflow-y-auto'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
+      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center px-4 sm:px-6 ${isSetupConfig ? 'justify-center overflow-hidden pb-3 pt-20 sm:pb-4 lg:justify-start lg:overflow-hidden lg:pb-6 lg:pt-[4.5rem] xl:pb-8 xl:pt-[5rem]' : isInitialMenu ? 'justify-start overflow-hidden pb-6 pt-[clamp(5rem,10dvh,6rem)] sm:pb-8 lg:pb-10 lg:pt-[clamp(5rem,9dvh,6rem)] xl:pb-12' : 'justify-center overflow-hidden pb-3 pt-20 sm:pb-4 lg:justify-start lg:overflow-y-auto'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
@@ -1194,13 +1194,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       )}
       
-      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5 lg:mt-0' : isInitialMenu ? 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
+      <h1 className={`dyut-title shrink-0 font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5 lg:mt-0' : isInitialMenu ? 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
       {isLobbyStage && <OrnateDivider />}
       
-      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-2 w-full max-w-[860px] sm:mt-3 lg:max-w-[min(58vw,720px)] xl:max-w-[760px]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
+      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-[clamp(0.75rem,2dvh,1rem)] w-full shrink-0 max-w-[min(92vw,760px)]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-4 xl:p-4.5' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[clamp(1.1rem,2vw,1.5rem)] border border-gold/40 bg-black/70 p-[clamp(0.5rem,1.2vw,0.85rem)] shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)]' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
             {isInitialMenu && (
               <>
                 <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
@@ -1211,7 +1211,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             )}
             {IS_PORTAL ? (
               <>
-                <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
+                <div className="flex w-full flex-col gap-[clamp(0.35rem,1dvh,0.6rem)]">
                   <LobbyModeCard
                     tone="gold"
                     icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
@@ -1239,7 +1239,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             ) : (
               <>
                 {isInitialMenu ? (
-                  <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
+                  <div className="flex w-full flex-col gap-[clamp(0.35rem,1dvh,0.6rem)]">
                     <LobbyModeCard
                       tone="gold"
                       icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
@@ -1284,9 +1284,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             )}
 
             {(hasCachedGame || resumeOnlineGameId) && (
-              <div className={`${isInitialMenu ? 'mx-auto mt-3.5 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
+              <div className={`${isInitialMenu ? 'mx-auto mt-2 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
-                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
+                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-2 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
                     <ResumeIcon className="h-4 w-4 text-gold" aria-hidden="true" />
                     {t('resumeOffline', 'Resume Offline')}
                   </button>
@@ -1300,7 +1300,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               </div>
             )}
             {IS_PORTAL && (
-              <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
+              <p className="mt-2 text-center text-[9px] leading-relaxed text-white/45">
                 {t('portalLegalNotice', 'By playing Dyut on CrazyGames, you agree to the CrazyGames Terms & Conditions and Privacy Policy.')}
               </p>
             )}

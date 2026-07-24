@@ -91,6 +91,7 @@ const PanelPiece = ({ color, isLocked, isClickable, onClick }) => {
 
 const DiceTray = ({ layoutMode = 'desktop' }) => {
   const { state, dispatch } = useGame();
+  const isCompactLandscapeTray = layoutMode === 'compact';
   const [lastRoll, setLastRoll] = useState({ d1: null, d2: null });
   const [isRolling, setIsRolling] = useState(false);
   const [showVoidGif, setShowVoidGif] = useState(false);
@@ -137,6 +138,10 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   const activePlayerStrikeCount = state.afkStrikes?.[activePlayerId] || 0;
   const isActivePlayerBotControlled = !!state.bots?.includes(activePlayerId);
   const hasAfkStrikeWarning = state.isOnline && activePlayerStrikeCount > 0;
+  const afkStrikeProgress = Math.min(100, (activePlayerStrikeCount / AFK_BOT_TAKEOVER_STRIKES) * 100);
+  const afkWarningText = isActivePlayerBotControlled
+    ? t('afkBotTakeoverWarning', 'Bot control is now active for this player.')
+    : t('afkStrikeWarning', { count: activePlayerStrikeCount, max: AFK_BOT_TAKEOVER_STRIKES, defaultValue: '{{count}} of {{max}} strikes before bot takeover.' });
   const isGameOver = isGameOverState(state);
 
   useEffect(() => {
@@ -271,8 +276,10 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
   }, [state.hasRolledThisTurn, hasRollsInQueue, hasPlayableMoves, canRoll, isRolling, isEvaluating, showVoidGif, dispatch, autoMoveAction, isMyTurn, isBoardAnimating, isGameOver]);
 
 
-const trayShellClass = layoutMode === 'mobile'
+ const trayShellClass = layoutMode === 'mobile'
     ? 'relative z-10 flex w-full min-w-0 max-w-none flex-col items-center gap-2 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
+    : isCompactLandscapeTray
+      ? 'relative z-10 flex h-full w-full min-h-0 max-w-none flex-col items-center gap-2 overflow-hidden rounded-2xl border border-gold/50 bg-[#050403]/82 p-3 shadow-[0_0_34px_rgba(0,0,0,0.78),inset_0_0_30px_rgba(234,179,8,0.08)] transition-all duration-500'
     : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-auto lg:max-h-[min(calc(100dvh-8.75rem),660px)] lg:min-h-0 lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:max-h-[min(calc(100dvh-9rem),700px)] xl:w-[350px] xl:max-w-[350px] xl:gap-3.5 xl:p-5 xl:pt-4';
 
   return (
@@ -317,11 +324,11 @@ const trayShellClass = layoutMode === 'mobile'
             </div>
           </div>
         )}
-        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : 'flex w-full min-h-0 flex-row items-center justify-between gap-4 lg:flex-none lg:flex-col lg:justify-start lg:gap-3'}`}>
-          <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
+        <div className={`${layoutMode === 'mobile' ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(124px,148px)] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(164px,208px)]' : isCompactLandscapeTray ? 'flex w-full flex-none flex-col items-center gap-2' : 'flex w-full min-h-0 flex-row items-center justify-between gap-4 lg:flex-none lg:flex-col lg:justify-start lg:gap-3'}`}>
+          <div className={`${layoutMode === 'mobile' ? 'flex min-w-0 flex-col items-start rounded-2xl border border-gold/20 bg-black/28 px-3 py-2 shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]' : isCompactLandscapeTray ? 'flex w-full flex-col items-center' : 'flex flex-col items-start lg:w-full lg:items-center'}`}>
             <span className="mb-1 font-display text-xs uppercase tracking-[0.28em] text-white/65 lg:text-sm">{t('active')}</span>
-            <div className={`${layoutMode === 'mobile' ? 'flex flex-wrap items-center gap-2' : ''}`}>
-              <div className="font-display text-lg font-bold uppercase leading-none text-gold text-glow-gold sm:text-2xl lg:text-[2.2rem]">
+            <div className={`${layoutMode === 'mobile' ? 'flex w-full min-w-0 flex-wrap items-center gap-2' : ''}`}>
+              <div className={`min-w-0 truncate font-display text-lg font-bold uppercase leading-none text-gold text-glow-gold sm:text-2xl lg:text-[2.2rem] ${layoutMode === 'mobile' ? 'flex-1' : 'w-full max-w-full text-center'}`}>
                 {state.players[state.currentPlayer]?.name || state.currentPlayer}
               </div>
               {layoutMode === 'mobile' && isCurrentUserPlayer && (
@@ -331,20 +338,21 @@ const trayShellClass = layoutMode === 'mobile'
               )}
             </div>
             {hasAfkStrikeWarning && (
-              <div className={`mt-2 rounded-xl border px-2.5 py-1.5 shadow-[0_0_18px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(0,0,0,0.24)] ${isActivePlayerBotControlled ? 'border-ruby/70 bg-[rgba(127,29,29,0.88)] text-white' : 'border-amber-300/75 bg-[rgba(120,53,15,0.88)] text-white'} ${layoutMode === 'mobile' ? 'w-full max-w-[12.5rem]' : 'lg:w-full lg:max-w-[15rem]'}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-display text-[0.65rem] font-bold uppercase tracking-[0.2em] text-gold">
-                    {t('afkStrikesLabel', 'AFK Strikes')}
-                  </span>
-                  <span className="font-sans text-xs font-bold tabular-nums text-white">
-                    {activePlayerStrikeCount} / {AFK_BOT_TAKEOVER_STRIKES}
-                  </span>
-                </div>
-                <div className="mt-1 font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-white/95">
-                  {isActivePlayerBotControlled
-                    ? t('afkBotTakeoverWarning', 'Bot control is now active for this player.')
-                    : t('afkStrikeWarning', { count: activePlayerStrikeCount, max: AFK_BOT_TAKEOVER_STRIKES, defaultValue: '{{count}} of {{max}} strikes before bot takeover.' })}
-                </div>
+              <div
+                title={afkWarningText}
+                aria-label={afkWarningText}
+                className={`mt-2 flex items-center gap-2 rounded-xl border px-2.5 py-1.5 shadow-[0_0_18px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(0,0,0,0.24)] ${isActivePlayerBotControlled ? 'border-ruby/70 bg-[rgba(127,29,29,0.88)] text-white' : 'border-amber-300/75 bg-[rgba(120,53,15,0.88)] text-white'} ${layoutMode === 'mobile' ? 'w-full max-w-[12.5rem]' : isCompactLandscapeTray ? 'w-full' : 'lg:w-full lg:max-w-[15rem]'}`}
+              >
+                <span className={`h-2 w-2 shrink-0 rounded-full ${isActivePlayerBotControlled ? 'bg-ruby animate-pulse' : 'bg-amber-300'}`} aria-hidden="true"></span>
+                <span className="shrink-0 font-display text-[0.62rem] font-bold uppercase tracking-[0.16em] text-gold">
+                  {t('afkStrikesLabel', 'AFK Strikes')}
+                </span>
+                <span className="shrink-0 font-sans text-xs font-bold tabular-nums text-white">
+                  {activePlayerStrikeCount} / {AFK_BOT_TAKEOVER_STRIKES}
+                </span>
+                <span className="h-1.5 min-w-[2.5rem] flex-1 overflow-hidden rounded-full bg-black/40" aria-hidden="true">
+                  <span className={`block h-full rounded-full ${isActivePlayerBotControlled ? 'bg-ruby' : 'bg-amber-300'}`} style={{ width: `${afkStrikeProgress}%` }}></span>
+                </span>
               </div>
             )}
             <div className={`${layoutMode === 'mobile' ? 'mt-2 grid w-full max-w-[7rem] grid-cols-4 gap-1 rounded-lg border border-gold/25 bg-black/34 p-1.5' : 'mt-3 hidden w-full items-center justify-center gap-3 text-gold/85 lg:flex'}`}>
@@ -414,23 +422,23 @@ const trayShellClass = layoutMode === 'mobile'
               }}
               disabled={!canAutoRoll}
               aria-label={canTriggerRoll ? t('rollDice') : t('currentDice', 'Current Dice')}
-              className={`relative flex flex-col items-center transition-all lg:w-full lg:shrink-0 lg:rounded-2xl lg:border lg:px-4 lg:py-3 ${canTriggerRoll ? 'cursor-pointer border-gold/80 bg-gold/10 shadow-[0_0_38px_rgba(251,191,36,0.55),inset_0_0_30px_rgba(234,179,8,0.16)] ring-2 ring-gold/30 hover:border-gold hover:bg-gold/20 active:scale-[0.99]' : 'cursor-default border-white/15 bg-black/30 grayscale-[0.18] lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
+              className={`relative flex flex-col items-center transition-all ${isCompactLandscapeTray ? 'w-full shrink-0 rounded-xl border px-3 py-2' : 'lg:w-full lg:shrink-0 lg:rounded-2xl lg:border lg:px-4 lg:py-3'} ${canTriggerRoll ? 'cursor-pointer border-gold/80 bg-gold/10 shadow-[0_0_38px_rgba(251,191,36,0.55),inset_0_0_30px_rgba(234,179,8,0.16)] ring-2 ring-gold/30 hover:border-gold hover:bg-gold/20 active:scale-[0.99]' : 'cursor-default border-white/15 bg-black/30 grayscale-[0.18] lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
             >
               <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} isActive={canTriggerRoll} />
-              <span className={`mb-2 hidden font-display text-sm font-bold uppercase tracking-widest lg:block lg:text-[0.95rem] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
+              <span className={`mb-2 font-display text-sm font-bold uppercase tracking-widest ${isCompactLandscapeTray ? 'block text-[0.8rem]' : 'hidden lg:block lg:text-[0.95rem]'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
                 <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} isHighlighted={canTriggerRoll} />
                 <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} isHighlighted={canTriggerRoll} />
               </div>
-              <span className={`mt-2 hidden text-center font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] lg:block ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
+              <span className={`mt-2 text-center font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] ${isCompactLandscapeTray ? 'block text-[0.62rem]' : 'hidden lg:block'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
                 {canTriggerRoll ? t('rollDice') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
               </span>
             </button>
           )}
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full min-w-0' : 'w-full min-h-0 lg:h-[8.75rem] lg:flex-none xl:h-[9.25rem]'}`}>
-          <div className={`relative flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:h-full lg:min-h-0 lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-2 ${layoutMode === 'mobile' ? 'min-h-[4.6rem] w-full rounded-2xl bg-black/34 px-2.5 py-2 items-stretch justify-start' : ''}`}>
+        <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full min-w-0' : isCompactLandscapeTray ? 'w-full min-h-0 flex-1' : 'w-full min-h-0 lg:h-[8.75rem] lg:flex-none xl:h-[9.25rem]'}`}>
+          <div className={`relative flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:h-full lg:min-h-0 lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-2 ${layoutMode === 'mobile' ? 'min-h-[4.6rem] w-full rounded-2xl bg-black/34 px-2.5 py-2 items-stretch justify-start' : isCompactLandscapeTray ? 'h-full w-full min-h-0 bg-black/38 px-3 py-2' : ''}`}>
             {layoutMode === 'mobile' ? (
               <div className="mb-1 flex w-full items-center justify-between gap-2">
                 <span className="font-display text-[10px] uppercase tracking-[0.22em] text-gold/80">{t('queue')}</span>
@@ -438,6 +446,8 @@ const trayShellClass = layoutMode === 'mobile'
                   {state.turnQueue.length}
                 </span>
               </div>
+            ) : isCompactLandscapeTray ? (
+              <span className="mb-1 font-display text-[0.65rem] uppercase tracking-[0.18em] text-gold/80">{t('queue')}</span>
             ) : (
               <span className="mb-1 hidden text-[8px] uppercase tracking-widest text-white/50 sm:block sm:text-[10px] lg:mb-2 lg:block lg:font-display lg:text-xs lg:text-gold/80">{t('queue')}</span>
             )}
