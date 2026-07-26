@@ -19,7 +19,7 @@ const ALL_COLORS = [
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const INSTANT_MULTIPLAYER_CONFIG = {
-  matchType: '1v1',
+  matchType: 'ffa',
   isQuickGame: false,
   isVoidRuleEnabled: true,
   botDifficulty: 'easy'
@@ -406,7 +406,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, autoStartPlayWithFriendsConfig = null, onPlayWithFriendsAutoStartConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -795,8 +795,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setSetupStep('config');
   });
 
+  const openPlayWithFriends = () => promptForSavedResume('online', () => {
+    handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
+  });
+
   const executeStart = (isOnline = false, targetGameId = null, overrideData = null) => {
     const currentSeats = overrideData?.seats || seats;
+    const currentMatchType = overrideData?.matchType || matchType;
     const currentActiveSeats = Object.entries(currentSeats).filter(([_, s]) => s.type !== 'closed');
     const currentActiveColors = currentActiveSeats.map(([_, s]) => s.color);
     const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
@@ -829,6 +834,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, playerUids,
       isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
+      matchType: currentMatchType,
       hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null,
       isPublic: overrideData?.isPublic ?? isLobbyPublic
     });
@@ -924,6 +930,22 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     onInstantMultiplayerConsumed?.();
     handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
   }, [autoStartInstantMultiplayer, activeLobbyId, setupMode, user, isHosting, isSearching, localPlayerName, onInstantMultiplayerConsumed]);
+
+  useEffect(() => {
+    if (
+      !autoStartPlayWithFriendsConfig ||
+      activeLobbyId ||
+      setupMode ||
+      !user ||
+      isHosting ||
+      isSearching
+    ) {
+      return;
+    }
+
+    onPlayWithFriendsAutoStartConsumed?.();
+    handleHostOnlineClick(false, autoStartPlayWithFriendsConfig);
+  }, [autoStartPlayWithFriendsConfig, activeLobbyId, setupMode, user, isHosting, isSearching, localPlayerName, onPlayWithFriendsAutoStartConsumed]);
 
   const handleFindMatch = async (overrideConfig = null) => {
     setIsSearching(true);
@@ -1232,9 +1254,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                   <LobbyModeCard
                     tone="sapphire"
                     icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
-                    title={t('customGame', 'CUSTOM GAME')}
-                    description={t('customGameSubtitle', 'Fine-tune seats, rules, and difficulty before the match begins.')}
-                    onClick={openLocalSetup}
+                    title={t('playWithFriends', 'PLAY WITH FRIENDS')}
+                    description={t('playWithFriendsSubtitle', 'Start an invite-only online game for your friends.')}
+                    onClick={openPlayWithFriends}
                   />
                 </div>
               </>
@@ -1259,8 +1281,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                     <LobbyModeCard
                       tone="sapphire"
                       icon={<PrivateModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
-                      title={t('privateMatch', 'PRIVATE MATCH')}
-                      description={t('privateMatchSubtitle', 'Create or join a private room.')}
+                      title={t('playWithFriends', 'PLAY WITH FRIENDS')}
+                      description={t('playWithFriendsSubtitle', 'Start an invite-only online game for your friends.')}
                       onClick={openPrivateSetup}
                     />
                   </div>
@@ -1276,9 +1298,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                       <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
                     </button>
 
-                    <button onClick={openPrivateSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('hostPrivateMatchTitle', 'Host Private Match')}>
+                    <button onClick={openPrivateSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('playWithFriends', 'Play with Friends')}>
                       <PrivateModeIcon className="h-6 w-6 text-sky-400" aria-hidden="true" />
-                      <span className="text-sm leading-none uppercase tracking-widest">{t('privateMatch', 'PRIVATE MATCH')}</span>
+                      <span className="text-sm leading-none uppercase tracking-widest">{t('playWithFriends', 'PLAY WITH FRIENDS')}</span>
                     </button>
                   </>
                 )}
@@ -1341,7 +1363,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                 {t('back', 'BACK')}
               </button>
               <h2 className="text-center font-display text-2xl font-bold uppercase tracking-widest text-gold text-glow-gold sm:text-3xl lg:text-[1.35rem]">
-                {setupMode === 'public' ? t('publicMatch', 'PUBLIC MATCH') : setupMode === 'private' ? t('privateMatch', 'PRIVATE MATCH') : t('localPlay', 'LOCAL PLAY')}
+                {setupMode === 'public' ? t('publicMatch', 'PUBLIC MATCH') : setupMode === 'private' ? t('playWithFriends', 'PLAY WITH FRIENDS') : t('localPlay', 'LOCAL PLAY')}
               </h2>
               <div className="hidden w-[92px] sm:block"></div>
             </div>

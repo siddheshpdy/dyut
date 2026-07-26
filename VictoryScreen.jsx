@@ -2,14 +2,16 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { dispatchMuteState } from './audio';
+import { DYUT_ICONS } from './dyut-icons';
 
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const cornerClass = 'pointer-events-none absolute h-8 w-8 border-gold/75';
 
-const VictoryScreen = ({ winnerId, onNewGame }) => {
+const VictoryScreen = ({ winnerId, onNewGame, onHome }) => {
   const { t } = useTranslation();
+  const HomeIcon = DYUT_ICONS.home;
 
-  const handlePlayAgain = () => {
+  const handleNewGame = () => {
     if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
       const showAd = async () => {
         try {
@@ -32,6 +34,17 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(234,179,8,0.12),transparent_46%)]"></div>
 
       <section className="victory-card relative flex w-full max-w-4xl flex-col items-center rounded-[28px] border border-gold/35 bg-[#070503]/88 px-5 py-7 shadow-[0_0_70px_rgba(0,0,0,0.84),inset_0_0_56px_rgba(234,179,8,0.08)] sm:px-9 sm:py-9 lg:py-10">
+        {onHome && (
+          <button
+            type="button"
+            onClick={onHome}
+            aria-label={t('home', 'Home')}
+            title={t('home', 'Home')}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/70 transition-colors hover:border-gold/60 hover:bg-gold/10 hover:text-gold sm:right-6 sm:top-6"
+          >
+            <HomeIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <span className={`${cornerClass} -left-1 -top-1 rounded-tl-[28px] border-l border-t`}></span>
         <span className={`${cornerClass} -right-1 -top-1 rounded-tr-[28px] border-r border-t`}></span>
         <span className={`${cornerClass} -bottom-1 -left-1 rounded-bl-[28px] border-b border-l`}></span>
@@ -64,10 +77,10 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
         </div>
 
         <button
-          onClick={handlePlayAgain}
+          onClick={handleNewGame}
           className="victory-play-again mt-6 w-full max-w-xs rounded-2xl border border-gold/55 bg-gold/12 px-8 py-3 font-display text-base font-bold uppercase tracking-[0.18em] text-gold shadow-[0_0_24px_rgba(251,191,36,0.26),inset_0_0_22px_rgba(234,179,8,0.08)] transition-all hover:scale-[1.03] hover:bg-gold/20 sm:mt-8 sm:max-w-sm sm:px-14 sm:py-4 sm:text-2xl"
         >
-          {t('playAgain', 'Play Again')}
+          {t('newGame', 'New Game')}
         </button>
       </section>
     </div>

@@ -360,6 +360,7 @@ function App() {
   const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const [portalAutoStartPending, setPortalAutoStartPending] = useState(false);
   const [portalInstantMultiplayerPending, setPortalInstantMultiplayerPending] = useState(false);
+  const [pendingPlayWithFriendsConfig, setPendingPlayWithFriendsConfig] = useState(null);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const mobileHeaderReservedSpace = isShortMobileHeight ? MOBILE_HEADER_RESERVED_SPACE_SHORT : MOBILE_HEADER_RESERVED_SPACE;
   const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
@@ -656,6 +657,42 @@ function App() {
     handleGameSetupComplete(config);
   };
 
+  const handleStartSameGame = () => {
+    if (!gameConfig) {
+      handleWipeAndGoToMenu();
+      return;
+    }
+
+    if (gameConfig.isOnline) {
+      const rematchMatchType = gameConfig.matchType
+        || (gameConfig.isTeamMode ? '2v2' : gameConfig.playerCount === 4 ? 'ffa' : '1v1');
+
+      setPendingPlayWithFriendsConfig({
+        matchType: rematchMatchType,
+        isQuickGame: Boolean(gameConfig.isQuickGame),
+        isVoidRuleEnabled: gameConfig.isVoidRuleEnabled !== false,
+        botDifficulty: gameConfig.botDifficulty || 'easy'
+      });
+      localStorage.removeItem(ONLINE_GAME_ID_KEY);
+      setDeviceOnlineGameId(null);
+      setJoinGameId(null);
+      window.history.replaceState({}, '', window.location.pathname);
+      setGameConfig(null);
+      setGameSessionKey(prev => prev + 1);
+      setGameInfoView(null);
+      setShowFirstGameHelper(false);
+      setView('menu');
+      return;
+    }
+
+    clearOfflineResumeCache();
+    setGameConfig({ ...gameConfig, isOnline: false, gameId: null, status: 'playing' });
+    setGameSessionKey(prev => prev + 1);
+    setGameInfoView(null);
+    setShowFirstGameHelper(shouldShowFirstGameHelp());
+    setView('game');
+  };
+
   const handleResumeGame = () => {
     const savedCount = localStorage.getItem(PLAYER_COUNT_KEY);
     // We don't need to load the full config, just enough for the provider to work.
@@ -693,6 +730,7 @@ function App() {
   const handleGameSetupComplete = (config) => {
     setPortalAutoStartPending(false);
     setPortalInstantMultiplayerPending(false);
+    setPendingPlayWithFriendsConfig(null);
     if (!config.isOnline) {
       localStorage.removeItem(GAME_STATE_KEY);
       clearCrazyGamesOfflineResume().catch(console.error);
@@ -731,6 +769,7 @@ function App() {
       clearOfflineResumeCache();
     }
     setJoinGameId(null);
+    setPendingPlayWithFriendsConfig(null);
     setGameConfig(null);
     setGameInfoView(null);
     setShowFirstGameHelper(false);
@@ -744,6 +783,7 @@ function App() {
   const handleReturnToMenu = () => {
     window.history.pushState({}, '', window.location.pathname);
     setJoinGameId(null);
+    setPendingPlayWithFriendsConfig(null);
     setGameConfig(null);
     setGameInfoView(null);
     setShowFirstGameHelper(false);
@@ -756,7 +796,7 @@ function App() {
 
   const renderView = () => {
     if (qaPreviewScreen === 'victory') {
-      return <VictoryScreen winnerId="QA Champion" onNewGame={() => setView('menu')} />;
+      return <VictoryScreen winnerId="QA Champion" onNewGame={() => setView('menu')} onHome={() => setView('menu')} />;
     }
 
     switch (view) {
@@ -805,14 +845,14 @@ function App() {
             />
             {isDesktop ? (
               <div className="relative z-10 flex h-[100dvh] w-full flex-row items-start justify-center gap-8 overflow-hidden px-8 pb-4 pt-[7.4rem] xl:gap-10 xl:px-10 xl:pt-[7.75rem]">
-                <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="desktop" />
+                <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="desktop" />
                 <DiceTray layoutMode="desktop" />
               </div>
             ) : shouldUseCompactLandscapeLayout ? (
               <div className={`relative z-10 flex h-[100dvh] w-full overflow-hidden px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
                 <div className="flex min-h-0 w-full items-center justify-center gap-3 sm:gap-4">
                   <div className="shrink-0" style={{ width: compactLandscapeBoardSize, height: compactLandscapeBoardSize }}>
-                    <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" hideActiveBaseOnMobile={false} />
+                    <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="mobile" hideActiveBaseOnMobile={false} />
                   </div>
                   <div className="z-20 min-w-[18rem] max-w-[360px] flex-1 self-stretch">
                     <DiceTray layoutMode="compact" />
@@ -823,7 +863,7 @@ function App() {
               <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
                 <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:items-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
                   <div style={{ width: mobileBoardSize, height: mobileBoardSize }}>
-                    <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
+                    <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="mobile" />
                   </div>
                 </div>
                 <div className="z-20 px-0 pt-1.5">
@@ -853,6 +893,8 @@ function App() {
           onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
           autoStartInstantMultiplayer={IS_PORTAL && !qaPreviewScreen && portalInstantMultiplayerPending}
           onInstantMultiplayerConsumed={() => setPortalInstantMultiplayerPending(false)}
+          autoStartPlayWithFriendsConfig={pendingPlayWithFriendsConfig}
+          onPlayWithFriendsAutoStartConsumed={() => setPendingPlayWithFriendsConfig(null)}
           onReconnectOnline={handleReconnectOnline}
           qaShowOfflineResume={qaPreviewScreen === 'resume'}
         />;

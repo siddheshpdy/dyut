@@ -19,7 +19,8 @@ The repository is already beyond prototype stage. It currently includes:
 - Tutorial, rules, history, and about screens
 - First-time players see a compact in-game helper for rolling, spawning, and moving without opening the full tutorial during gameplay
 - English, Hindi, and Marathi localization
-- CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match, instant-multiplayer launches that create a private joinable online lobby, standard local play opening the Human/Bot seat-selection lobby, SDK mute compliance, CrazyGames username display in portal lobbies, JSON-serialized portal stats, and Data-module-backed offline resume mirroring
+- CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match, instant-multiplayer launches that create a private four-player lobby with three invite slots, standard local play opening the Human/Bot seat-selection lobby, SDK mute compliance, CrazyGames username display in portal lobbies, JSON-serialized portal stats, and Data-module-backed offline resume mirroring
+- Victory actions now offer a same-configuration New Game and a direct home shortcut; both CrazyGames and standalone menus label the invite-only private flow as Play with Friends
 
 Resume behavior is intentionally split by mode:
 

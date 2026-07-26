@@ -61,6 +61,27 @@ describe('Board Component', () => {
         expect(screen.getByText('T2')).toBeInTheDocument();
     });
 
+    it('renders long player names above the base with ellipsis styling', () => {
+        const longPlayerName = 'A Very Long CrazyGames Player Name';
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: {
+                    Player1: { name: longPlayerName, color: 'ruby', pieces: [-1, -1, -1, -1], hasKilled: false, team: 0 }
+                },
+                turnQueue: [],
+                isTeamMode: false
+            },
+            dispatch: vi.fn()
+        });
+
+        render(<Board onGoToMenu={vi.fn()} layoutMode="mobile" hideActiveBaseOnMobile={false} />);
+
+        const nameLabel = screen.getByTitle(longPlayerName);
+        expect(nameLabel).toHaveClass('min-w-0', 'flex-1', 'truncate');
+        expect(nameLabel.parentElement.nextElementSibling).toHaveAttribute('data-player-base-card', 'Player1');
+    });
+
     it('shows the remaining human as winner when an online match ends by takeover', () => {
         useGame.mockReturnValue({
             state: {

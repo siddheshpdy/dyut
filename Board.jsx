@@ -196,12 +196,12 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
   }[player.color];
 
   const baseWrapperClass = layoutMode === 'mobile'
-    ? 'relative flex flex-col items-center justify-center p-0'
-    : 'relative flex flex-col items-center justify-center p-0 sm:p-2 lg:p-0.5';
+    ? 'relative flex min-h-0 flex-col items-center justify-center p-0'
+    : 'relative flex min-h-0 flex-col items-center justify-center p-0 sm:p-2 lg:p-0.5';
 
   const baseCardClass = layoutMode === 'mobile'
-    ? `relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-lg border px-1.5 py-1.5 transition-all duration-500 ${isActive ? 'border-gold/85 bg-black/60 shadow-[0_0_20px_rgba(234,179,8,0.32),inset_0_0_18px_rgba(234,179,8,0.08)]' : 'border-gold/24 bg-black/46 shadow-[inset_0_0_16px_rgba(0,0,0,0.68)]'}`
-    : `relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:justify-start lg:px-3 lg:pb-2.5 lg:pt-8 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`;
+    ? `relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-hidden rounded-lg border px-1.5 py-1.5 transition-all duration-500 ${isActive ? 'border-gold/85 bg-black/60 shadow-[0_0_20px_rgba(234,179,8,0.32),inset_0_0_18px_rgba(234,179,8,0.08)]' : 'border-gold/24 bg-black/46 shadow-[inset_0_0_16px_rgba(0,0,0,0.68)]'}`
+    : `relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:justify-start lg:px-3 lg:pb-2.5 lg:pt-5 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`;
 
   const pieceGridClass = layoutMode === 'mobile'
     ? `grid w-full max-w-[52px] grid-cols-4 gap-0.5 rounded-md p-0.5 transition-all duration-500 ${isActive ? 'border border-gold/72 bg-black/64 shadow-[0_0_11px_rgba(234,179,8,0.22),inset_0_2px_8px_rgba(0,0,0,0.64)]' : 'border border-gold/24 bg-black/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.64)]'}`
@@ -219,21 +219,25 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
           </svg>
         </div>
       )}
-      <div className={baseCardClass}>
+      <div className="mb-0.5 flex w-full min-w-0 shrink-0 items-center justify-center gap-1 px-0.5 sm:mb-1 sm:gap-2 sm:px-1">
+        <div className={`h-2 w-2 shrink-0 rounded-full border border-white/40 jewel-shadow sm:h-4 sm:w-4 ${baseColorClass}`}></div>
+        <span
+          title={player.name || playerId}
+          className={`min-w-0 flex-1 truncate text-center font-display text-[8px] font-bold leading-none tracking-[0.1em] transition-all duration-300 sm:text-xs sm:tracking-widest md:text-sm ${layoutMode === 'mobile' ? 'lg:text-sm' : 'lg:text-base'} ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}
+        >
+          {player.name || playerId}
+        </span>
+        {state.isTeamMode && (
+          <span className={`shrink-0 rounded border px-1 py-0.5 font-sans text-[6px] font-bold uppercase tracking-widest sm:px-1.5 sm:text-[8px] ${player.team === 1 ? 'border-indigo-500/30 bg-indigo-500/20 text-indigo-200' : 'border-rose-500/30 bg-rose-500/20 text-rose-200'}`} title={`Team ${player.team}`}>
+            T{player.team}
+          </span>
+        )}
+      </div>
+      <div className={baseCardClass} data-player-base-card={playerId}>
       <span className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-gold/45 to-transparent"></span>
       <span className="pointer-events-none absolute inset-x-8 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/25 to-transparent"></span>
-      <div className="mb-1 flex min-h-[2.4rem] flex-col items-center justify-start sm:mb-2 lg:min-h-[2.5rem]">
-        <div className="flex items-center gap-1 sm:gap-2">
-          {/* Avatar/Color Indicator */}
-          <div className={`h-2 w-2 rounded-full border border-white/40 jewel-shadow sm:h-4 sm:w-4 ${baseColorClass}`}></div>
-          <span className={`max-w-[40px] truncate font-display text-[8px] font-bold leading-none tracking-[0.1em] transition-all duration-300 sm:max-w-none sm:text-xs sm:tracking-widest md:text-sm ${layoutMode === 'mobile' ? 'lg:text-sm' : 'lg:text-base'} ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}>{player.name || playerId}</span>
-          {state.isTeamMode && (
-            <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[6px] sm:text-[8px] font-sans font-bold uppercase tracking-widest rounded border ${player.team === 1 ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30' : 'bg-rose-500/20 text-rose-200 border-rose-500/30'}`} title={`Team ${player.team}`}>
-              T{player.team}
-            </span>
-          )}
-        </div>
-        <div className="mt-0.5 flex gap-1 sm:mt-2 sm:gap-2 lg:mt-0.5" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
+      <div className="mb-1 flex min-h-[1rem] items-center justify-center sm:mb-2 sm:min-h-[1.5rem] lg:mb-1">
+        <div className="flex gap-1 sm:gap-2" title={player.hasKilled ? "Blood Debt Paid" : "No Kills"}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`h-3 w-3 sm:h-5 sm:w-5 transition-all duration-500 ${player.hasKilled ? 'ruby-kill-icon drop-shadow-[0_0_8px_rgba(225,29,72,0.8)] scale-110' : 'text-white/20'}`}>
             <path d="M14.5 17.5L3 6V3h3l11.5 11.5"></path>
             <path d="M13 19l6-6"></path>
@@ -260,8 +264,8 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
 };
 
 // The main Board container
-const Board = ({ onGoToMenu, layoutMode = 'desktop', hideActiveBaseOnMobile = true }) => {
-  const { state, dispatch } = useGame();
+const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOnMobile = true }) => {
+  const { state, dispatch, leaveGame } = useGame();
   const [visualPlayers, setVisualPlayers] = useState(state.players);
   const prevVisualPlayers = usePrevious(visualPlayers);
   const [selectedPiece, setSelectedPiece] = useState(null); // e.g., { playerId, pieceIndex, rollIndex }
@@ -765,7 +769,19 @@ const Board = ({ onGoToMenu, layoutMode = 'desktop', hideActiveBaseOnMobile = tr
           gridTemplateRows: 'repeat(19, minmax(0, 1fr))'
         }}
       >
-        {winnerInfo && <VictoryScreen winnerId={winnerInfo.id} onNewGame={onGoToMenu} />}
+        {winnerInfo && (
+          <VictoryScreen
+            winnerId={winnerInfo.id}
+            onNewGame={() => {
+              if (state.isOnline) leaveGame();
+              onNewGame?.();
+            }}
+            onHome={() => {
+              if (state.isOnline) leaveGame();
+              onGoToMenu?.();
+            }}
+          />
+        )}
 
         {cells.map(cell => (
           <Square key={cell.id} cell={cell} isCapturing={captureAnimationCellId === cell.id} finishedPieces={finishedPieces} />
