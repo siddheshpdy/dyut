@@ -4,10 +4,11 @@ import { PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { ref, onValue, set, update, remove } from 'firebase/database';
 import { clearAccountResumeGame, rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
+import { clearCrazyGamesOfflineResume, saveCrazyGamesOfflineResume } from './crazyGamesStorage';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, initialStateOverride = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
@@ -24,7 +25,7 @@ const createInitialState = (gameConfig) => {
     };
   });
 
-  return {
+  const initialState = {
     currentPlayer: seatsToUse[0],
     turnQueue: [],
     turnHistory: [],
@@ -48,7 +49,10 @@ const createInitialState = (gameConfig) => {
     lastActionTime: Date.now(),
     afkStrikes: {},
     isAfkTurn: false,
+    scriptedRolls: [],
+    scriptedRollIndex: 0,
   };
+  return initialStateOverride ? { ...initialState, ...initialStateOverride } : initialState;
 };
 
 // Action Types for the Reducer
@@ -60,6 +64,7 @@ export const ACTION_TYPES = {
   MOVE_WITH_FULL_ROLL: 'MOVE_WITH_FULL_ROLL',
   MOVE_AND_SPLIT_ROLL: 'MOVE_AND_SPLIT_ROLL',
   RESET_GAME: 'RESET_GAME',
+  ADVANCE_SCRIPTED_ROLL: 'ADVANCE_SCRIPTED_ROLL',
   EXECUTE_PAIR_ATTACK: 'EXECUTE_PAIR_ATTACK',
   SYNC_FROM_CLOUD: 'SYNC_FROM_CLOUD',
   TRIGGER_AFK_INTERVENTION: 'TRIGGER_AFK_INTERVENTION',
@@ -79,10 +84,16 @@ const TERMINAL_GAMEPLAY_ACTIONS = new Set([
 ]);
 
 const FINISHED_STATE = 999; // A value to signify a piece has finished
-export const TURN_TIMEOUT_MS = 30000;
-export const OFFLINE_TURN_TIMEOUT_MS = 60000;
-export const TURN_TIMER_WARNING_MS = 10000;
-export const AFK_BOT_TAKEOVER_STRIKES = 6;
+export function readPositiveIntegerEnv(env, key, fallbackValue) {
+  const rawValue = env?.[key];
+  const parsedValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : fallbackValue;
+}
+
+export const TURN_TIMEOUT_MS = readPositiveIntegerEnv(import.meta.env, 'VITE_ONLINE_TURN_TIMEOUT_MS', 30000);
+export const OFFLINE_TURN_TIMEOUT_MS = readPositiveIntegerEnv(import.meta.env, 'VITE_LOCAL_TURN_TIMEOUT_MS', 60000);
+export const TURN_TIMER_WARNING_MS = readPositiveIntegerEnv(import.meta.env, 'VITE_TURN_TIMER_WARNING_MS', 10000);
+export const AFK_BOT_TAKEOVER_STRIKES = readPositiveIntegerEnv(import.meta.env, 'VITE_AFK_BOT_TAKEOVER_STRIKES', 6);
 
 export const getActiveTurnPlayerId = (currentState) => getProxyPlayerId(currentState.currentPlayer, currentState);
 export const getTurnStartedAt = (currentState) => currentState?.turnStartedAt || currentState?.lastActionTime || null;
@@ -114,6 +125,40 @@ export const canLocalClientAct = (currentState) => {
   return isActiveTurnAutoControlledForLocalClient(currentState) && currentState.localUid === currentState.hostUid;
 };
 
+export const shouldLocalClientAutoControlTurn = (currentState) => {
+  if (!currentState?.players) return false;
+  const activeId = getActiveTurnPlayerId(currentState);
+  const needsAutoControl = currentState.isAfkTurn || currentState.bots?.includes(activeId);
+  if (!needsAutoControl) return false;
+  if (!currentState.isOnline) return true;
+  return !!currentState.localUid && currentState.localUid === currentState.hostUid;
+};
+
+export const shouldLocalClientAutoRoll = (currentState) => (
+  shouldLocalClientAutoControlTurn(currentState) &&
+  (!currentState.hasRolledThisTurn || !currentState.rollingPhaseComplete)
+);
+
+const getMissingOnlineGameMetadata = (remoteGame, localState) => {
+  const metadata = {
+    hostUid: localState.hostUid,
+    playerUids: localState.playerUids,
+    bots: localState.bots,
+    botDifficulty: localState.botDifficulty,
+    isVoidRuleEnabled: localState.isVoidRuleEnabled,
+    isQuickGame: localState.isQuickGame,
+    isTeamMode: localState.isTeamMode,
+  };
+
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key, value]) => (
+      value !== undefined &&
+      value !== null &&
+      !Object.prototype.hasOwnProperty.call(remoteGame, key)
+    ))
+  );
+};
+
 function releaseAutoControlForPlayer(state, playerId) {
   if (!playerId) return state;
 
@@ -125,9 +170,8 @@ function releaseAutoControlForPlayer(state, playerId) {
   };
 }
 
-export function isGameOverState(currentState) {
+function hasGameplayWinnerState(currentState) {
   if (!currentState?.players) return false;
-  if (currentState.status === 'finished') return true;
 
   if (currentState.isQuickGame) {
     return Object.values(currentState.players).some(player => player.pieces.some(pos => pos === 999));
@@ -143,6 +187,12 @@ export function isGameOverState(currentState) {
   }
 
   return Object.values(currentState.players).some(player => player.pieces.every(pos => pos === 999));
+}
+
+export function isGameOverState(currentState) {
+  if (!currentState?.players) return false;
+  if (currentState.status === 'finished') return true;
+  return hasGameplayWinnerState(currentState);
 }
 
 export function applyReducerPostProcessing(nextState, action) {
@@ -168,6 +218,21 @@ export function applyReducerPostProcessing(nextState, action) {
   }
 
   return processedState;
+}
+
+export function buildPublicPresenceLossUpdates(currentState, activeHumanIds) {
+  if (!currentState?.isOnline) return {};
+  if (activeHumanIds.length < 2) {
+    return {
+      status: 'finished',
+      ...(activeHumanIds[0] ? { winnerPlayerId: activeHumanIds[0] } : {}),
+    };
+  }
+  return {};
+}
+
+function getActiveHumanPlayerIds(currentState, bots = currentState?.bots || []) {
+  return Object.keys(currentState?.playerUids || {}).filter(key => currentState.playerUids[key] && !bots.includes(key));
 }
 
 function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawning = false) {
@@ -269,6 +334,8 @@ export function gameReducer(state, action) {
         rollingPhaseComplete: !isDouble,
       };
     }
+    case ACTION_TYPES.ADVANCE_SCRIPTED_ROLL:
+      return { ...state, scriptedRollIndex: state.scriptedRollIndex + 1 };
     case ACTION_TYPES.SPAWN_PIECE:
     {
       const { playerId, pieceIndex, rollIndex } = action.payload;
@@ -452,7 +519,8 @@ export function gameReducer(state, action) {
       
       if (strikes >= AFK_BOT_TAKEOVER_STRIKES) {
         const newBots = [...new Set([...(state.bots || []), playerId])];
-        return { ...state, bots: newBots, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
+        const activeHumans = getActiveHumanPlayerIds(state, newBots);
+        return { ...state, bots: newBots, afkStrikes: { ...state.afkStrikes, [playerId]: strikes }, ...buildPublicPresenceLossUpdates(state, activeHumans) };
       } else {
         return { ...state, isAfkTurn: true, afkStrikes: { ...state.afkStrikes, [playerId]: strikes } };
       }
@@ -468,6 +536,8 @@ export const GameContext = createContext();
 
 const LOCAL_STORAGE_KEY = 'dyut_game_state';
 const LOCAL_PLAYER_COUNT_KEY = 'dyut_player_count';
+const BOT_ROLL_FALLBACK_DELAY_MS = 3000;
+const PASA_DICE_FACES = [1, 3, 4, 6];
 
 export const initGameState = (initialState) => {
   if (initialState.isOnline) {
@@ -535,7 +605,7 @@ const dispatch = useCallback((action) => {
         const newBots = [...new Set([...(currentState.bots || []), myPlayerId])];
         let newHostUid = currentState.hostUid;
         
-        const activeHumans = Object.keys(currentState.playerUids || {}).filter(key => currentState.playerUids[key] && !newBots.includes(key));
+        const activeHumans = getActiveHumanPlayerIds(currentState, newBots);
         
         // If the last human player leaves, completely wipe the game and lobby from the database to save space
         if (activeHumans.length === 0) {
@@ -559,20 +629,7 @@ const dispatch = useCallback((action) => {
           hostUid: newHostUid
         };
 
-        if (currentState.isPublic) {
-          if (activeHumans.length === 1) {
-            const remainingHumanId = activeHumans[0];
-            const newPlayers = { ...currentState.players };
-            newPlayers[remainingHumanId] = {
-              ...newPlayers[remainingHumanId],
-              pieces: [999, 999, 999, 999]
-            };
-            updates.players = newPlayers;
-            updates.status = 'finished';
-          } else if (activeHumans.length === 0) {
-            updates.status = 'finished';
-          }
-        }
+        Object.assign(updates, buildPublicPresenceLossUpdates(currentState, activeHumans));
 
         update(ref(rtdb, 'games/' + currentState.gameId), updates).catch(console.error);
         if (updates.status === 'finished') {
@@ -587,6 +644,35 @@ const dispatch = useCallback((action) => {
     window.addEventListener('beforeunload', handleUnload);
     return () => window.removeEventListener('beforeunload', handleUnload);
   }, []);
+
+  // The dice tray normally animates and dispatches bot rolls. Keep an authoritative host-side
+  // fallback so a bot-filled online seat never waits for the human-turn timeout if that UI timer
+  // is interrupted during a portal or cloud-state transition.
+  useEffect(() => {
+    if (!state.isOnline || !shouldLocalClientAutoRoll(state) || isGameOverState(state)) return undefined;
+
+    const scheduledPlayerId = state.currentPlayer;
+    const timer = setTimeout(() => {
+      const currentState = latestStateRef.current;
+      if (
+        isGameOverState(currentState) ||
+        currentState.currentPlayer !== scheduledPlayerId ||
+        !shouldLocalClientAutoRoll(currentState)
+      ) {
+        return;
+      }
+
+      const d1 = PASA_DICE_FACES[Math.floor(Math.random() * PASA_DICE_FACES.length)];
+      const d2 = PASA_DICE_FACES[Math.floor(Math.random() * PASA_DICE_FACES.length)];
+      dispatch({
+        type: ACTION_TYPES.ROLL_DICE,
+        payload: { d1, d2, sum: d1 + d2 },
+        _autoControlledAction: true,
+      });
+    }, BOT_ROLL_FALLBACK_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [dispatch, state.isOnline, state.currentPlayer, state.hasRolledThisTurn, state.rollingPhaseComplete, state.isAfkTurn, state.bots, state.hostUid, state.localUid]);
 
   // Host: Send Heartbeat during gameplay
   useEffect(() => {
@@ -640,11 +726,9 @@ const dispatch = useCallback((action) => {
           const deadHostId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.hostUid);
           const newBots = [...new Set([...(state.bots || []), deadHostId].filter(Boolean))];
           const updates = { hostUid: state.localUid, bots: newBots, lastPing: Date.now() };
+          const remainingHumans = getActiveHumanPlayerIds(state, newBots);
           
-          if (state.isPublic && activeHumans.length === 1) {
-            const newPlayers = { ...state.players, [activeHumans[0]]: { ...state.players[activeHumans[0]], pieces: [999, 999, 999, 999] } };
-            updates.players = newPlayers; updates.status = 'finished';
-          }
+          Object.assign(updates, buildPublicPresenceLossUpdates(state, remainingHumans));
           update(ref(rtdb, 'games/' + state.gameId), updates).catch(console.error);
         }
       }
@@ -716,7 +800,9 @@ const dispatch = useCallback((action) => {
         lastActionTime: nextState.lastActionTime,
         afkStrikes: nextState.afkStrikes || {},
         isAfkTurn: nextState.isAfkTurn || false,
-        bots: nextState.bots || []
+        bots: nextState.bots || [],
+        ...(nextState.status ? { status: nextState.status } : {}),
+        ...(nextState.winnerPlayerId ? { winnerPlayerId: nextState.winnerPlayerId } : {})
       }).catch(e => console.error("Firestore sync failed:", e));
     }
   };
@@ -727,7 +813,17 @@ const dispatch = useCallback((action) => {
       const unsubscribe = onValue(gameRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
-          
+
+          // A browser that had an older bundle cached can create a game record without
+          // host/seat metadata. Backfill only missing fields so the current host can
+          // immediately control bot-filled seats without modifying active gameplay.
+          if (state.localUid === state.hostUid) {
+            const missingMetadata = getMissingOnlineGameMetadata(data, state);
+            if (Object.keys(missingMetadata).length > 0) {
+              update(gameRef, missingMetadata).catch(console.error);
+            }
+          }
+           
           // Public game drop-rejoin prevention
           if (data.isPublic && state.localUid) {
             const myPlayerId = Object.keys(data.playerUids || {}).find(key => data.playerUids[key] === state.localUid);
@@ -747,8 +843,14 @@ const dispatch = useCallback((action) => {
             players: state.players,
             hasRolledThisTurn: state.hasRolledThisTurn,
             rollingPhaseComplete: state.rollingPhaseComplete,
-            isPublic: gameConfig.isPublic || false,
-            status: gameConfig.status || 'playing',
+          isPublic: gameConfig.isPublic || false,
+          hostUid: state.hostUid,
+          playerUids: state.playerUids,
+          botDifficulty: state.botDifficulty,
+          isVoidRuleEnabled: state.isVoidRuleEnabled,
+          isQuickGame: state.isQuickGame,
+          isTeamMode: state.isTeamMode,
+          status: gameConfig.status || 'playing',
             lastPing: Date.now(),
             turnStartedAt: state.turnStartedAt,
             lastActionTime: Date.now(),
@@ -765,15 +867,17 @@ const dispatch = useCallback((action) => {
   useEffect(() => {
     if (state.players) {
       const isGameOver = isGameOverState(state);
+      const hasGameplayWinner = hasGameplayWinnerState(state);
 
       if (isGameOver) {
         if (!state.isOnline) {
           localStorage.removeItem(LOCAL_STORAGE_KEY);
           localStorage.removeItem('dyut_player_count');
+          clearCrazyGamesOfflineResume().catch(console.error);
         }
         
         // Calculate and push stats for the local user if they are playing
-        if (state.localUid) {
+        if (state.localUid && hasGameplayWinner) {
           const myPlayerId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid);
           if (myPlayerId && !state.bots?.includes(myPlayerId)) {
             let localUserWon = false;
@@ -798,6 +902,7 @@ const dispatch = useCallback((action) => {
         }
       } else if (!state.isOnline) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+        saveCrazyGamesOfflineResume(state).catch(console.error);
       }
     }
   }, [state]);

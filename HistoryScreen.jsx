@@ -7,7 +7,7 @@ const HistoryScreen = ({ onBack }) => {
 
   return (
     <SecondaryScreenShell title={t('historyTitle', 'About the Game')} onBack={onBack} maxWidthClass="max-w-4xl">
-      <div className="max-h-[70vh] space-y-7 overflow-y-auto pr-1 text-left text-sm font-sans text-white/88 sm:text-base">
+      <div className="secondary-copy space-y-7 text-left text-sm font-sans text-white/88 sm:text-base">
         <section>
           <h2 className="mb-3 border-b border-gold/20 pb-2 font-display text-xl font-semibold uppercase tracking-[0.14em] text-gold">{t('historyOrigins', 'Origins')}</h2>
           <p className="leading-7 text-white/82">

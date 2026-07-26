@@ -15,6 +15,46 @@ const AI_WEIGHTS = {
     LEAVE_SAFE_ZONE: -15,
 };
 
+function getRollMovePriority(candidate, state) {
+    const action = candidate.action;
+    const rollIndex = action.payload?.rollIndex;
+    if (!Number.isInteger(rollIndex)) return null;
+
+    if (
+        action.type === ACTION_TYPES.MOVE_WITH_FULL_ROLL
+        || action.type === ACTION_TYPES.SPAWN_PIECE
+        || action.type === ACTION_TYPES.EXECUTE_PAIR_ATTACK
+    ) {
+        return 3;
+    }
+
+    if (action.type === ACTION_TYPES.MOVE_AND_SPLIT_ROLL) {
+        const roll = state.turnQueue[rollIndex];
+        const high = Math.max(roll.d1, roll.d2);
+        return action.payload.distanceUsed === high ? 2 : 1;
+    }
+
+    return 0;
+}
+
+function enforceBotMovePriority(possibleMoves, state) {
+    const highestPriorityByRoll = new Map();
+
+    possibleMoves.forEach(candidate => {
+        const rollIndex = candidate.action.payload?.rollIndex;
+        const priority = getRollMovePriority(candidate, state);
+        if (!Number.isInteger(rollIndex) || priority == null) return;
+        highestPriorityByRoll.set(rollIndex, Math.max(highestPriorityByRoll.get(rollIndex) || 0, priority));
+    });
+
+    return possibleMoves.filter(candidate => {
+        const rollIndex = candidate.action.payload?.rollIndex;
+        const priority = getRollMovePriority(candidate, state);
+        if (!Number.isInteger(rollIndex) || priority == null) return true;
+        return priority === highestPriorityByRoll.get(rollIndex);
+    });
+}
+
 function evaluateMove(playerId, currentPos, targetPos, state) {
     let score = 0;
     score += (targetPos - currentPos) * AI_WEIGHTS.DISTANCE;
@@ -60,8 +100,6 @@ export function getBestAIMove(originalPlayerId, state, difficulty = 'hard') {
     const player = state.players[playerId];
     if (!player || state.turnQueue.length === 0) return null;
 
-    const activeRoll = state.turnQueue[0];
-    const isDouble = activeRoll.d1 === activeRoll.d2 && activeRoll.d2 !== null;
     let possibleMoves = [];
 
     // Dynamic Spawn Priority: Heavily prioritize spawning if board presence is low or blood debt is unpaid
@@ -71,73 +109,78 @@ export function getBestAIMove(originalPlayerId, state, difficulty = 'hard') {
     else if (!player.hasKilled) currentSpawnScore += 80; // Need more hunters on the board
     else if (activePieces === 1) currentSpawnScore += 40; // Good to have backups
 
-    // 1. Spawning Check
-    if (isDouble) {
-        const lockedIndices = player.pieces.map((p, i) => p === -1 ? i : -1).filter(i => i !== -1);
-        if (lockedIndices.length > 0) {
-            const spawnStatus = canSpawnPiece(playerId, activeRoll.sum, state);
-            if (spawnStatus === 'DUAL_SPAWN') {
-                const doubleRollIndices = state.turnQueue.map((r, i) => r.sum === activeRoll.sum && r.d1 === r.d2 && r.d2 !== null ? i : -1).filter(i => i !== -1);
-                if (lockedIndices.length >= 2 && doubleRollIndices.length >= 2) {
-                    possibleMoves.push({ action: { type: ACTION_TYPES.DUAL_SPAWN_ATTACK, payload: { playerId, pieceIndices: [lockedIndices[0], lockedIndices[1]], rollIndices: [doubleRollIndices[0], doubleRollIndices[1]] } }, score: AI_WEIGHTS.BREAK_PAIR_SHIELD + 100 });
+    state.turnQueue.forEach((activeRoll, rollIndex) => {
+        const isDouble = activeRoll.d1 === activeRoll.d2 && activeRoll.d2 !== null;
+
+        // 1. Spawning Check
+        if (isDouble) {
+            const lockedIndices = player.pieces.map((p, i) => p === -1 ? i : -1).filter(i => i !== -1);
+            if (lockedIndices.length > 0) {
+                const spawnStatus = canSpawnPiece(playerId, activeRoll.sum, state);
+                if (spawnStatus === 'DUAL_SPAWN') {
+                    const doubleRollIndices = state.turnQueue.map((r, i) => r.sum === activeRoll.sum && r.d1 === r.d2 && r.d2 !== null ? i : -1).filter(i => i !== -1);
+                    if (lockedIndices.length >= 2 && doubleRollIndices.length >= 2 && rollIndex === doubleRollIndices[0]) {
+                        possibleMoves.push({ action: { type: ACTION_TYPES.DUAL_SPAWN_ATTACK, payload: { playerId, pieceIndices: [lockedIndices[0], lockedIndices[1]], rollIndices: [doubleRollIndices[0], doubleRollIndices[1]] } }, score: AI_WEIGHTS.BREAK_PAIR_SHIELD + 100 });
+                    }
+                } else if (spawnStatus) {
+                    possibleMoves.push({ action: { type: ACTION_TYPES.SPAWN_PIECE, payload: { playerId, pieceIndex: lockedIndices[0], rollIndex } }, score: currentSpawnScore });
                 }
-            } else if (spawnStatus) {
-                possibleMoves.push({ action: { type: ACTION_TYPES.SPAWN_PIECE, payload: { playerId, pieceIndex: lockedIndices[0], rollIndex: 0 } }, score: currentSpawnScore });
             }
         }
-    }
 
-    // 1.5 Pair Attack Check (Requires a double roll and two pieces that can reach the target)
-    if (isDouble) {
-        const moveDistance = activeRoll.d1;
-        for (let i = 0; i < player.pieces.length; i++) {
-            const pos1 = player.pieces[i];
-            if (pos1 !== -1 && pos1 !== 999) {
-                const targetPos = pos1 + moveDistance;
-                const defenderId = getPairShieldTarget(targetPos, playerId, state);
-                
-                if (defenderId) {
-                    const targetCellId = PLAYER_PATHS[playerId][targetPos];
-                    const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
-                    let isTargetSafe = false;
-                    if (parts) {
-                        const [, , col, row] = parts.map(Number);
-                        isTargetSafe = isCellVisuallySafe(col, row);
-                    }
+        // 1.5 Pair Attack Check (Requires a double roll and two pieces that can reach the target)
+        if (isDouble) {
+            const moveDistance = activeRoll.d1;
+            for (let i = 0; i < player.pieces.length; i++) {
+                const pos1 = player.pieces[i];
+                if (pos1 !== -1 && pos1 !== 999) {
+                    const targetPos = pos1 + moveDistance;
+                    const defenderId = getPairShieldTarget(targetPos, playerId, state);
                     
-                    // A Pair Shield on an 'X' safe zone cannot be broken by a split-pair attack
-                    if (!isTargetSafe) {
-                        // Find a partner piece to execute the coordinated attack
-                        for (let j = i + 1; j < player.pieces.length; j++) {
-                            const pos2 = player.pieces[j];
-                            if (pos2 !== -1 && pos2 !== 999 && (pos2 + moveDistance === targetPos)) {
-                                const combinedBaseScore = evaluateMove(playerId, pos1, targetPos, state) + evaluateMove(playerId, pos2, targetPos, state);
-                                possibleMoves.push({ action: { type: ACTION_TYPES.EXECUTE_PAIR_ATTACK, payload: { playerId, rollIndex: 0, firstPieceIndex: i, secondPieceIndex: j, targetCellId } }, score: AI_WEIGHTS.BREAK_PAIR_SHIELD + combinedBaseScore });
+                    if (defenderId) {
+                        const targetCellId = PLAYER_PATHS[playerId][targetPos];
+                        const parts = targetCellId?.match(/arm_(\d+)_col_(\d+)_row_(\d+)/);
+                        let isTargetSafe = false;
+                        if (parts) {
+                            const [, , col, row] = parts.map(Number);
+                            isTargetSafe = isCellVisuallySafe(col, row);
+                        }
+
+                        // A Pair Shield on an 'X' safe zone cannot be broken by a split-pair attack
+                        if (!isTargetSafe) {
+                            // Find a partner piece to execute the coordinated attack
+                            for (let j = i + 1; j < player.pieces.length; j++) {
+                                const pos2 = player.pieces[j];
+                                if (pos2 !== -1 && pos2 !== 999 && (pos2 + moveDistance === targetPos)) {
+                                    const combinedBaseScore = evaluateMove(playerId, pos1, targetPos, state) + evaluateMove(playerId, pos2, targetPos, state);
+                                    possibleMoves.push({ action: { type: ACTION_TYPES.EXECUTE_PAIR_ATTACK, payload: { playerId, rollIndex, firstPieceIndex: i, secondPieceIndex: j, targetCellId } }, score: AI_WEIGHTS.BREAK_PAIR_SHIELD + combinedBaseScore });
+                                }
                             }
                         }
                     }
                 }
             }
         }
-    }
 
-    // 2. Movement Check
-    player.pieces.forEach((pos, pieceIndex) => {
-        if (pos !== -1 && pos !== 999) {
-            const validMoves = getValidMoves(pos, activeRoll, playerId, state);
-            
-            if (activeRoll.d2 === null) { // Partial Roll
-                if (validMoves.sum) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_WITH_FULL_ROLL, payload: { playerId, pieceIndex, rollIndex: 0, distance: activeRoll.d1 } }, score: evaluateMove(playerId, pos, pos + activeRoll.d1, state) });
-            } else { // Full Roll Options
-                const high = Math.max(activeRoll.d1, activeRoll.d2);
-                const low = Math.min(activeRoll.d1, activeRoll.d2);
-                if (validMoves.sum) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_WITH_FULL_ROLL, payload: { playerId, pieceIndex, rollIndex: 0, distance: activeRoll.sum } }, score: evaluateMove(playerId, pos, pos + activeRoll.sum, state) });
-                if (validMoves.high) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL, payload: { playerId, pieceIndex, rollIndex: 0, distanceUsed: high } }, score: evaluateMove(playerId, pos, pos + high, state) });
-                if (validMoves.low) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL, payload: { playerId, pieceIndex, rollIndex: 0, distanceUsed: low } }, score: evaluateMove(playerId, pos, pos + low, state) });
+        // 2. Movement Check
+        player.pieces.forEach((pos, pieceIndex) => {
+            if (pos !== -1 && pos !== 999) {
+                const validMoves = getValidMoves(pos, activeRoll, playerId, state);
+
+                if (activeRoll.d2 === null) { // Partial Roll
+                    if (validMoves.sum) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_WITH_FULL_ROLL, payload: { playerId, pieceIndex, rollIndex, distance: activeRoll.d1 } }, score: evaluateMove(playerId, pos, pos + activeRoll.d1, state) });
+                } else { // Full Roll Options
+                    const high = Math.max(activeRoll.d1, activeRoll.d2);
+                    const low = Math.min(activeRoll.d1, activeRoll.d2);
+                    if (validMoves.sum) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_WITH_FULL_ROLL, payload: { playerId, pieceIndex, rollIndex, distance: activeRoll.sum } }, score: evaluateMove(playerId, pos, pos + activeRoll.sum, state) });
+                    if (validMoves.high) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL, payload: { playerId, pieceIndex, rollIndex, distanceUsed: high } }, score: evaluateMove(playerId, pos, pos + high, state) });
+                    if (validMoves.low) possibleMoves.push({ action: { type: ACTION_TYPES.MOVE_AND_SPLIT_ROLL, payload: { playerId, pieceIndex, rollIndex, distanceUsed: low } }, score: evaluateMove(playerId, pos, pos + low, state) });
+                }
             }
-        }
+        });
     });
 
+    possibleMoves = enforceBotMovePriority(possibleMoves, state);
     if (possibleMoves.length === 0) return null;
     if (difficulty === 'easy') return possibleMoves[Math.floor(Math.random() * possibleMoves.length)].action;
 

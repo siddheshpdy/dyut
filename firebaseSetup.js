@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, signInWithRedirect, linkWithRedirect, getRedirectResult } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
+import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const SAVED_RESUME_GAME_FIELD = 'savedResumeGame';
@@ -93,14 +94,15 @@ export const updateUserStats = async (uid, isWin) => {
     if (window.CrazyGames?.SDK) {
       try {
         if (window.cgInitPromise) await window.cgInitPromise;
-        let stats = await window.CrazyGames.SDK.data.getItem('dyut_stats');
-        if (typeof stats === 'string') stats = JSON.parse(stats);
-        if (!stats) stats = { gamesPlayed: 0, wins: 0 };
-        
-        stats.gamesPlayed = (stats.gamesPlayed || 0) + 1;
-        if (isWin) stats.wins = (stats.wins || 0) + 1;
-        
-        await window.CrazyGames.SDK.data.setItem('dyut_stats', stats);
+        const storedStats = await window.CrazyGames.SDK.data.getItem('dyut_stats');
+        const stats = parseCrazyGamesStoredValue(storedStats, {});
+        const updatedStats = {
+          ...stats,
+          gamesPlayed: (Number(stats.gamesPlayed) || 0) + 1,
+          wins: (Number(stats.wins) || 0) + (isWin ? 1 : 0),
+        };
+
+        await window.CrazyGames.SDK.data.setItem('dyut_stats', serializeCrazyGamesStoredValue(updatedStats));
       } catch (e) { console.error("Failed to update portal stats:", e); }
     }
     return; // Bypass Firestore completely on Portals

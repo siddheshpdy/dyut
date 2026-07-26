@@ -57,6 +57,14 @@ describe('Game Logic & Rules Engine', () => {
         });
     });
 
+    describe('Split Move Options', () => {
+        it('keeps each legal dice distance available to the move selector', () => {
+            mockState.players.Player1.pieces = [0, -1, -1, -1];
+
+            expect(getValidMoves(0, { d1: 4, d2: 6, sum: 10 }, 'Player1', mockState)).toEqual({ sum: true, high: true, low: true });
+        });
+    });
+
     describe('Assassin Rule (Spawning)', () => {
         it('allows a spawning piece to kill an opponent on Safe Zone 8', () => {
             // Opponent is sitting on safe zone at index 8

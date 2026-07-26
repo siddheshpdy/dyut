@@ -7,25 +7,72 @@ import RulesScreen from './RulesScreen';
 import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
-import { GameProvider, useGame } from './GameContext';
+import VictoryScreen from './VictoryScreen';
+import { GameProvider, useGame, canLocalClientAct, getActiveTurnPlayerId, isGameOverState } from './GameContext';
+import { canSpawnPiece, hasAnyPlayableMove } from './gameLogic';
 import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile, loadAccountResumeGame, saveAccountResumeGame } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
 import { DYUT_ICONS } from './dyut-icons';
+import { bindCrazyGamesMuteSetting, dispatchMuteState, getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { clearCrazyGamesOfflineResume, loadCrazyGamesOfflineResumeToLocal } from './crazyGamesStorage';
+import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
+const FIRST_GAME_HELP_KEY = 'dyut_has_seen_in_game_how_to_play';
 const CRAZYGAMES_STATS_KEY = 'dyut_stats';
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 const SHORT_MOBILE_HEIGHT_MEDIA_QUERY = '(max-height: 740px)';
+const COMPACT_LANDSCAPE_MEDIA_QUERY = '(orientation: landscape) and (min-width: 760px) and (max-height: 740px)';
 const MOBILE_HEADER_RESERVED_SPACE = 'clamp(4.5rem, 10.5vh, 5.35rem)';
 const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
 const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
 const MOBILE_TRAY_RESERVED_SPACE_SHORT = '12.2rem';
+const getQaPreviewScreen = () => {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('qa');
+};
+const getQaCaptureScenarioConfig = (screen) => {
+  if (screen !== 'scenario') return null;
+  return {
+    playerCount: 4,
+    activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
+    playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
+    playerAliases: { Player1: 'Bot 1', Player2: 'Bot 2', Player3: 'Bot 3', Player4: 'Bot 4' },
+    bots: ['Player1', 'Player2', 'Player3', 'Player4'],
+    initialStateOverride: {
+      currentPlayer: 'Player1',
+      hasRolledThisTurn: true,
+      rollingPhaseComplete: true,
+      turnQueue: [{ d1: 4, d2: null, sum: 4 }],
+      scriptedRolls: [
+        { d1: 6, d2: 6 }, { d1: 4, d2: 6 }, { d1: 4, d2: 4 }, { d1: 3, d2: 6 },
+        { d1: 1, d2: 4 }, { d1: 3, d2: 3 }, { d1: 6, d2: 4 }, { d1: 6, d2: 6 },
+        { d1: 4, d2: 3 }, { d1: 1, d2: 6 }, { d1: 4, d2: 4 }, { d1: 6, d2: 3 },
+      ],
+      players: {
+        Player1: { color: 'ruby', name: 'Capture Hero', hasKilled: false, pieces: [10, 8, -1, -1], team: 0 },
+        Player2: { color: 'sapphire', name: 'Rival', hasKilled: false, pieces: [65, -1, -1, -1], team: 0 },
+        Player3: { color: 'emerald', name: 'Shield Pair', hasKilled: false, pieces: [20, 20, -1, -1], team: 0 },
+        Player4: { color: 'amber', name: 'Bot 4', hasKilled: false, pieces: [18, -1, -1, -1], team: 0 },
+      },
+    },
+  };
+};
 const hasOfflineResumeCache = () => !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
+const shouldShowFirstGameHelp = () => {
+  try {
+    if (localStorage.getItem(FIRST_GAME_HELP_KEY) === 'true') return false;
+    localStorage.setItem(FIRST_GAME_HELP_KEY, 'true');
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -75,6 +122,31 @@ const useIsShortMobileHeight = () => {
   }, []);
 
   return isShortMobileHeight;
+};
+
+const useIsCompactLandscape = () => {
+  const [isCompactLandscape, setIsCompactLandscape] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(COMPACT_LANDSCAPE_MEDIA_QUERY).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mediaQuery = window.matchMedia(COMPACT_LANDSCAPE_MEDIA_QUERY);
+    const sync = (event) => setIsCompactLandscape(event.matches);
+    setIsCompactLandscape(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', sync);
+      return () => mediaQuery.removeEventListener('change', sync);
+    }
+
+    mediaQuery.addListener(sync);
+    return () => mediaQuery.removeListener(sync);
+  }, []);
+
+  return isCompactLandscape;
 };
 
 const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
@@ -187,12 +259,96 @@ const GameInfoOverlay = ({ infoView, onClose }) => {
   );
 };
 
+const FirstGameHelper = ({ isVisible, onClose }) => {
+  const { t } = useTranslation();
+  const { state } = useGame();
+  const CloseIcon = DYUT_ICONS.close;
+
+  if (!isVisible || !state || isGameOverState(state)) return null;
+
+  const activePlayerId = getActiveTurnPlayerId(state);
+  const activePlayer = state.players?.[activePlayerId];
+  const isBotTurn = state.bots?.includes(activePlayerId);
+  const isMyTurn = canLocalClientAct(state) && !isBotTurn;
+  const turnQueue = state.turnQueue || [];
+  const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
+  const canSpawn = isMyTurn && turnQueue.some((roll) => (
+    roll.d1 === roll.d2 && activePlayer?.pieces?.some((position) => position === -1) && canSpawnPiece(activePlayerId, roll.sum, state)
+  ));
+  const hasPlayableMove = isMyTurn && turnQueue.length > 0 && hasAnyPlayableMove(activePlayerId, state);
+
+  let titleKey = 'firstGameHelpTitleWatch';
+  let titleFallback = 'Watch the turn';
+  let bodyKey = 'firstGameHelpBodyWatch';
+  let bodyFallback = 'When it is your turn, the dice and playable pieces will light up.';
+
+  if (isMyTurn && canRoll) {
+    titleKey = 'firstGameHelpTitleRoll';
+    titleFallback = 'Roll the dice';
+    bodyKey = 'firstGameHelpBodyRoll';
+    bodyFallback = 'Tap the dice panel to roll. Doubles can let you spawn a piece from your base.';
+  } else if (canSpawn) {
+    titleKey = 'firstGameHelpTitleSpawn';
+    titleFallback = 'Spawn a piece';
+    bodyKey = 'firstGameHelpBodySpawn';
+    bodyFallback = 'You rolled a double. Select a highlighted base piece, then choose Spawn.';
+  } else if (hasPlayableMove) {
+    titleKey = 'firstGameHelpTitleMove';
+    titleFallback = 'Move a piece';
+    bodyKey = 'firstGameHelpBodyMove';
+    bodyFallback = 'Select a highlighted piece on the board, then choose one of the available move values.';
+  } else if (isMyTurn && turnQueue.length > 0) {
+    titleKey = 'firstGameHelpTitleWait';
+    titleFallback = 'No move available';
+    bodyKey = 'firstGameHelpBodyWait';
+    bodyFallback = 'If no legal move is possible, the game will end this turn automatically.';
+  }
+
+  return (
+    <div className="pointer-events-none fixed inset-x-3 bottom-[calc(clamp(13.5rem,24.5vh,15rem)+1rem)] z-[115] flex justify-center lg:inset-x-auto lg:bottom-6 lg:left-6 lg:block">
+      <div className="pointer-events-auto w-full max-w-sm rounded-2xl border border-gold/45 bg-[#050403]/94 p-4 text-left shadow-[0_0_34px_rgba(0,0,0,0.78),inset_0_0_28px_rgba(234,179,8,0.08)] backdrop-blur-md">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="font-sans text-[10px] font-bold uppercase tracking-[0.22em] text-white/60">
+              {t('firstGameHelpEyebrow', 'Quick Tip')}
+            </div>
+            <h2 className="mt-1 font-display text-lg font-bold uppercase tracking-[0.12em] text-gold text-glow-gold sm:text-xl">
+              {t(titleKey, titleFallback)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/70 transition-colors hover:text-gold"
+            aria-label={t('close', 'Close')}
+          >
+            <CloseIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="mt-3 font-sans text-sm font-semibold leading-relaxed text-white/90">
+          {t(bodyKey, bodyFallback)}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 rounded-xl border border-gold/55 bg-gold/12 px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] text-gold shadow-[0_0_18px_rgba(251,191,36,0.2)] transition-all hover:scale-[1.02] hover:bg-gold/20"
+        >
+          {t('firstGameHelpDismiss', 'Got it')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const { t } = useTranslation();
+  const qaPreviewScreen = getQaPreviewScreen();
   const isDesktop = useIsDesktop();
   const isShortMobileHeight = useIsShortMobileHeight();
-  const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
-  const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
+  const isCompactLandscape = useIsCompactLandscape();
+  const qaScenarioConfig = getQaCaptureScenarioConfig(qaPreviewScreen);
+  const [view, setView] = useState(() => qaScenarioConfig ? 'game' : 'menu'); // 'menu', 'rules', 'setup', 'game'
+  const [gameConfig, setGameConfig] = useState(() => qaScenarioConfig); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
   const [joinGameId, setJoinGameId] = useState(null);
   const [hasCachedGame, setHasCachedGame] = useState(() => hasOfflineResumeCache());
@@ -200,15 +356,20 @@ function App() {
   const [accountOnlineGameId, setAccountOnlineGameId] = useState(null);
   const [gameSessionKey, setGameSessionKey] = useState(0);
   const [gameInfoView, setGameInfoView] = useState(null);
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [showFirstGameHelper, setShowFirstGameHelper] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const [portalAutoStartPending, setPortalAutoStartPending] = useState(false);
+  const [portalInstantMultiplayerPending, setPortalInstantMultiplayerPending] = useState(false);
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const mobileHeaderReservedSpace = isShortMobileHeight ? MOBILE_HEADER_RESERVED_SPACE_SHORT : MOBILE_HEADER_RESERVED_SPACE;
   const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
   const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - ${mobileHeaderReservedSpace} - ${mobileTrayReservedSpace} - env(safe-area-inset-bottom) - ${isShortMobileHeight ? '0.65rem' : '1.25rem'}))`;
+  const shouldUseCompactLandscapeLayout = !isDesktop && isCompactLandscape;
+  const compactLandscapeBoardSize = `min(calc(100dvh - ${mobileHeaderReservedSpace} - env(safe-area-inset-bottom) - 1rem), 58vw)`;
   const viewRef = useRef(view);
   const joinGameIdRef = useRef(joinGameId);
   const portalAutoStartQueuedRef = useRef(false);
+  const portalInstantMultiplayerQueuedRef = useRef(false);
 
   useEffect(() => {
     viewRef.current = view;
@@ -250,6 +411,7 @@ function App() {
   const clearOfflineResumeCache = () => {
     localStorage.removeItem(PLAYER_COUNT_KEY);
     localStorage.removeItem(GAME_STATE_KEY);
+    clearCrazyGamesOfflineResume().catch(console.error);
     setHasCachedGame(false);
   };
 
@@ -260,12 +422,7 @@ function App() {
   };
 
   const toggleMute = () => {
-    setIsMuted(prev => {
-      const next = !prev;
-      localStorage.setItem('dyut_muted', next);
-      window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: next }));
-      return next;
-    });
+    setIsMuted(toggleUserMutePreference());
   };
 
   const resumeOnlineGameId = accountOnlineGameId || deviceOnlineGameId;
@@ -358,10 +515,15 @@ function App() {
             if (!isMounted) return;
             
             window.CrazyGames.SDK.game.loadingStop();
+            if (qaPreviewScreen) return;
+            const hasPortalOfflineResume = await loadCrazyGamesOfflineResumeToLocal();
+            if (isMounted && hasPortalOfflineResume) setHasCachedGame(true);
+
             const maybeQueuePortalFirstSession = async () => {
               if (
                 !isMounted ||
                 portalAutoStartQueuedRef.current ||
+                portalInstantMultiplayerQueuedRef.current ||
                 viewRef.current !== 'menu' ||
                 joinGameIdRef.current ||
                 localStorage.getItem(GAME_STATE_KEY) ||
@@ -376,16 +538,16 @@ function App() {
                 const systemUser = await window.CrazyGames.SDK.user.getUser();
                 if (!systemUser || portalAutoStartQueuedRef.current) return;
 
-                let stats = await window.CrazyGames.SDK.data.getItem(CRAZYGAMES_STATS_KEY);
-                if (typeof stats === 'string') stats = JSON.parse(stats);
-                if (stats) return;
+                const storedStats = await window.CrazyGames.SDK.data.getItem(CRAZYGAMES_STATS_KEY);
+                const stats = parseCrazyGamesStoredValue(storedStats);
+                if (stats || storedStats != null) return;
 
                 portalAutoStartQueuedRef.current = true;
-                await window.CrazyGames.SDK.data.setItem(CRAZYGAMES_STATS_KEY, {
+                await window.CrazyGames.SDK.data.setItem(CRAZYGAMES_STATS_KEY, serializeCrazyGamesStoredValue({
                   gamesPlayed: 0,
                   wins: 0,
                   hasSeenPortalIntro: true
-                });
+                }));
 
                 if (
                   isMounted &&
@@ -410,12 +572,26 @@ function App() {
               }
             } catch (e) { console.warn("CrazyGames inviteParams error:", e); }
 
-            await maybeQueuePortalFirstSession();
+            if (
+              window.CrazyGames.SDK.game.isInstantMultiplayer &&
+              isMounted &&
+              viewRef.current === 'menu' &&
+              !joinGameIdRef.current &&
+              !portalInstantMultiplayerQueuedRef.current
+            ) {
+              portalInstantMultiplayerQueuedRef.current = true;
+              setPortalAutoStartPending(false);
+              setPortalInstantMultiplayerPending(true);
+            } else {
+              await maybeQueuePortalFirstSession();
+            }
 
             cgJoinListener = (inviteParams) => {
               if (inviteParams && inviteParams.roomId) {
                 setView('menu'); // Force route to lobby if they are in a match/tutorial
                 joinGameIdRef.current = inviteParams.roomId;
+                setPortalInstantMultiplayerPending(false);
+                setPortalAutoStartPending(false);
                 setJoinGameId(inviteParams.roomId);
               }
             };
@@ -464,10 +640,12 @@ function App() {
           window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true }));
         },
         adFinished: () => {
-          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: wasMuted }));
+          localStorage.setItem('dyut_muted', wasMuted);
+          dispatchMuteState();
         },
         adError: () => {
-          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: wasMuted }));
+          localStorage.setItem('dyut_muted', wasMuted);
+          dispatchMuteState();
         },
       };
       window.CrazyGames.SDK.ad.requestAd('midgame', callbacks);
@@ -484,13 +662,40 @@ function App() {
     // The provider itself will load the full state from storage.
     setGameConfig({ playerCount: parseInt(savedCount, 10) });
     setGameSessionKey(prev => prev + 1);
+    setGameInfoView(null);
+    setShowFirstGameHelper(shouldShowFirstGameHelp());
     setView('game');
   };
 
+  useEffect(() => {
+    let cleanup;
+    let cancelled = false;
+
+    if (!IS_PORTAL) return undefined;
+
+    const bindSettings = async () => {
+      try {
+        cleanup = await bindCrazyGamesMuteSetting();
+        if (!cancelled) setIsMuted(getEffectiveMuteState());
+      } catch (error) {
+        console.error('CrazyGames mute setting setup failed:', error);
+      }
+    };
+
+    bindSettings();
+
+    return () => {
+      cancelled = true;
+      if (cleanup) cleanup();
+    };
+  }, []);
+
   const handleGameSetupComplete = (config) => {
     setPortalAutoStartPending(false);
+    setPortalInstantMultiplayerPending(false);
     if (!config.isOnline) {
       localStorage.removeItem(GAME_STATE_KEY);
+      clearCrazyGamesOfflineResume().catch(console.error);
       localStorage.setItem(PLAYER_COUNT_KEY, config.playerCount);
       setHasCachedGame(true);
     }
@@ -513,6 +718,7 @@ function App() {
     setGameConfig(config);
     setGameSessionKey(prev => prev + 1);
     setGameInfoView(null);
+    setShowFirstGameHelper(shouldShowFirstGameHelp());
     setView('game');
   };
 
@@ -527,6 +733,7 @@ function App() {
     setJoinGameId(null);
     setGameConfig(null);
     setGameInfoView(null);
+    setShowFirstGameHelper(false);
     setView('menu');
     triggerMidgameAd();
     if (IS_PORTAL && window.CrazyGames?.SDK) {
@@ -539,6 +746,7 @@ function App() {
     setJoinGameId(null);
     setGameConfig(null);
     setGameInfoView(null);
+    setShowFirstGameHelper(false);
     setView('menu');
     triggerMidgameAd();
     if (IS_PORTAL && window.CrazyGames?.SDK) {
@@ -547,6 +755,10 @@ function App() {
   };
 
   const renderView = () => {
+    if (qaPreviewScreen === 'victory') {
+      return <VictoryScreen winnerId="QA Champion" onNewGame={() => setView('menu')} />;
+    }
+
     switch (view) {
       case 'rules':
         return (
@@ -596,9 +808,20 @@ function App() {
                 <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="desktop" />
                 <DiceTray layoutMode="desktop" />
               </div>
+            ) : shouldUseCompactLandscapeLayout ? (
+              <div className={`relative z-10 flex h-[100dvh] w-full overflow-hidden px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
+                <div className="flex min-h-0 w-full items-center justify-center gap-3 sm:gap-4">
+                  <div className="shrink-0" style={{ width: compactLandscapeBoardSize, height: compactLandscapeBoardSize }}>
+                    <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" hideActiveBaseOnMobile={false} />
+                  </div>
+                  <div className="z-20 min-w-[18rem] max-w-[360px] flex-1 self-stretch">
+                    <DiceTray layoutMode="compact" />
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
-                <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:justify-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
+                <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:items-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
                   <div style={{ width: mobileBoardSize, height: mobileBoardSize }}>
                     <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
                   </div>
@@ -608,6 +831,7 @@ function App() {
                 </div>
               </div>
             )}
+            <FirstGameHelper isVisible={showFirstGameHelper && !gameInfoView} onClose={() => setShowFirstGameHelper(false)} />
             <GameInfoOverlay infoView={gameInfoView} onClose={() => setGameInfoView(null)} />
           </GameProvider>
         );
@@ -616,6 +840,7 @@ function App() {
         return <UnifiedLobby 
           onStartGame={handleStartNewGame} 
           onResumeGame={handleResumeGame} 
+          onClearOfflineResume={clearOfflineResumeCache}
           onShowRules={() => setView('rules')} 
           onShowTutorial={() => setView('tutorial')}
           onShowHistory={() => setView('history')}
@@ -624,15 +849,18 @@ function App() {
           resumeOnlineGameId={resumeOnlineGameId}
           joinGameId={joinGameId} 
           user={user} 
-          autoStartPortalIntro={IS_PORTAL && portalAutoStartPending}
+          autoStartPortalIntro={IS_PORTAL && !qaPreviewScreen && portalAutoStartPending}
           onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
+          autoStartInstantMultiplayer={IS_PORTAL && !qaPreviewScreen && portalInstantMultiplayerPending}
+          onInstantMultiplayerConsumed={() => setPortalInstantMultiplayerPending(false)}
           onReconnectOnline={handleReconnectOnline}
+          qaShowOfflineResume={qaPreviewScreen === 'resume'}
         />;
     }
   };
 
   return (
-    <main className={`min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-x-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0 overflow-hidden' : 'p-4 overflow-y-auto'}`}>
+    <main className={`h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0' : 'p-3 sm:p-4'}`}>
       {view !== 'menu' && view !== 'game' && (
         <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
           <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />

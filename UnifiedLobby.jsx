@@ -6,6 +6,8 @@ import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as r
 import { db, rtdb, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 import { DYUT_ICONS } from './dyut-icons';
+import { getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -16,9 +18,15 @@ const ALL_COLORS = [
 
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+const INSTANT_MULTIPLAYER_CONFIG = {
+  matchType: '1v1',
+  isQuickGame: false,
+  isVoidRuleEnabled: true,
+  botDifficulty: 'easy'
+};
 
 const OrnateDivider = () => (
-  <div className="flex items-center justify-center gap-3 text-gold/60">
+  <div className="flex shrink-0 items-center justify-center gap-3 text-gold/60">
     <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold/20"></span>
     <span className="h-2 w-2 rotate-45 border border-gold/70"></span>
     <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold/20"></span>
@@ -55,24 +63,24 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = fal
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-black/45 p-3 text-left transition-all duration-300 sm:gap-5 sm:p-4 lg:gap-4 lg:p-3 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
+      className={`group relative flex min-h-[clamp(4.8rem,13dvh,6.6rem)] w-full items-center gap-[clamp(0.6rem,1.25vw,0.9rem)] overflow-hidden rounded-[clamp(0.9rem,1.5vw,1.125rem)] border bg-black/45 p-[clamp(0.5rem,1.2vw,0.85rem)] text-left transition-all duration-300 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
     >
       <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
-      <div className="absolute inset-y-3 right-8 hidden w-44 rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
-      <div className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-2xl sm:h-20 sm:w-20 sm:text-4xl lg:h-[4.25rem] lg:w-[4.25rem] lg:text-[2rem] ${toneStyles.icon}`}>
+      <div className="absolute inset-y-[12%] right-[8%] hidden w-[22%] rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
+      <div className={`relative z-10 flex h-[clamp(2.75rem,6vw,4rem)] w-[clamp(2.75rem,6vw,4rem)] shrink-0 items-center justify-center rounded-full border text-[clamp(1.25rem,2.8vw,2rem)] [&_svg]:h-[clamp(1.5rem,2.6vw,2rem)] [&_svg]:w-[clamp(1.5rem,2.6vw,2rem)] ${toneStyles.icon}`}>
         {icon}
       </div>
       <div className="relative z-10 min-w-0 flex-1">
-        <div className={`font-display text-lg font-bold uppercase tracking-[0.08em] sm:text-2xl lg:text-[1.85rem] ${toneStyles.text}`}>{title}</div>
-        <p className="mt-1 text-sm leading-snug text-white/70 sm:text-base lg:text-[0.88rem]">{description}</p>
+        <div className={`font-display text-[clamp(1rem,2.5vw,1.55rem)] font-bold uppercase leading-[1.05] tracking-[0.08em] ${toneStyles.text}`}>{title}</div>
+        <p className="mt-[clamp(0.1rem,0.35dvh,0.25rem)] text-[clamp(0.72rem,1.35vw,0.9rem)] leading-snug text-white/70">{description}</p>
       </div>
-      <div className={`relative z-10 pr-2 font-display text-4xl transition-transform group-hover:translate-x-1 lg:text-[2.25rem] ${toneStyles.text}`}>{'>'}</div>
+      <div className={`relative z-10 pr-[clamp(0.1rem,0.45vw,0.35rem)] font-display text-[clamp(1.5rem,3vw,2rem)] transition-transform group-hover:translate-x-1 ${toneStyles.text}`}>{'>'}</div>
     </button>
   );
 };
 
 const ConfigSectionTitle = ({ children }) => (
-  <div className="flex w-full items-center justify-center gap-3 text-gold/80 lg:gap-2">
+  <div className="lobby-config-section-title flex w-full items-center justify-center gap-3 text-gold/80 lg:gap-2">
     <span className="h-px flex-1 bg-gradient-to-r from-transparent via-gold/40 to-gold/70"></span>
     <span className="h-1.5 w-1.5 rotate-45 border border-gold/70 lg:h-1 lg:w-1"></span>
     <span className="font-display text-xs font-bold uppercase tracking-[0.22em] sm:text-sm lg:text-[0.68rem]">{children}</span>
@@ -104,18 +112,18 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
     <button
       type="button"
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 lg:p-2.5 ${toneClasses} ${className}`}
+      className={`lobby-config-card group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 lg:p-2.5 ${toneClasses} ${className}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(255,255,255,0.12),transparent_38%)] opacity-70"></div>
-      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
-        {children}
+      <div className="lobby-config-card-content relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
+        <div className="lobby-config-card-extra contents">{children}</div>
         {icon && (
-          <span className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-50'}`}>
+          <span className={`lobby-config-card-icon mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-50'}`}>
             {icon}
           </span>
         )}
-        <div className="font-display text-lg font-bold uppercase tracking-wider sm:text-xl lg:text-[0.95rem]">{title}</div>
-        {subtitle && <div className="hidden text-xs leading-snug text-white/70 sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
+        <div className="lobby-config-card-title font-display text-lg font-bold uppercase tracking-wider sm:text-xl lg:text-[0.95rem]">{title}</div>
+        {subtitle && <div className="lobby-config-card-subtitle hidden text-xs leading-snug text-white/70 sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
       </div>
     </button>
   );
@@ -144,12 +152,12 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   };
 
   return (
-    <div className={`flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
-      <span className={`mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
+  <div className={`lobby-seat-card flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
+       <span className={`lobby-seat-label mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
         {label} {isOwnedByMe && <span className="opacity-80">({t('you', 'YOU')})</span>}
       </span>
       
-      <div className="relative w-full">
+      <div className="lobby-seat-type relative w-full">
         <select 
           aria-label={`Select type for ${label}`}
           value={seat.type} 
@@ -180,11 +188,11 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           placeholder={t('playerNamePlaceholder', 'Enter Name')}
           maxLength={12}
           spellCheck="false"
-          className={`mt-2 w-full rounded border border-white/10 bg-transparent py-1 text-center font-sans text-xs text-white/90 transition-opacity focus:outline-none focus:border-gold/50 lg:mt-1.5 lg:text-[11px] ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`lobby-seat-name mt-2 w-full rounded border border-white/10 bg-transparent py-1 text-center font-sans text-xs text-white/90 transition-opacity focus:outline-none focus:border-gold/50 lg:mt-1.5 lg:text-[11px] ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         />
       )}
 
-      <div className={`mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`lobby-seat-colors mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {ALL_COLORS.map(color => {
           const isTaken = activeColors.includes(color.name) && seat.color !== color.name;
           return (
@@ -241,8 +249,8 @@ const PlayerProfile = ({ user }) => {
               window.CrazyGames.SDK.user.addAuthListener(authListener);
             } catch (e) { console.error("CrazyGames user error:", e); }
 
-            let data = await window.CrazyGames.SDK.data.getItem('dyut_stats');
-            if (typeof data === 'string') data = JSON.parse(data);
+            const storedData = await window.CrazyGames.SDK.data.getItem('dyut_stats');
+            const data = parseCrazyGamesStoredValue(storedData);
             if (data) setStats(data);
           } catch (e) { console.error(e); }
         }
@@ -327,9 +335,9 @@ const PlayerProfile = ({ user }) => {
         if (window.CrazyGames?.SDK) {
           const saveStats = async () => {
             if (window.cgInitPromise) await window.cgInitPromise;
-            window.CrazyGames.SDK.data.setItem('dyut_stats', newStats).catch(console.error);
+            await window.CrazyGames.SDK.data.setItem('dyut_stats', serializeCrazyGamesStoredValue(newStats));
           };
-          saveStats();
+          saveStats().catch(console.error);
         }
       } else {
         await updateUserName(editName.trim());
@@ -398,7 +406,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -424,20 +432,21 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [hostLastPing, setHostLastPing] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('dyut_muted') === 'true');
+  const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
+  const [portalUser, setPortalUser] = useState(null);
   const [inviteUrl, setInviteUrl] = useState('');
+  const [offlineResumeAction, setOfflineResumeAction] = useState(() => (qaShowOfflineResume ? () => {} : null));
 
   const { t } = useTranslation();
 
   const toggleMute = () => {
-    const next = !isMuted;
-    localStorage.setItem('dyut_muted', next);
-    window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: next }));
+    setIsMuted(toggleUserMutePreference());
   };
 
   const activeLobbyId = joinGameId || pendingGameId;
   const isHost = (activeLobbyId && pendingGameId !== null) || (user && lobbyHostUid === user.uid);
   const hasClaimedSeat = Object.values(seats).some(s => s.uid === user?.uid);
+  const localPlayerName = portalUser?.username || user?.displayName || '';
 
   const activeSeats = Object.entries(seats).filter(([_, s]) => s.type !== 'closed');
   const playerCount = activeSeats.length;
@@ -448,6 +457,43 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const handleMuteChange = (e) => setIsMuted(e.detail);
     window.addEventListener('dyut-mute-change', handleMuteChange);
     return () => window.removeEventListener('dyut-mute-change', handleMuteChange);
+  }, []);
+
+  useEffect(() => {
+    if (!IS_PORTAL) return undefined;
+
+    let isMounted = true;
+    let authListener = null;
+
+    const loadPortalUser = async () => {
+      if (!window.CrazyGames?.SDK) return;
+
+      try {
+        if (window.cgInitPromise) await window.cgInitPromise;
+        if (!isMounted) return;
+
+        const systemUser = await window.CrazyGames.SDK.user.getUser();
+        if (isMounted) setPortalUser(systemUser || null);
+
+        if (window.CrazyGames.SDK.user?.addAuthListener) {
+          authListener = (systemUserUpdate) => {
+            if (isMounted) setPortalUser(systemUserUpdate || null);
+          };
+          window.CrazyGames.SDK.user.addAuthListener(authListener);
+        }
+      } catch {
+        if (isMounted) setPortalUser(null);
+      }
+    };
+
+    loadPortalUser();
+
+    return () => {
+      isMounted = false;
+      if (authListener && window.CrazyGames?.SDK?.user?.removeAuthListener) {
+        try { window.CrazyGames.SDK.user.removeAuthListener(authListener); } catch {}
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -515,8 +561,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   }, [lobbyExpiresAt, activeLobbyId, lobbyStatus]);
 
   // Push room status updates to CrazyGames SDK for external invite link locking and portal UI
-  const updateCrazyGamesRoom = async (action, targetSeats) => {
-    if (IS_PORTAL && window.CrazyGames?.SDK && activeLobbyId) {
+  const updateCrazyGamesRoom = async (action, targetSeats, roomId = activeLobbyId) => {
+    if (IS_PORTAL && window.CrazyGames?.SDK && roomId) {
       try {
         if (window.cgInitPromise) await window.cgInitPromise;
         const humanSeats = Object.values(targetSeats).filter(s => s.type === 'human');
@@ -525,12 +571,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         
         if (typeof window.CrazyGames.SDK.game.updateRoom === 'function') {
           window.CrazyGames.SDK.game.updateRoom({
-            roomId: activeLobbyId,
+            roomId,
             action: action === 'start' || isFull ? 'start' : 'update',
             playerCount: claimedSeats.length,
             maxPlayerCount: humanSeats.length,
             isJoinable: action !== 'start' && !isFull,
-            inviteParams: { roomId: activeLobbyId }
+            inviteParams: { roomId }
           });
         }
       } catch (e) { console.error("CrazyGames updateRoom error:", e); }
@@ -605,7 +651,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   const handleClaimSeat = (playerId) => {
     // Forcing type to 'human' allows joiners to overtake bot/closed slots
-    const newSeats = { ...seats, [playerId]: { ...seats[playerId], type: 'human', uid: user.uid, name: user?.displayName || '' } };
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], type: 'human', uid: user.uid, name: localPlayerName } };
     setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
@@ -669,7 +715,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   const startPortalBotMatch = () => {
     const newSeats = {
-      Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
       Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
       Player4: { type: 'bot', color: 'amber', name: '', uid: null }
@@ -684,20 +730,23 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     });
   };
 
+  const closeOfflineResumeDialog = () => setOfflineResumeAction(null);
+
+  const handleResumeExistingOffline = () => {
+    closeOfflineResumeDialog();
+    onResumeGame();
+  };
+
+  const handleStartNewOffline = () => {
+    const continueAction = offlineResumeAction;
+    closeOfflineResumeDialog();
+    onClearOfflineResume?.();
+    continueAction?.();
+  };
+
   const promptForSavedResume = (mode, continueAction) => {
     if (mode === 'local' && hasCachedGame) {
-      const shouldResumeOffline = window.confirm(
-        t(
-          'resumeOfflineBeforeLocalPrompt',
-          'A saved offline game exists on this device. Press OK to resume it, or Cancel to stay on the menu.'
-        )
-      );
-
-      if (shouldResumeOffline) {
-        onResumeGame();
-        return;
-      }
-
+      setOfflineResumeAction(() => continueAction);
       return;
     }
 
@@ -729,7 +778,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     setSeats({
       Player4: { type: 'closed', color: 'amber', name: '', uid: null },
       Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
-      Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
     });
     setIsTeamMode(false);
@@ -790,7 +839,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
     onPortalAutoStartConsumed?.();
     startPortalBotMatch();
-  }, [autoStartPortalIntro, activeLobbyId, setupMode, user?.displayName, onPortalAutoStartConsumed]);
+  }, [autoStartPortalIntro, activeLobbyId, setupMode, localPlayerName, onPortalAutoStartConsumed]);
 
   const handleHostOnlineClick = async (isPublicLobby = false, overrideConfig = null) => {
     const isPublic = typeof isPublicLobby === 'boolean' ? isPublicLobby : false;
@@ -805,14 +854,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       newSeats = {
         Player4: { type: 'closed', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
         Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
       };
     } else {
       newSeats = {
         Player4: { type: 'human', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
         Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
       };
     }
@@ -826,7 +875,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
     const firstHuman = preferredOrder.find(id => newSeats[id].type === 'human');
     if (firstHuman) {
       newSeats[firstHuman].uid = user?.uid || null;
-      newSeats[firstHuman].name = user?.displayName || '';
+      newSeats[firstHuman].name = localPlayerName;
     }
     
     const expiresAt = isPublic ? Date.now() + 60000 : null; // 60 second matchmaking timer
@@ -844,6 +893,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       setSeats(newSeats);
       setIsTeamMode(isTeamModeLocal);
       setPendingGameId(newGameId);
+      await updateCrazyGamesRoom('update', newSeats, newGameId);
       
       if (overrideConfig) {
         setMatchType(currentMatchType);
@@ -857,6 +907,23 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
       setIsHosting(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !IS_PORTAL ||
+      !autoStartInstantMultiplayer ||
+      activeLobbyId ||
+      setupMode ||
+      !user ||
+      isHosting ||
+      isSearching
+    ) {
+      return;
+    }
+
+    onInstantMultiplayerConsumed?.();
+    handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
+  }, [autoStartInstantMultiplayer, activeLobbyId, setupMode, user, isHosting, isSearching, localPlayerName, onInstantMultiplayerConsumed]);
 
   const handleFindMatch = async (overrideConfig = null) => {
     setIsSearching(true);
@@ -995,7 +1062,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
   const isInitialMenu = !activeLobbyId && !setupMode;
   const isSetupConfig = !activeLobbyId && setupMode && setupStep === 'config';
-  const isLobbyStage = isInitialMenu || isSetupConfig;
+  const isSeatSetup = !activeLobbyId && setupMode === 'local' && setupStep === 'seats';
+  const isLobbyStage = isInitialMenu || isSetupConfig || isSeatSetup || !!activeLobbyId;
+  const showLobbyBranding = isInitialMenu || isSetupConfig;
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const MenuIcon = DYUT_ICONS.menu;
   const HowToPlayIcon = DYUT_ICONS.howToPlay;
@@ -1013,10 +1082,42 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
   const EasyIcon = DYUT_ICONS.easyDifficulty;
   const HardIcon = DYUT_ICONS.hardDifficulty;
   const StartIcon = DYUT_ICONS.next;
-  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-2.5 lg:text-[1.95rem]";
+  const configPrimaryButtonClass = "lobby-config-primary-action w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-2.5 lg:text-[1.95rem]";
 
   return (
     <>
+      {offlineResumeAction && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/86 px-4 backdrop-blur-md">
+          <div role="dialog" aria-modal="true" aria-labelledby="offline-resume-title" className="relative w-full max-w-md overflow-hidden rounded-[24px] border border-gold/55 bg-[#050403] p-5 text-center shadow-[0_0_70px_rgba(0,0,0,0.95),inset_0_0_34px_rgba(234,179,8,0.08)] sm:p-6">
+            <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/75"></span>
+            <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/75"></span>
+            <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/75"></span>
+            <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/75"></span>
+
+            <div className="font-display text-xs font-bold uppercase tracking-[0.28em] text-gold/70">
+              {t('savedOfflineGame', 'Saved Offline Game')}
+            </div>
+            <h2 id="offline-resume-title" className="mt-3 font-display text-3xl font-bold uppercase tracking-[0.12em] text-gold text-glow-gold sm:text-4xl">
+              {t('resumeExistingGameTitle', 'Resume Game?')}
+            </h2>
+            <p className="mx-auto mt-4 max-w-sm text-[0.95rem] font-semibold leading-relaxed text-[#fff4c7] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+              {t('resumeOfflineBeforeLocalPrompt', 'A saved offline game exists on this device. Choose how you want to continue.')}
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button type="button" onClick={handleResumeExistingOffline} className="w-full rounded-xl border border-gold/55 bg-gold/12 py-3 font-display text-lg font-bold uppercase tracking-[0.16em] text-gold shadow-[0_0_24px_rgba(234,179,8,0.22),inset_0_0_18px_rgba(234,179,8,0.08)] transition-all hover:scale-[1.01] hover:bg-gold/20">
+                {t('resumeExisting', 'Resume Existing')}
+              </button>
+              <button type="button" onClick={handleStartNewOffline} className="w-full rounded-xl border border-gold/35 bg-white/10 py-3 font-display text-base font-bold uppercase tracking-[0.16em] text-gold transition-all hover:border-gold/65 hover:bg-gold/15">
+                {t('newGame', 'New Game')}
+              </button>
+              <button type="button" onClick={closeOfflineResumeDialog} className="w-full rounded-xl border border-white/10 bg-transparent py-3 font-sans text-xs font-bold uppercase tracking-[0.18em] text-white/60 transition-colors hover:border-white/25 hover:text-white/90">
+                {t('goToMenu', 'Go to Menu')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isLobbyStage && (
         <div className="fixed inset-0 z-0 overflow-hidden bg-[#070605]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.34),transparent_36%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(8,6,5,0.48)_28%,rgba(8,6,5,0.48)_72%,rgba(0,0,0,0.96))]"></div>
@@ -1060,9 +1161,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
         </div>
       </header>
 
-      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center justify-center overflow-hidden px-4 pb-3 pt-20 sm:px-6 sm:pb-4 lg:justify-start ${isSetupConfig ? 'lg:overflow-hidden lg:pb-6 lg:pt-[4.5rem] xl:pb-8 xl:pt-[5rem]' : isInitialMenu ? 'lg:overflow-hidden lg:pb-10 lg:pt-20 xl:pb-12 xl:pt-24' : 'lg:overflow-y-auto'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
+      <div className={`${isLobbyStage ? `lobby-viewport relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center px-4 sm:px-6 ${isSetupConfig ? 'lobby-config-viewport justify-start overflow-hidden pb-3 pt-[clamp(4rem,9dvh,5rem)] sm:pb-4' : isInitialMenu ? 'justify-start overflow-hidden pb-6 pt-[clamp(5rem,10dvh,6rem)] sm:pb-8 lg:pb-10 lg:pt-[clamp(5rem,9dvh,6rem)] xl:pb-12' : 'lobby-seat-viewport justify-center overflow-hidden pb-3 pt-[clamp(3.75rem,8dvh,4.75rem)] sm:pb-4'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
-        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
+        <div className="lobby-invite-summary mb-4 flex w-full max-w-[min(92vw,560px)] flex-col items-center rounded-xl border border-white/10 bg-black/40 p-3 animate-fade-in sm:mb-5 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
             {isLobbyPublic ? (
               <div className="flex flex-col items-start gap-1" title="Public Lobby">
@@ -1088,20 +1189,20 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 : t(`status_${connectionStatus}`, connectionStatus === 'waiting' ? 'Waiting...' : connectionStatus === 'connecting' ? 'Connecting...' : connectionStatus === 'connected' ? 'Connected' : 'Lobby not found')}
             </span>
           </div>
-          <div className="flex w-full gap-2">
+          <div className="lobby-invite-url flex w-full gap-2">
             <input type="text" readOnly value={inviteUrl} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
             <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
           </div>
         </div>
       )}
       
-      <h1 className={`dyut-title font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5 lg:mt-0' : isInitialMenu ? 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
-      {isLobbyStage && <OrnateDivider />}
+      {showLobbyBranding && <h1 className={`dyut-title shrink-0 font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5' : 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2'}`}>DYUT</h1>}
+      {showLobbyBranding && <OrnateDivider />}
       
-      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-2 w-full max-w-[860px] sm:mt-3 lg:max-w-[min(58vw,720px)] xl:max-w-[760px]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
+      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-[clamp(0.75rem,2dvh,1rem)] w-full shrink-0 max-w-[min(92vw,760px)]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/70 p-3 shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)] sm:p-5 lg:p-4 xl:p-4.5' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[clamp(1.1rem,2vw,1.5rem)] border border-gold/40 bg-black/70 p-[clamp(0.5rem,1.2vw,0.85rem)] shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)]' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
             {isInitialMenu && (
               <>
                 <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
@@ -1112,7 +1213,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             )}
             {IS_PORTAL ? (
               <>
-                <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
+                <div className="flex w-full flex-col gap-[clamp(0.35rem,1dvh,0.6rem)]">
                   <LobbyModeCard
                     tone="gold"
                     icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
@@ -1140,7 +1241,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             ) : (
               <>
                 {isInitialMenu ? (
-                  <div className="flex w-full flex-col gap-3 sm:gap-4 lg:gap-2.5">
+                  <div className="flex w-full flex-col gap-[clamp(0.35rem,1dvh,0.6rem)]">
                     <LobbyModeCard
                       tone="gold"
                       icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
@@ -1185,9 +1286,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
             )}
 
             {(hasCachedGame || resumeOnlineGameId) && (
-              <div className={`${isInitialMenu ? 'mx-auto mt-3.5 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
+              <div className={`${isInitialMenu ? 'mx-auto mt-2 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
-                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
+                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-2 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
                     <ResumeIcon className="h-4 w-4 text-gold" aria-hidden="true" />
                     {t('resumeOffline', 'Resume Offline')}
                   </button>
@@ -1201,16 +1302,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
             )}
             {IS_PORTAL && (
-              <p className="mt-3 text-center text-[10px] leading-relaxed text-white/45">
+              <p className="mt-2 text-center text-[9px] leading-relaxed text-white/45">
                 {t('portalLegalNotice', 'By playing Dyut on CrazyGames, you agree to the CrazyGames Terms & Conditions and Privacy Policy.')}
               </p>
             )}
           </div>
         )}
 
-        {isLobbyStage && (
+        {showLobbyBranding && (
           <div className={`${isSetupConfig ? 'hidden lg:contents' : 'mt-3 flex'} w-full max-w-[880px] flex-col items-start gap-3 sm:mt-4 lg:contents`}>
-            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[280px] lg:px-3.5 lg:py-2.5 xl:bottom-6">
+            <div className="lobby-fair-play flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[280px] lg:px-3.5 lg:py-2.5 xl:bottom-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-gold/40 bg-gold/10 text-gold">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z"></path>
@@ -1228,7 +1329,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
         {!activeLobbyId && setupMode && setupStep === 'config' && (
-          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
+          <div className="lobby-config-panel relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
             <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
@@ -1245,9 +1346,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               <div className="hidden w-[92px] sm:block"></div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2">
+            <div className="lobby-config-stack flex flex-col gap-3 sm:gap-4 lg:gap-2">
               <ConfigSectionTitle>{t('matchType', 'Match Type')}</ConfigSectionTitle>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
+              <div className="lobby-config-grid grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
                 <ConfigChoiceCard active={matchType === '1v1'} tone="sapphire" title={t('1v1', '1 vs 1')} subtitle={t('oneOnOne', 'Face off one on one')} onClick={() => setMatchType('1v1')}>
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
@@ -1263,7 +1364,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
 
               <ConfigSectionTitle>{t('gameRules', 'Game Rules')}</ConfigSectionTitle>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
+              <div className="lobby-config-grid grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
                 <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px] lg:min-h-[64px]">
                   <RulesIcon className="h-8 w-8" aria-hidden="true" />
                 </ConfigChoiceCard>
@@ -1275,7 +1376,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               {setupMode !== 'public' && (
                 <>
                   <ConfigSectionTitle>{t('botDifficulty', 'Bot Difficulty')}</ConfigSectionTitle>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
+                  <div className="lobby-config-grid grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
                     <ConfigChoiceCard active={botDifficulty === 'easy'} tone="emerald" title={t('easy', 'EASY')} subtitle={t('relaxedChallenge', 'Relaxed challenge')} onClick={() => setBotDifficulty('easy')} className="min-h-[86px] lg:min-h-[62px]">
                       <EasyIcon className="h-8 w-8" aria-hidden="true" />
                     </ConfigChoiceCard>
@@ -1292,9 +1393,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
                 <button onClick={() => {
                   let newSeats = {};
                   if (matchType === '1v1') {
-                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
                   } else {
-                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: user?.displayName || '', uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
                   }
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');
@@ -1319,8 +1420,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 3: LOCAL PLAY SETUP --- */}
         {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
-          <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
-            <div className="mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
+          <div className="lobby-seat-layout w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
+            <div className="lobby-seat-header mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
               <button onClick={() => IS_PORTAL ? setSetupStep('config') : setSetupMode(null)} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
               <h2 className="text-sm font-bold uppercase tracking-widest text-white/80 lg:text-xs">{t('localPlay', 'LOCAL PLAY')}</h2>
               <div className="w-[72px]"></div>
@@ -1328,7 +1429,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
             <div className="w-full flex flex-col items-center">
               <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
-              <div className="grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
+              <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
@@ -1336,7 +1437,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
             </div>
 
-            <button onClick={() => executeStart(false)} className="w-full rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
+            <button onClick={() => executeStart(false)} className="lobby-seat-primary-action w-full rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
               {t('startMatch', 'START MATCH')}
             </button>
           </div>
@@ -1344,10 +1445,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
 
         {/* --- STATE 4: ACTIVE LOBBY (PUBLIC OR PRIVATE) --- */}
         {activeLobbyId && (
-          <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,440px)] lg:space-y-3.5">
+          <div className="lobby-seat-layout w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,440px)] lg:space-y-3.5">
             <div className="w-full flex flex-col items-center">
               <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
-              <div className="grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
+              <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
@@ -1355,9 +1456,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onShowRules, onShowTutorial, 
               </div>
             </div>
 
-            <div className="mt-4 flex w-full flex-col gap-2 lg:mt-2.5">
+            <div className="lobby-active-actions mt-4 flex w-full flex-col gap-2 lg:mt-2.5">
             {isHost ? (
-                <button onClick={handleStartOnlineMatch} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
+                <button onClick={handleStartOnlineMatch} className="lobby-seat-primary-action flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
                   <StartIcon className="h-6 w-6" aria-hidden="true" />
                   {t('startMatch', 'START MATCH')}
                 </button>

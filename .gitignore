@@ -3,6 +3,7 @@
 /out-tsc/
 /tmp/
 /coverage/
+/artifacts/
 /e2e/test-output/
 /.angular/
 .angular/

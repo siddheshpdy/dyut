@@ -23,6 +23,15 @@
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 @keyframes shake {
@@ -145,4 +154,485 @@ body {
 .ruby-kill-icon {
   color: var(--color-ruby) !important;
   fill: var(--color-ruby) !important;
+}
+
+/* Shared lobby sizing keeps configuration states inside the game viewport. */
+.lobby-config-panel {
+  width: min(94vw, 800px);
+}
+
+.lobby-config-card {
+  min-height: clamp(3rem, 9dvh, 5.75rem) !important;
+}
+
+.lobby-seat-layout {
+  width: min(92vw, 430px);
+  margin-inline: auto;
+}
+
+.lobby-seat-grid {
+  width: min(100%, 280px);
+}
+
+.secondary-screen-shell {
+  max-height: calc(100dvh - 1.5rem);
+}
+
+.secondary-copy {
+  overflow-wrap: anywhere;
+}
+
+@media (max-height: 650px) {
+  .lobby-fair-play {
+    display: none !important;
+  }
+}
+
+.tutorial-dice-slot {
+  width: min(100%, 24rem);
+}
+
+.tutorial-board-slot > div {
+  height: min(100%, 100vw);
+  width: auto;
+}
+
+@media (max-width: 640px) {
+  .tutorial-screen {
+    padding: 0.5rem !important;
+  }
+
+  .tutorial-info {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .tutorial-info .secondary-screen-card {
+    padding: 0.7rem 0.85rem !important;
+  }
+
+  .tutorial-info .secondary-screen-header {
+    margin-bottom: 0.55rem !important;
+  }
+
+  .tutorial-info .secondary-screen-header h1 {
+    font-size: 1.45rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .tutorial-info-content {
+    gap: 0.6rem !important;
+  }
+
+  .tutorial-description {
+    font-size: 0.72rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .tutorial-status {
+    padding: 0.55rem !important;
+  }
+
+  .tutorial-actions {
+    margin-top: 0 !important;
+    gap: 0.45rem !important;
+  }
+
+  .tutorial-actions button {
+    padding: 0.4rem 0.65rem !important;
+    font-size: 0.62rem !important;
+  }
+
+  .tutorial-dice-slot {
+    width: 100%;
+    height: clamp(10.5rem, 23dvh, 12rem);
+  }
+
+  .tutorial-board-slot > div {
+    height: min(100%, calc(100vw - 3rem));
+  }
+}
+
+@media (min-height: 650px) {
+  .lobby-config-viewport {
+    justify-content: center !important;
+  }
+}
+
+@media (max-height: 540px) and (orientation: landscape) {
+  .lobby-viewport {
+    padding-top: 3.75rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .lobby-config-viewport {
+    justify-content: flex-start !important;
+  }
+
+  .lobby-config-panel {
+    width: min(92vw, 680px) !important;
+    padding: 0.5rem !important;
+    border-radius: 0.85rem !important;
+  }
+
+  .lobby-config-panel h2 {
+    font-size: 0.9rem !important;
+    line-height: 1 !important;
+  }
+
+  .lobby-config-stack {
+    gap: 0.3rem !important;
+  }
+
+  .lobby-config-section-title {
+    gap: 0.35rem !important;
+  }
+
+  .lobby-config-section-title > span:nth-child(3) {
+    font-size: 0.56rem !important;
+    letter-spacing: 0.14em !important;
+  }
+
+  .lobby-config-grid {
+    gap: 0.35rem !important;
+  }
+
+  .lobby-config-card {
+    min-height: 2.55rem !important;
+    padding: 0.3rem !important;
+    border-radius: 0.6rem !important;
+  }
+
+  .lobby-config-card-content {
+    gap: 0 !important;
+  }
+
+  .lobby-config-card-extra,
+  .lobby-config-card-icon,
+  .lobby-config-card-subtitle {
+    display: none !important;
+  }
+
+  .lobby-config-card-title {
+    font-size: 0.68rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .lobby-config-primary-action {
+    padding: 0.45rem !important;
+    font-size: 0.82rem !important;
+    line-height: 1 !important;
+  }
+
+  .lobby-seat-layout {
+    width: min(92vw, 420px) !important;
+    margin-inline: auto !important;
+  }
+
+  .lobby-seat-header {
+    margin-bottom: 0.4rem !important;
+    padding: 0.35rem !important;
+  }
+
+  .lobby-seat-grid {
+    max-width: 260px !important;
+    gap: 0.4rem !important;
+  }
+
+  .lobby-seat-card {
+    padding: 0.35rem !important;
+  }
+
+  .lobby-seat-label {
+    margin-bottom: 0.2rem !important;
+    font-size: 0.44rem !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  .lobby-seat-type select,
+  .lobby-seat-name {
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+    font-size: 0.6rem !important;
+  }
+
+  .lobby-seat-name {
+    margin-top: 0.3rem !important;
+  }
+
+  .lobby-seat-colors {
+    margin-top: 0.4rem !important;
+    gap: 0.3rem !important;
+  }
+
+  .lobby-seat-colors button {
+    height: 0.85rem !important;
+    width: 0.85rem !important;
+  }
+
+  .lobby-seat-primary-action,
+  .lobby-active-actions > button,
+  .lobby-active-actions > div {
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+    font-size: 0.75rem !important;
+    line-height: 1 !important;
+  }
+
+  .lobby-active-actions {
+    margin-top: 0.45rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .lobby-invite-summary {
+    margin-bottom: 0.45rem !important;
+    padding: 0.45rem !important;
+  }
+
+  .lobby-invite-summary > div:first-child {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .lobby-invite-url input,
+  .lobby-invite-url button {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    font-size: 0.6rem !important;
+  }
+
+  .secondary-screen-shell {
+    max-height: calc(100dvh - 0.75rem);
+  }
+
+  .secondary-screen-card {
+    padding: 0.65rem 0.85rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .secondary-screen-header {
+    margin-bottom: 0.45rem !important;
+  }
+
+  .secondary-screen-header > div {
+    display: none !important;
+  }
+
+  .secondary-screen-header h1 {
+    font-size: 1.25rem !important;
+    line-height: 1.05 !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  .secondary-screen-body {
+    font-size: 0.7rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .secondary-copy > section + section {
+    margin-top: 0.65rem !important;
+  }
+
+  .secondary-copy h2,
+  .rules-section-content h2 {
+    margin-bottom: 0.3rem !important;
+    padding-bottom: 0.2rem !important;
+    font-size: 0.85rem !important;
+    line-height: 1.1 !important;
+  }
+
+  .secondary-copy p {
+    line-height: 1.25 !important;
+  }
+
+  .secondary-screen-back {
+    margin-top: 0.55rem !important;
+  }
+
+  .secondary-screen-back button {
+    padding: 0.35rem 0.8rem !important;
+    font-size: 0.65rem !important;
+  }
+
+  .rules-section-tabs {
+    margin-bottom: 0.45rem !important;
+    gap: 0.3rem !important;
+  }
+
+  .rules-section-tabs button {
+    min-height: 1.7rem !important;
+    padding: 0.18rem 0.25rem !important;
+    font-size: 0.52rem !important;
+    line-height: 1 !important;
+  }
+
+  .rules-section-content ul {
+    gap: 0.2rem !important;
+    padding-left: 1rem !important;
+  }
+
+  .victory-overlay {
+    padding: 0.5rem !important;
+  }
+
+  .victory-card {
+    padding: 0.6rem 1rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .victory-card > div:first-of-type {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .victory-kicker {
+    font-size: 0.48rem !important;
+    letter-spacing: 0.3em !important;
+  }
+
+  .victory-title {
+    margin-top: 0.15rem !important;
+    font-size: clamp(2.6rem, 8vw, 4rem) !important;
+  }
+
+  .victory-champion {
+    margin-top: 0.45rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .victory-champion > p:first-child {
+    font-size: 0.5rem !important;
+  }
+
+  .victory-champion h2 {
+    margin-top: 0.35rem !important;
+    font-size: 1.8rem !important;
+  }
+
+  .victory-champion p:last-child {
+    margin-top: 0.35rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .victory-play-again {
+    margin-top: 0.5rem !important;
+    max-width: 13rem !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .tutorial-screen {
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .tutorial-info {
+    margin-bottom: 0.35rem !important;
+    max-width: 100% !important;
+  }
+
+  .tutorial-info .secondary-screen-shell {
+    max-height: none !important;
+  }
+
+  .tutorial-info .secondary-screen-card {
+    padding: 0.35rem 0.6rem !important;
+  }
+
+  .tutorial-info .secondary-screen-header {
+    margin-bottom: 0.2rem !important;
+  }
+
+  .tutorial-info .secondary-screen-header h1 {
+    font-size: 0.85rem !important;
+  }
+
+  .tutorial-info-content {
+    gap: 0.25rem !important;
+  }
+
+  .tutorial-description {
+    display: none !important;
+  }
+
+  .tutorial-status {
+    padding: 0.3rem !important;
+    border-radius: 0.45rem !important;
+  }
+
+  .tutorial-status > div {
+    font-size: 0.55rem !important;
+    line-height: 1.1 !important;
+  }
+
+  .tutorial-actions {
+    margin-top: 0 !important;
+    gap: 0.35rem !important;
+  }
+
+  .tutorial-actions button {
+    padding: 0.28rem 0.55rem !important;
+    font-size: 0.55rem !important;
+    line-height: 1 !important;
+  }
+
+  .tutorial-game-stage {
+    flex-direction: row !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+
+  .tutorial-board-slot {
+    flex: 0 1 auto !important;
+    height: 100% !important;
+  }
+
+  .tutorial-dice-slot {
+    display: flex !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 17rem !important;
+    flex: 1 1 17rem !important;
+  }
+}
+
+@media (min-height: 541px) and (max-height: 640px) and (orientation: landscape) {
+  .victory-overlay {
+    padding: 0.5rem !important;
+  }
+
+  .victory-card {
+    padding: 0.75rem 1.25rem !important;
+  }
+
+  .victory-card > div:first-of-type {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .victory-kicker {
+    font-size: 0.55rem !important;
+  }
+
+  .victory-title {
+    margin-top: 0.2rem !important;
+    font-size: clamp(3rem, 7.5vw, 4.5rem) !important;
+  }
+
+  .victory-champion {
+    margin-top: 0.6rem !important;
+    padding: 0.65rem !important;
+  }
+
+  .victory-champion h2 {
+    margin-top: 0.45rem !important;
+    font-size: 2.2rem !important;
+  }
+
+  .victory-champion p:last-child {
+    margin-top: 0.45rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  .victory-play-again {
+    margin-top: 0.65rem !important;
+    padding: 0.6rem 1.2rem !important;
+    font-size: 0.9rem !important;
+  }
 }

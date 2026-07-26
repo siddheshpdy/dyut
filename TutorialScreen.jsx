@@ -19,6 +19,15 @@ const TutorialScreen = ({ onBack }) => {
 
   const [scenarioState, dispatchLocal] = useReducer(tutorialReducer, null, () => ({ ...scenarios[0].initialState, isTutorial: true }));
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isCompactLandscape, setIsCompactLandscape] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia('(orientation: landscape) and (max-height: 540px)');
+    const syncLayout = () => setIsCompactLandscape(query.matches);
+    syncLayout();
+    query.addEventListener('change', syncLayout);
+    return () => query.removeEventListener('change', syncLayout);
+  }, []);
 
   // Re-sync if we switch scenarios
   useEffect(() => {
@@ -55,29 +64,29 @@ const TutorialScreen = ({ onBack }) => {
   const value = { state: scenarioState, dispatch, leaveGame: () => {} };
 
   return (
-    <div className="flex w-full max-w-[1600px] flex-col items-center overflow-y-auto px-2 pb-4 pt-16 sm:px-4 sm:pb-6 lg:px-6 lg:pt-8">
-      <div className="z-20 mx-auto mb-4 w-full max-w-4xl animate-fade-in sm:mb-6">
+    <div className="tutorial-screen flex h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] min-h-0 flex-col items-center overflow-hidden px-2 py-2 sm:h-[calc(100dvh-2rem)] sm:px-4 sm:py-3 lg:px-6">
+      <div className="tutorial-info z-20 mx-auto mb-3 w-full max-w-4xl shrink-0 animate-fade-in sm:mb-4">
         <SecondaryScreenShell
           title={t(`tutorialTitle_${currentScenario.id}`, currentScenario.title)}
           maxWidthClass="max-w-4xl"
           titleClassName="tracking-[0.14em]"
         >
-          <div className="space-y-5 text-center">
-            <p className="mx-auto max-w-3xl font-sans text-sm leading-relaxed text-white/82 sm:text-base">
+          <div className="tutorial-info-content space-y-5 text-center">
+            <p className="tutorial-description mx-auto max-w-3xl font-sans text-sm leading-relaxed text-white/82 sm:text-base">
               {t(`tutorialDesc_${currentScenario.id}`, currentScenario.description)}
             </p>
 
-            <div className="rounded-2xl border border-gold/20 bg-black/30 px-4 py-4 shadow-[inset_0_0_24px_rgba(0,0,0,0.45)]">
+            <div className="tutorial-status rounded-2xl border border-gold/20 bg-black/30 px-4 py-4 shadow-[inset_0_0_24px_rgba(0,0,0,0.45)]">
               {isSuccess && <div className="animate-hop font-display text-base font-bold uppercase tracking-[0.16em] text-emerald sm:text-lg">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
               {(!needsAction && !isSuccess) && <div className="animate-pulse font-display text-sm font-bold uppercase tracking-[0.14em] text-emerald/90">{t(`tutorialSuccess_${currentScenario.id}`, currentScenario.successMessage)}</div>}
               {needsAction && !isSuccess && (
-                <div className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-white/55 sm:text-sm">
+                <div className="font-sans text-xs font-semibold uppercase tracking-[0.18em] text-white/60 sm:text-sm">
                   {t('completePrompt', 'Complete the required move on the board')}
                 </div>
               )}
             </div>
 
-            <div className="mt-2 flex flex-wrap justify-center gap-3 sm:gap-4">
+            <div className="tutorial-actions mt-2 flex flex-wrap justify-center gap-3 sm:gap-4">
               <button onClick={onBack} className="dyut-secondary-button px-4 py-2 text-xs sm:px-6 sm:text-sm">{t('exitTutorial', 'Exit Tutorial')}</button>
               <button onClick={() => {
                 dispatchLocal({ type: 'LOAD_SCENARIO', payload: currentScenario.initialState });
@@ -85,24 +94,23 @@ const TutorialScreen = ({ onBack }) => {
               }} className="dyut-muted-button px-4 py-2 text-xs sm:px-6 sm:text-sm">
                 {t('reset', 'Reset')}
               </button>
-              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'dyut-primary-button shadow-[0_0_18px_rgba(251,191,36,0.4)]' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
+              <button onClick={handleNext} disabled={!canProceed} className={`rounded-xl border px-6 py-2 font-display text-xs font-bold uppercase tracking-[0.18em] transition-all sm:px-8 sm:text-sm ${canProceed ? 'border-gold/55 bg-gold/12 text-gold shadow-[0_0_18px_rgba(251,191,36,0.24)] hover:bg-gold/20' : 'cursor-not-allowed border-white/10 bg-white/5 text-white/30 shadow-none'}`}>{currentScenarioIndex < scenarios.length - 1 ? t('next', 'Next') : t('finish', 'Finish')}</button>
             </div>
           </div>
         </SecondaryScreenShell>
       </div>
-      <div className="w-full flex justify-center pointer-events-auto">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(140,56,16,0.18),transparent_38%)]"></div>
-      </div>
-      <div className="w-full flex justify-center pointer-events-auto">
-        <div className="rounded-[28px] border border-gold/20 bg-black/18 p-2 shadow-[0_0_40px_rgba(0,0,0,0.45)] sm:p-3 lg:p-4">
-          <GameContext.Provider value={value}>
-            <div className="relative z-10 flex w-full flex-col items-center justify-center gap-6 sm:gap-8 lg:flex-row">
-              <Board onGoToMenu={onBack} />
-              <DiceTray />
+      <GameContext.Provider value={value}>
+        <div className="tutorial-game-stage relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 pointer-events-auto sm:gap-4">
+          <div className="tutorial-board-slot flex min-h-0 min-w-0 flex-1 items-center justify-center">
+            <div className="aspect-square h-full max-w-full">
+              <Board onGoToMenu={onBack} layoutMode="mobile" />
             </div>
-          </GameContext.Provider>
+          </div>
+          <div className="tutorial-dice-slot shrink-0">
+            <DiceTray layoutMode={isCompactLandscape ? 'compact' : 'mobile'} />
+          </div>
         </div>
-      </div>
+      </GameContext.Provider>
     </div>
   );
 };

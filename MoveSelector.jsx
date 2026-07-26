@@ -26,7 +26,7 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
             <button
               onClick={() => onFullMove(roll.d1)}
               disabled={!validMoves.sum} // We use 'sum' to check validity for the single move
-              className="w-full px-4 py-3 bg-gold/90 text-charcoal font-sans font-bold rounded-xl hover:bg-gold disabled:bg-white/5 disabled:text-white/30 disabled:border-transparent border border-transparent shadow-[0_0_10px_rgba(251,191,36,0.3)] disabled:shadow-none transition-all"
+              className="w-full rounded-xl border border-gold/50 bg-gold/14 px-4 py-3 font-sans font-bold text-gold shadow-[0_0_10px_rgba(251,191,36,0.22)] transition-all hover:bg-gold/22 disabled:border-transparent disabled:bg-white/5 disabled:text-white/30 disabled:shadow-none"
             >
               {title === 'Spawn Piece' ? t('spawn', 'Spawn') : `${t('move')} ${roll.d1}`}
             </button>
@@ -58,7 +58,7 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
           <button
             onClick={() => onFullMove(roll.sum)}
             disabled={!validMoves.sum}
-            className="w-full px-4 py-3 bg-gold/90 text-charcoal font-sans font-bold rounded-xl hover:bg-gold disabled:bg-white/5 disabled:text-white/30 disabled:border-transparent border border-transparent shadow-[0_0_10px_rgba(251,191,36,0.3)] disabled:shadow-none transition-all"
+            className="w-full rounded-xl border border-gold/50 bg-gold/14 px-4 py-3 font-sans font-bold text-gold shadow-[0_0_10px_rgba(251,191,36,0.22)] transition-all hover:bg-gold/22 disabled:border-transparent disabled:bg-white/5 disabled:text-white/30 disabled:shadow-none"
           >
             {title === 'Spawn Piece' ? t('spawn', 'Spawn') : `${t('move')} ${roll.sum} (${t('sum')})`}
           </button>
