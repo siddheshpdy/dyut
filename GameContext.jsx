@@ -8,7 +8,7 @@ import { clearCrazyGamesOfflineResume, saveCrazyGamesOfflineResume } from './cra
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, initialStateOverride = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
@@ -25,7 +25,7 @@ const createInitialState = (gameConfig) => {
     };
   });
 
-  return {
+  const initialState = {
     currentPlayer: seatsToUse[0],
     turnQueue: [],
     turnHistory: [],
@@ -49,7 +49,10 @@ const createInitialState = (gameConfig) => {
     lastActionTime: Date.now(),
     afkStrikes: {},
     isAfkTurn: false,
+    scriptedRolls: [],
+    scriptedRollIndex: 0,
   };
+  return initialStateOverride ? { ...initialState, ...initialStateOverride } : initialState;
 };
 
 // Action Types for the Reducer
@@ -61,6 +64,7 @@ export const ACTION_TYPES = {
   MOVE_WITH_FULL_ROLL: 'MOVE_WITH_FULL_ROLL',
   MOVE_AND_SPLIT_ROLL: 'MOVE_AND_SPLIT_ROLL',
   RESET_GAME: 'RESET_GAME',
+  ADVANCE_SCRIPTED_ROLL: 'ADVANCE_SCRIPTED_ROLL',
   EXECUTE_PAIR_ATTACK: 'EXECUTE_PAIR_ATTACK',
   SYNC_FROM_CLOUD: 'SYNC_FROM_CLOUD',
   TRIGGER_AFK_INTERVENTION: 'TRIGGER_AFK_INTERVENTION',
@@ -128,6 +132,31 @@ export const shouldLocalClientAutoControlTurn = (currentState) => {
   if (!needsAutoControl) return false;
   if (!currentState.isOnline) return true;
   return !!currentState.localUid && currentState.localUid === currentState.hostUid;
+};
+
+export const shouldLocalClientAutoRoll = (currentState) => (
+  shouldLocalClientAutoControlTurn(currentState) &&
+  (!currentState.hasRolledThisTurn || !currentState.rollingPhaseComplete)
+);
+
+const getMissingOnlineGameMetadata = (remoteGame, localState) => {
+  const metadata = {
+    hostUid: localState.hostUid,
+    playerUids: localState.playerUids,
+    bots: localState.bots,
+    botDifficulty: localState.botDifficulty,
+    isVoidRuleEnabled: localState.isVoidRuleEnabled,
+    isQuickGame: localState.isQuickGame,
+    isTeamMode: localState.isTeamMode,
+  };
+
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key, value]) => (
+      value !== undefined &&
+      value !== null &&
+      !Object.prototype.hasOwnProperty.call(remoteGame, key)
+    ))
+  );
 };
 
 function releaseAutoControlForPlayer(state, playerId) {
@@ -305,6 +334,8 @@ export function gameReducer(state, action) {
         rollingPhaseComplete: !isDouble,
       };
     }
+    case ACTION_TYPES.ADVANCE_SCRIPTED_ROLL:
+      return { ...state, scriptedRollIndex: state.scriptedRollIndex + 1 };
     case ACTION_TYPES.SPAWN_PIECE:
     {
       const { playerId, pieceIndex, rollIndex } = action.payload;
@@ -505,6 +536,8 @@ export const GameContext = createContext();
 
 const LOCAL_STORAGE_KEY = 'dyut_game_state';
 const LOCAL_PLAYER_COUNT_KEY = 'dyut_player_count';
+const BOT_ROLL_FALLBACK_DELAY_MS = 3000;
+const PASA_DICE_FACES = [1, 3, 4, 6];
 
 export const initGameState = (initialState) => {
   if (initialState.isOnline) {
@@ -611,6 +644,35 @@ const dispatch = useCallback((action) => {
     window.addEventListener('beforeunload', handleUnload);
     return () => window.removeEventListener('beforeunload', handleUnload);
   }, []);
+
+  // The dice tray normally animates and dispatches bot rolls. Keep an authoritative host-side
+  // fallback so a bot-filled online seat never waits for the human-turn timeout if that UI timer
+  // is interrupted during a portal or cloud-state transition.
+  useEffect(() => {
+    if (!state.isOnline || !shouldLocalClientAutoRoll(state) || isGameOverState(state)) return undefined;
+
+    const scheduledPlayerId = state.currentPlayer;
+    const timer = setTimeout(() => {
+      const currentState = latestStateRef.current;
+      if (
+        isGameOverState(currentState) ||
+        currentState.currentPlayer !== scheduledPlayerId ||
+        !shouldLocalClientAutoRoll(currentState)
+      ) {
+        return;
+      }
+
+      const d1 = PASA_DICE_FACES[Math.floor(Math.random() * PASA_DICE_FACES.length)];
+      const d2 = PASA_DICE_FACES[Math.floor(Math.random() * PASA_DICE_FACES.length)];
+      dispatch({
+        type: ACTION_TYPES.ROLL_DICE,
+        payload: { d1, d2, sum: d1 + d2 },
+        _autoControlledAction: true,
+      });
+    }, BOT_ROLL_FALLBACK_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [dispatch, state.isOnline, state.currentPlayer, state.hasRolledThisTurn, state.rollingPhaseComplete, state.isAfkTurn, state.bots, state.hostUid, state.localUid]);
 
   // Host: Send Heartbeat during gameplay
   useEffect(() => {
@@ -751,7 +813,17 @@ const dispatch = useCallback((action) => {
       const unsubscribe = onValue(gameRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
-          
+
+          // A browser that had an older bundle cached can create a game record without
+          // host/seat metadata. Backfill only missing fields so the current host can
+          // immediately control bot-filled seats without modifying active gameplay.
+          if (state.localUid === state.hostUid) {
+            const missingMetadata = getMissingOnlineGameMetadata(data, state);
+            if (Object.keys(missingMetadata).length > 0) {
+              update(gameRef, missingMetadata).catch(console.error);
+            }
+          }
+           
           // Public game drop-rejoin prevention
           if (data.isPublic && state.localUid) {
             const myPlayerId = Object.keys(data.playerUids || {}).find(key => data.playerUids[key] === state.localUid);
@@ -771,8 +843,14 @@ const dispatch = useCallback((action) => {
             players: state.players,
             hasRolledThisTurn: state.hasRolledThisTurn,
             rollingPhaseComplete: state.rollingPhaseComplete,
-            isPublic: gameConfig.isPublic || false,
-            status: gameConfig.status || 'playing',
+          isPublic: gameConfig.isPublic || false,
+          hostUid: state.hostUid,
+          playerUids: state.playerUids,
+          botDifficulty: state.botDifficulty,
+          isVoidRuleEnabled: state.isVoidRuleEnabled,
+          isQuickGame: state.isQuickGame,
+          isTeamMode: state.isTeamMode,
+          status: gameConfig.status || 'playing',
             lastPing: Date.now(),
             turnStartedAt: state.turnStartedAt,
             lastActionTime: Date.now(),

@@ -9,7 +9,11 @@
     "build:crazygames": "vite build --mode crazygames",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "capture:screenshots": "node scripts/capture-crazygames-screenshots.mjs",
+    "capture:screenshots:crazygames": "node scripts/capture-crazygames-screenshots.mjs --portal",
+    "capture:covers": "node scripts/capture-crazygames-covers.mjs",
+    "capture:preview-videos": "node scripts/capture-crazygames-preview-videos.mjs"
   },
   "dependencies": {
     "firebase": "^10.10.0",

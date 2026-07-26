@@ -187,8 +187,11 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     setTimeout(() => {
       clearInterval(animationInterval);
 
-      const final_d1 = DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
-      const final_d2 = DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
+      const scriptedRoll = state.scriptedRolls?.length
+        ? state.scriptedRolls[state.scriptedRollIndex % state.scriptedRolls.length]
+        : null;
+      const final_d1 = scriptedRoll?.d1 ?? DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
+      const final_d2 = scriptedRoll?.d2 ?? DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
       setLastRoll({ d1: final_d1, d2: final_d2 });
 
       setIsRolling(false);
@@ -206,11 +209,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
             payload: { d1: final_d1, d2: final_d2, sum: final_d1 + final_d2 },
             _autoControlledAction: autoControlled
           });
+          if (scriptedRoll) dispatch({ type: ACTION_TYPES.ADVANCE_SCRIPTED_ROLL, skipSync: true });
         }
         setIsEvaluating(false);
       }, 600);
     }, 600);
-  }, [dispatch, isEvaluating, isGameOver, isMuted, isRolling, state.isVoidRuleEnabled]);
+  }, [dispatch, isEvaluating, isGameOver, isMuted, isRolling, state.isVoidRuleEnabled, state.scriptedRolls, state.scriptedRollIndex]);
 
   const handleRollControl = (event) => {
     if (isAutoControlledTurn && event?.isTrusted) return;
@@ -427,8 +431,8 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
               <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} isActive={canTriggerRoll} />
               <span className={`mb-2 font-display text-sm font-bold uppercase tracking-widest ${isCompactLandscapeTray ? 'block text-[0.8rem]' : 'hidden lg:block lg:text-[0.95rem]'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
-                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} isHighlighted={canTriggerRoll} />
-                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile'} isHighlighted={canTriggerRoll} />
+                <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile' || isCompactLandscapeTray} isHighlighted={canTriggerRoll} />
+                <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile' || isCompactLandscapeTray} isHighlighted={canTriggerRoll} />
               </div>
               <span className={`mt-2 text-center font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] ${isCompactLandscapeTray ? 'block text-[0.62rem]' : 'hidden lg:block'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
                 {canTriggerRoll ? t('rollDice') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}

@@ -80,7 +80,7 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = fal
 };
 
 const ConfigSectionTitle = ({ children }) => (
-  <div className="flex w-full items-center justify-center gap-3 text-gold/80 lg:gap-2">
+  <div className="lobby-config-section-title flex w-full items-center justify-center gap-3 text-gold/80 lg:gap-2">
     <span className="h-px flex-1 bg-gradient-to-r from-transparent via-gold/40 to-gold/70"></span>
     <span className="h-1.5 w-1.5 rotate-45 border border-gold/70 lg:h-1 lg:w-1"></span>
     <span className="font-display text-xs font-bold uppercase tracking-[0.22em] sm:text-sm lg:text-[0.68rem]">{children}</span>
@@ -112,18 +112,18 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
     <button
       type="button"
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 lg:p-2.5 ${toneClasses} ${className}`}
+      className={`lobby-config-card group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 lg:p-2.5 ${toneClasses} ${className}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(255,255,255,0.12),transparent_38%)] opacity-70"></div>
-      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
-        {children}
+      <div className="lobby-config-card-content relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
+        <div className="lobby-config-card-extra contents">{children}</div>
         {icon && (
-          <span className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-50'}`}>
+          <span className={`lobby-config-card-icon mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-50'}`}>
             {icon}
           </span>
         )}
-        <div className="font-display text-lg font-bold uppercase tracking-wider sm:text-xl lg:text-[0.95rem]">{title}</div>
-        {subtitle && <div className="hidden text-xs leading-snug text-white/70 sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
+        <div className="lobby-config-card-title font-display text-lg font-bold uppercase tracking-wider sm:text-xl lg:text-[0.95rem]">{title}</div>
+        {subtitle && <div className="lobby-config-card-subtitle hidden text-xs leading-snug text-white/70 sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
       </div>
     </button>
   );
@@ -152,12 +152,12 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   };
 
   return (
-    <div className={`flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
-      <span className={`mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
+  <div className={`lobby-seat-card flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
+       <span className={`lobby-seat-label mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
         {label} {isOwnedByMe && <span className="opacity-80">({t('you', 'YOU')})</span>}
       </span>
       
-      <div className="relative w-full">
+      <div className="lobby-seat-type relative w-full">
         <select 
           aria-label={`Select type for ${label}`}
           value={seat.type} 
@@ -188,11 +188,11 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           placeholder={t('playerNamePlaceholder', 'Enter Name')}
           maxLength={12}
           spellCheck="false"
-          className={`mt-2 w-full rounded border border-white/10 bg-transparent py-1 text-center font-sans text-xs text-white/90 transition-opacity focus:outline-none focus:border-gold/50 lg:mt-1.5 lg:text-[11px] ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`lobby-seat-name mt-2 w-full rounded border border-white/10 bg-transparent py-1 text-center font-sans text-xs text-white/90 transition-opacity focus:outline-none focus:border-gold/50 lg:mt-1.5 lg:text-[11px] ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         />
       )}
 
-      <div className={`mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`lobby-seat-colors mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {ALL_COLORS.map(color => {
           const isTaken = activeColors.includes(color.name) && seat.color !== color.name;
           return (
@@ -406,7 +406,7 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, onReconnectOnline }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
@@ -435,7 +435,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const [portalUser, setPortalUser] = useState(null);
   const [inviteUrl, setInviteUrl] = useState('');
-  const [offlineResumeAction, setOfflineResumeAction] = useState(null);
+  const [offlineResumeAction, setOfflineResumeAction] = useState(() => (qaShowOfflineResume ? () => {} : null));
 
   const { t } = useTranslation();
 
@@ -1062,7 +1062,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
   const isInitialMenu = !activeLobbyId && !setupMode;
   const isSetupConfig = !activeLobbyId && setupMode && setupStep === 'config';
-  const isLobbyStage = isInitialMenu || isSetupConfig;
+  const isSeatSetup = !activeLobbyId && setupMode === 'local' && setupStep === 'seats';
+  const isLobbyStage = isInitialMenu || isSetupConfig || isSeatSetup || !!activeLobbyId;
+  const showLobbyBranding = isInitialMenu || isSetupConfig;
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const MenuIcon = DYUT_ICONS.menu;
   const HowToPlayIcon = DYUT_ICONS.howToPlay;
@@ -1080,7 +1082,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const EasyIcon = DYUT_ICONS.easyDifficulty;
   const HardIcon = DYUT_ICONS.hardDifficulty;
   const StartIcon = DYUT_ICONS.next;
-  const configPrimaryButtonClass = "w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-2.5 lg:text-[1.95rem]";
+  const configPrimaryButtonClass = "lobby-config-primary-action w-full rounded-xl border border-yellow-200/50 bg-gradient-to-b from-yellow-300 via-gold to-amber-700 py-3.5 font-display text-3xl font-bold uppercase tracking-widest text-charcoal shadow-[0_0_28px_rgba(234,179,8,0.36),inset_0_2px_10px_rgba(255,255,255,0.35)] transition-all hover:scale-[1.01] hover:brightness-110 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-70 sm:text-4xl lg:py-2.5 lg:text-[1.95rem]";
 
   return (
     <>
@@ -1159,9 +1161,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       </header>
 
-      <div className={`${isLobbyStage ? `relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center px-4 sm:px-6 ${isSetupConfig ? 'justify-center overflow-hidden pb-3 pt-20 sm:pb-4 lg:justify-start lg:overflow-hidden lg:pb-6 lg:pt-[4.5rem] xl:pb-8 xl:pt-[5rem]' : isInitialMenu ? 'justify-start overflow-hidden pb-6 pt-[clamp(5rem,10dvh,6rem)] sm:pb-8 lg:pb-10 lg:pt-[clamp(5rem,9dvh,6rem)] xl:pb-12' : 'justify-center overflow-hidden pb-3 pt-20 sm:pb-4 lg:justify-start lg:overflow-y-auto'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
+      <div className={`${isLobbyStage ? `lobby-viewport relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center px-4 sm:px-6 ${isSetupConfig ? 'lobby-config-viewport justify-start overflow-hidden pb-3 pt-[clamp(4rem,9dvh,5rem)] sm:pb-4' : isInitialMenu ? 'justify-start overflow-hidden pb-6 pt-[clamp(5rem,10dvh,6rem)] sm:pb-8 lg:pb-10 lg:pt-[clamp(5rem,9dvh,6rem)] xl:pb-12' : 'lobby-seat-viewport justify-center overflow-hidden pb-3 pt-[clamp(3.75rem,8dvh,4.75rem)] sm:pb-4'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
-        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 mb-8 flex flex-col items-center animate-fade-in">
+        <div className="lobby-invite-summary mb-4 flex w-full max-w-[min(92vw,560px)] flex-col items-center rounded-xl border border-white/10 bg-black/40 p-3 animate-fade-in sm:mb-5 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
             {isLobbyPublic ? (
               <div className="flex flex-col items-start gap-1" title="Public Lobby">
@@ -1187,15 +1189,15 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                 : t(`status_${connectionStatus}`, connectionStatus === 'waiting' ? 'Waiting...' : connectionStatus === 'connecting' ? 'Connecting...' : connectionStatus === 'connected' ? 'Connected' : 'Lobby not found')}
             </span>
           </div>
-          <div className="flex w-full gap-2">
+          <div className="lobby-invite-url flex w-full gap-2">
             <input type="text" readOnly value={inviteUrl} className="flex-1 bg-black/60 border border-white/5 text-white/80 font-sans text-xs px-3 py-2 rounded-lg focus:outline-none" />
             <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }} className="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold text-white hover:bg-white/20 transition-colors">{isCopied ? t('copied', 'Copied!') : t('copy', 'Copy')}</button>
           </div>
         </div>
       )}
       
-      <h1 className={`dyut-title shrink-0 font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isLobbyStage ? `${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5 lg:mt-0' : isInitialMenu ? 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2 lg:mt-0' : 'mb-1 text-[clamp(2.35rem,4.4vw,3.9rem)] leading-none sm:mb-2 lg:mt-1'}` : 'mb-8 text-5xl'}`}>DYUT</h1>
-      {isLobbyStage && <OrnateDivider />}
+      {showLobbyBranding && <h1 className={`dyut-title shrink-0 font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5' : 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2'}`}>DYUT</h1>}
+      {showLobbyBranding && <OrnateDivider />}
       
       <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-[clamp(0.75rem,2dvh,1rem)] w-full shrink-0 max-w-[min(92vw,760px)]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
@@ -1307,9 +1309,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
           </div>
         )}
 
-        {isLobbyStage && (
+        {showLobbyBranding && (
           <div className={`${isSetupConfig ? 'hidden lg:contents' : 'mt-3 flex'} w-full max-w-[880px] flex-col items-start gap-3 sm:mt-4 lg:contents`}>
-            <div className="flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[280px] lg:px-3.5 lg:py-2.5 xl:bottom-6">
+            <div className="lobby-fair-play flex w-full items-center gap-3 rounded-[8px] border border-gold/30 bg-black/55 px-3 py-2 text-left shadow-[0_0_22px_rgba(0,0,0,0.55)] lg:fixed lg:bottom-5 lg:left-8 lg:z-20 lg:max-w-[280px] lg:px-3.5 lg:py-2.5 xl:bottom-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-gold/40 bg-gold/10 text-gold">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l7 3v5c0 4.4-2.8 8.1-7 10-4.2-1.9-7-5.6-7-10V6l7-3z"></path>
@@ -1327,7 +1329,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
         {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
         {!activeLobbyId && setupMode && setupStep === 'config' && (
-          <div className="relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
+          <div className="lobby-config-panel relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
             <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
@@ -1344,9 +1346,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               <div className="hidden w-[92px] sm:block"></div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:gap-4 lg:gap-2">
+            <div className="lobby-config-stack flex flex-col gap-3 sm:gap-4 lg:gap-2">
               <ConfigSectionTitle>{t('matchType', 'Match Type')}</ConfigSectionTitle>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
+              <div className="lobby-config-grid grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
                 <ConfigChoiceCard active={matchType === '1v1'} tone="sapphire" title={t('1v1', '1 vs 1')} subtitle={t('oneOnOne', 'Face off one on one')} onClick={() => setMatchType('1v1')}>
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
@@ -1362,7 +1364,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               </div>
 
               <ConfigSectionTitle>{t('gameRules', 'Game Rules')}</ConfigSectionTitle>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
+              <div className="lobby-config-grid grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
                 <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px] lg:min-h-[64px]">
                   <RulesIcon className="h-8 w-8" aria-hidden="true" />
                 </ConfigChoiceCard>
@@ -1374,7 +1376,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               {setupMode !== 'public' && (
                 <>
                   <ConfigSectionTitle>{t('botDifficulty', 'Bot Difficulty')}</ConfigSectionTitle>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
+                  <div className="lobby-config-grid grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
                     <ConfigChoiceCard active={botDifficulty === 'easy'} tone="emerald" title={t('easy', 'EASY')} subtitle={t('relaxedChallenge', 'Relaxed challenge')} onClick={() => setBotDifficulty('easy')} className="min-h-[86px] lg:min-h-[62px]">
                       <EasyIcon className="h-8 w-8" aria-hidden="true" />
                     </ConfigChoiceCard>
@@ -1418,8 +1420,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
         {/* --- STATE 3: LOCAL PLAY SETUP --- */}
         {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
-          <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
-            <div className="mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
+          <div className="lobby-seat-layout w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
+            <div className="lobby-seat-header mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
               <button onClick={() => IS_PORTAL ? setSetupStep('config') : setSetupMode(null)} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
               <h2 className="text-sm font-bold uppercase tracking-widest text-white/80 lg:text-xs">{t('localPlay', 'LOCAL PLAY')}</h2>
               <div className="w-[72px]"></div>
@@ -1427,7 +1429,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
             <div className="w-full flex flex-col items-center">
               <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
-              <div className="grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
+              <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
@@ -1435,7 +1437,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               </div>
             </div>
 
-            <button onClick={() => executeStart(false)} className="w-full rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
+            <button onClick={() => executeStart(false)} className="lobby-seat-primary-action w-full rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
               {t('startMatch', 'START MATCH')}
             </button>
           </div>
@@ -1443,10 +1445,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
         {/* --- STATE 4: ACTIVE LOBBY (PUBLIC OR PRIVATE) --- */}
         {activeLobbyId && (
-          <div className="w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,440px)] lg:space-y-3.5">
+          <div className="lobby-seat-layout w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,440px)] lg:space-y-3.5">
             <div className="w-full flex flex-col items-center">
               <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
-              <div className="grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
+              <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
@@ -1454,9 +1456,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               </div>
             </div>
 
-            <div className="mt-4 flex w-full flex-col gap-2 lg:mt-2.5">
+            <div className="lobby-active-actions mt-4 flex w-full flex-col gap-2 lg:mt-2.5">
             {isHost ? (
-                <button onClick={handleStartOnlineMatch} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
+                <button onClick={handleStartOnlineMatch} className="lobby-seat-primary-action flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
                   <StartIcon className="h-6 w-6" aria-hidden="true" />
                   {t('startMatch', 'START MATCH')}
                 </button>

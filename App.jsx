@@ -7,6 +7,7 @@ import RulesScreen from './RulesScreen';
 import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
 import AboutScreen from './AboutScreen';
+import VictoryScreen from './VictoryScreen';
 import { GameProvider, useGame, canLocalClientAct, getActiveTurnPlayerId, isGameOverState } from './GameContext';
 import { canSpawnPiece, hasAnyPlayableMove } from './gameLogic';
 import blehMochiGif from './assets/bleh-mochi.gif';
@@ -31,6 +32,37 @@ const MOBILE_HEADER_RESERVED_SPACE = 'clamp(4.5rem, 10.5vh, 5.35rem)';
 const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
 const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
 const MOBILE_TRAY_RESERVED_SPACE_SHORT = '12.2rem';
+const getQaPreviewScreen = () => {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('qa');
+};
+const getQaCaptureScenarioConfig = (screen) => {
+  if (screen !== 'scenario') return null;
+  return {
+    playerCount: 4,
+    activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
+    playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
+    playerAliases: { Player1: 'Bot 1', Player2: 'Bot 2', Player3: 'Bot 3', Player4: 'Bot 4' },
+    bots: ['Player1', 'Player2', 'Player3', 'Player4'],
+    initialStateOverride: {
+      currentPlayer: 'Player1',
+      hasRolledThisTurn: true,
+      rollingPhaseComplete: true,
+      turnQueue: [{ d1: 4, d2: null, sum: 4 }],
+      scriptedRolls: [
+        { d1: 6, d2: 6 }, { d1: 4, d2: 6 }, { d1: 4, d2: 4 }, { d1: 3, d2: 6 },
+        { d1: 1, d2: 4 }, { d1: 3, d2: 3 }, { d1: 6, d2: 4 }, { d1: 6, d2: 6 },
+        { d1: 4, d2: 3 }, { d1: 1, d2: 6 }, { d1: 4, d2: 4 }, { d1: 6, d2: 3 },
+      ],
+      players: {
+        Player1: { color: 'ruby', name: 'Capture Hero', hasKilled: false, pieces: [10, 8, -1, -1], team: 0 },
+        Player2: { color: 'sapphire', name: 'Rival', hasKilled: false, pieces: [65, -1, -1, -1], team: 0 },
+        Player3: { color: 'emerald', name: 'Shield Pair', hasKilled: false, pieces: [20, 20, -1, -1], team: 0 },
+        Player4: { color: 'amber', name: 'Bot 4', hasKilled: false, pieces: [18, -1, -1, -1], team: 0 },
+      },
+    },
+  };
+};
 const hasOfflineResumeCache = () => !!localStorage.getItem(GAME_STATE_KEY) && !!localStorage.getItem(PLAYER_COUNT_KEY);
 const shouldShowFirstGameHelp = () => {
   try {
@@ -310,11 +342,13 @@ const FirstGameHelper = ({ isVisible, onClose }) => {
 
 function App() {
   const { t } = useTranslation();
+  const qaPreviewScreen = getQaPreviewScreen();
   const isDesktop = useIsDesktop();
   const isShortMobileHeight = useIsShortMobileHeight();
   const isCompactLandscape = useIsCompactLandscape();
-  const [view, setView] = useState('menu'); // 'menu', 'rules', 'setup', 'game'
-  const [gameConfig, setGameConfig] = useState(null); // { playerCount, playerColors, isVoidRuleEnabled }
+  const qaScenarioConfig = getQaCaptureScenarioConfig(qaPreviewScreen);
+  const [view, setView] = useState(() => qaScenarioConfig ? 'game' : 'menu'); // 'menu', 'rules', 'setup', 'game'
+  const [gameConfig, setGameConfig] = useState(() => qaScenarioConfig); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
   const [joinGameId, setJoinGameId] = useState(null);
   const [hasCachedGame, setHasCachedGame] = useState(() => hasOfflineResumeCache());
@@ -481,6 +515,7 @@ function App() {
             if (!isMounted) return;
             
             window.CrazyGames.SDK.game.loadingStop();
+            if (qaPreviewScreen) return;
             const hasPortalOfflineResume = await loadCrazyGamesOfflineResumeToLocal();
             if (isMounted && hasPortalOfflineResume) setHasCachedGame(true);
 
@@ -720,6 +755,10 @@ function App() {
   };
 
   const renderView = () => {
+    if (qaPreviewScreen === 'victory') {
+      return <VictoryScreen winnerId="QA Champion" onNewGame={() => setView('menu')} />;
+    }
+
     switch (view) {
       case 'rules':
         return (
@@ -782,7 +821,7 @@ function App() {
               </div>
             ) : (
               <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
-                <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:justify-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
+                <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:items-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
                   <div style={{ width: mobileBoardSize, height: mobileBoardSize }}>
                     <Board onGoToMenu={handleWipeAndGoToMenu} layoutMode="mobile" />
                   </div>
@@ -810,17 +849,18 @@ function App() {
           resumeOnlineGameId={resumeOnlineGameId}
           joinGameId={joinGameId} 
           user={user} 
-          autoStartPortalIntro={IS_PORTAL && portalAutoStartPending}
+          autoStartPortalIntro={IS_PORTAL && !qaPreviewScreen && portalAutoStartPending}
           onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
-          autoStartInstantMultiplayer={IS_PORTAL && portalInstantMultiplayerPending}
+          autoStartInstantMultiplayer={IS_PORTAL && !qaPreviewScreen && portalInstantMultiplayerPending}
           onInstantMultiplayerConsumed={() => setPortalInstantMultiplayerPending(false)}
           onReconnectOnline={handleReconnectOnline}
+          qaShowOfflineResume={qaPreviewScreen === 'resume'}
         />;
     }
   };
 
   return (
-    <main className={`min-h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-x-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0 overflow-hidden' : 'p-4 overflow-y-auto'}`}>
+    <main className={`h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0' : 'p-3 sm:p-4'}`}>
       {view !== 'menu' && view !== 'game' && (
         <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
           <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />

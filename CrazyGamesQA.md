@@ -25,6 +25,26 @@ Test gameplay, menu, lobby, tutorial overlay, resume dialog, victory screen, and
 - `390 x 844`
 - `360 x 800`
 
+## Automated Screenshot Capture
+
+Generate a screenshot for every required viewport and each navigable UI state (lobby, configuration, seats, tutorial, rules, history, about, game, resume dialog, and victory) with:
+
+```powershell
+npm.cmd run capture:screenshots
+```
+
+For the portal-specific flow, use:
+
+```powershell
+npm.cmd run capture:screenshots:crazygames
+```
+
+Screenshots and a `manifest.json` report are written to `artifacts/viewport-screenshots/<mode>/`. The runner starts temporary Vite and Chrome processes, so it needs Google Chrome installed (or `CHROME_PATH` set to its executable). It returns a failing exit code when any screen cannot be reached or captured.
+
+Before saving each image, the manifest checks the required component for that screen, all visible buttons/inputs/links, and document/body overflow. A capture fails when a required component or interactive control leaves the viewport.
+
+To debug one size without generating the full set, append a viewport flag, for example `-- --viewport=800x450`.
+
 For each viewport:
 
 - No horizontal page scroll.
@@ -57,6 +77,7 @@ For each viewport:
 - CrazyGames usernames appear in seats and on the board.
 - Host migration keeps the game playable after host disconnect.
 - Public match reconnect prevention replaces disconnected players with bots.
+- In a four-player online match with two humans and two bot-filled seats, the host rolls each bot turn automatically within three seconds; it must not wait for the 30-second human-turn timer.
 
 ## Save And Resume
 

@@ -28,10 +28,10 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
   };
 
   const overlay = (
-    <div className="fixed inset-0 z-[140] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-black/76 px-4 py-8 text-center backdrop-blur-sm sm:px-6">
+    <div className="victory-overlay fixed inset-0 z-[140] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-black/76 px-4 py-8 text-center backdrop-blur-sm sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(234,179,8,0.12),transparent_46%)]"></div>
 
-      <section className="relative flex w-full max-w-4xl flex-col items-center rounded-[28px] border border-gold/35 bg-[#070503]/88 px-5 py-7 shadow-[0_0_70px_rgba(0,0,0,0.84),inset_0_0_56px_rgba(234,179,8,0.08)] sm:px-9 sm:py-9 lg:py-10">
+      <section className="victory-card relative flex w-full max-w-4xl flex-col items-center rounded-[28px] border border-gold/35 bg-[#070503]/88 px-5 py-7 shadow-[0_0_70px_rgba(0,0,0,0.84),inset_0_0_56px_rgba(234,179,8,0.08)] sm:px-9 sm:py-9 lg:py-10">
         <span className={`${cornerClass} -left-1 -top-1 rounded-tl-[28px] border-l border-t`}></span>
         <span className={`${cornerClass} -right-1 -top-1 rounded-tr-[28px] border-r border-t`}></span>
         <span className={`${cornerClass} -bottom-1 -left-1 rounded-bl-[28px] border-b border-l`}></span>
@@ -43,15 +43,15 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
           <span className="h-px flex-1 bg-gradient-to-l from-transparent via-gold/70 to-gold/20"></span>
         </div>
 
-        <p className="font-display text-[0.65rem] font-bold uppercase tracking-[0.46em] text-gold/90 drop-shadow-[0_0_8px_rgba(251,191,36,0.28)] sm:text-xs">
+        <p className="victory-kicker font-display text-[0.65rem] font-bold uppercase tracking-[0.46em] text-gold/90 drop-shadow-[0_0_8px_rgba(251,191,36,0.28)] sm:text-xs">
           {t('gameOfLegends', 'The Game of Legends')}
         </p>
 
-        <h1 className="dyut-title mt-2 text-[clamp(3.6rem,10vw,7.5rem)] font-bold leading-none tracking-[0.1em] text-[var(--color-gold)] drop-shadow-[0_0_30px_rgba(251,191,36,0.58)] sm:tracking-[0.16em]">
+        <h1 className="victory-title dyut-title mt-2 text-[clamp(3.6rem,10vw,7.5rem)] font-bold leading-none tracking-[0.1em] text-[var(--color-gold)] drop-shadow-[0_0_30px_rgba(251,191,36,0.58)] sm:tracking-[0.16em]">
           {t('victory', 'VICTORY')}
         </h1>
 
-        <div className="mt-5 w-full max-w-2xl rounded-2xl border border-gold/28 bg-black/62 px-4 py-4 shadow-[inset_0_0_28px_rgba(0,0,0,0.7)] sm:mt-6 sm:px-8 sm:py-5">
+        <div className="victory-champion mt-5 w-full max-w-2xl rounded-2xl border border-gold/28 bg-black/62 px-4 py-4 shadow-[inset_0_0_28px_rgba(0,0,0,0.7)] sm:mt-6 sm:px-8 sm:py-5">
           <p className="text-[0.68rem] font-bold uppercase tracking-[0.38em] text-white/85 drop-shadow-[0_0_8px_rgba(0,0,0,0.85)] sm:text-sm">
             {t('champion', 'Champion')}
           </p>
@@ -65,7 +65,7 @@ const VictoryScreen = ({ winnerId, onNewGame }) => {
 
         <button
           onClick={handlePlayAgain}
-          className="mt-6 w-full max-w-xs rounded-2xl border border-gold/55 bg-gold/12 px-8 py-3 font-display text-base font-bold uppercase tracking-[0.18em] text-gold shadow-[0_0_24px_rgba(251,191,36,0.26),inset_0_0_22px_rgba(234,179,8,0.08)] transition-all hover:scale-[1.03] hover:bg-gold/20 sm:mt-8 sm:max-w-sm sm:px-14 sm:py-4 sm:text-2xl"
+          className="victory-play-again mt-6 w-full max-w-xs rounded-2xl border border-gold/55 bg-gold/12 px-8 py-3 font-display text-base font-bold uppercase tracking-[0.18em] text-gold shadow-[0_0_24px_rgba(251,191,36,0.26),inset_0_0_22px_rgba(234,179,8,0.08)] transition-all hover:scale-[1.03] hover:bg-gold/20 sm:mt-8 sm:max-w-sm sm:px-14 sm:py-4 sm:text-2xl"
         >
           {t('playAgain', 'Play Again')}
         </button>

@@ -20,7 +20,10 @@
               window.CrazyGames.SDK.init().then(() => {
                 window.CrazyGames.SDK.game.loadingStart();
                 resolve();
-              }).catch(console.error);
+              }).catch((error) => {
+                console.error('CrazyGames SDK initialization failed:', error);
+                reject(error);
+              });
             };
             if (document.readyState === "loading") {
               document.addEventListener("DOMContentLoaded", initCg);

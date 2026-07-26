@@ -1,3 +1,5 @@
+import React from 'react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('./boardMapping', () => ({
@@ -15,14 +17,27 @@ vi.mock('./firebaseSetup.js', () => ({
   updateUserStats: vi.fn(),
 }));
 
+vi.mock('firebase/database', () => ({
+  ref: vi.fn((_database, path) => path),
+  onValue: vi.fn(() => () => {}),
+  set: vi.fn(() => Promise.resolve()),
+  update: vi.fn(() => Promise.resolve()),
+  remove: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock('./gameLogic', () => ({
   getProxyPlayerId: vi.fn((playerId) => playerId),
+}));
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key) => key }),
 }));
 
 import {
   ACTION_TYPES,
   AFK_BOT_TAKEOVER_STRIKES,
   buildPublicPresenceLossUpdates,
+  GameProvider,
   initGameState,
   OFFLINE_TURN_TIMEOUT_MS,
   TURN_TIMEOUT_MS,
@@ -32,8 +47,11 @@ import {
   getTurnRemainingMs,
   getTurnTimeoutMs,
   readPositiveIntegerEnv,
+  shouldLocalClientAutoRoll,
   shouldLocalClientAutoControlTurn,
+  useGame,
 } from './GameContext';
+import { onValue as subscribeToGame, set as setGameRecord, update as updateGameRecord } from 'firebase/database';
 
 const createBaseOnlineState = () => ({
   currentPlayer: 'Player1',
@@ -200,6 +218,149 @@ describe('GameContext reducer AFK reclaim', () => {
     expect(shouldLocalClientAutoControlTurn(permanentBotTurnForHost)).toBe(true);
   });
 
+  it('lets the host immediately control bot-filled seats in a two-human, two-bot online match', () => {
+    const twoHumansTwoBots = {
+      ...createBaseOnlineState(),
+      currentPlayer: 'Player3',
+      localUid: 'host-1',
+      players: {
+        ...createBaseOnlineState().players,
+        Player3: { color: 'emerald', name: 'Bot 3', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+        Player4: { color: 'amber', name: 'Bot 4', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+      },
+      playerUids: { Player1: 'host-1', Player2: 'user-2', Player3: null, Player4: null },
+      bots: ['Player3', 'Player4'],
+    };
+
+    expect(canLocalClientAct(twoHumansTwoBots)).toBe(true);
+    expect(shouldLocalClientAutoControlTurn(twoHumansTwoBots)).toBe(true);
+    expect(shouldLocalClientAutoRoll(twoHumansTwoBots)).toBe(true);
+  });
+
+  it('stops the bot-roll fallback as soon as the bot finishes its rolling phase', () => {
+    const botFinishedRolling = {
+      ...createBaseOnlineState(),
+      currentPlayer: 'Player2',
+      localUid: 'host-1',
+      bots: ['Player2'],
+      hasRolledThisTurn: true,
+      rollingPhaseComplete: true,
+      playerUids: { Player1: 'host-1', Player2: null },
+    };
+
+    expect(shouldLocalClientAutoRoll(botFinishedRolling)).toBe(false);
+  });
+
+  it('rolls a two-human, two-bot host turn within the fallback window instead of the online timeout', () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 4,
+          activeSeats: ['Player3', 'Player4', 'Player1', 'Player2'],
+          playerColors: ['emerald', 'amber', 'ruby', 'sapphire'],
+          playerAliases: { Player1: 'Host', Player2: 'Guest', Player3: 'Bot 3', Player4: 'Bot 4' },
+          playerUids: { Player1: 'host-1', Player2: 'user-2', Player3: null, Player4: null },
+          bots: ['Player3', 'Player4'],
+          isOnline: true,
+          hostUid: 'host-1',
+          localUid: 'host-1',
+        },
+      },
+      React.createElement(BotRollFallbackProbe),
+    ));
+
+    act(() => {
+      vi.advanceTimersByTime(2999);
+    });
+    expect(screen.getByTestId('bot-roll-count')).toHaveTextContent('0');
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.getByTestId('bot-roll-count')).toHaveTextContent('1');
+
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('persists host and player ownership for a two-human, two-bot online game', async () => {
+    subscribeToGame.mockImplementationOnce((_reference, callback) => {
+      callback({ exists: () => false });
+      return () => {};
+    });
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 4,
+          activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
+          playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
+          playerUids: { Player1: 'host-1', Player2: 'user-2', Player3: null, Player4: null },
+          bots: ['Player3', 'Player4'],
+          isOnline: true,
+          gameId: 'bot-fill-test',
+          hostUid: 'host-1',
+          localUid: 'host-1',
+        },
+      },
+      React.createElement(BotRollFallbackProbe),
+    ));
+
+    await Promise.resolve();
+    expect(setGameRecord).toHaveBeenCalledWith('games/bot-fill-test', expect.objectContaining({
+      hostUid: 'host-1',
+      playerUids: { Player1: 'host-1', Player2: 'user-2', Player3: null, Player4: null },
+      bots: ['Player3', 'Player4'],
+    }));
+  });
+
+  it('backfills missing bot ownership metadata for a game created by an older cached client', async () => {
+    updateGameRecord.mockClear();
+    subscribeToGame.mockImplementationOnce((_reference, callback) => {
+      callback({
+        exists: () => true,
+        val: () => ({
+          currentPlayer: 'Player4',
+          players: createBaseOnlineState().players,
+          turnQueue: [],
+          hasRolledThisTurn: false,
+          rollingPhaseComplete: false,
+        }),
+      });
+      return () => {};
+    });
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 4,
+          activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
+          playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
+          playerUids: { Player1: 'host-1', Player2: 'user-2', Player3: null, Player4: null },
+          bots: ['Player3', 'Player4'],
+          isOnline: true,
+          gameId: 'legacy-bot-fill-test',
+          hostUid: 'host-1',
+          localUid: 'host-1',
+        },
+      },
+      React.createElement(BotRollFallbackProbe),
+    ));
+
+    await Promise.resolve();
+    expect(updateGameRecord).toHaveBeenCalledWith('games/legacy-bot-fill-test', expect.objectContaining({
+      hostUid: 'host-1',
+      playerUids: { Player1: 'host-1', Player2: 'user-2', Player3: null, Player4: null },
+      bots: ['Player3', 'Player4'],
+    }));
+  });
+
   it('bases the visible countdown on turn start instead of the last action', () => {
     const now = 1000 + TURN_TIMEOUT_MS - 1;
     const countdownState = {
@@ -357,3 +518,8 @@ describe('GameContext reducer AFK reclaim', () => {
     expect(updates).toEqual({});
   });
 });
+
+const BotRollFallbackProbe = () => {
+  const { state } = useGame();
+  return React.createElement('output', { 'data-testid': 'bot-roll-count' }, state.turnQueue.length);
+};
