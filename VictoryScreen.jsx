@@ -38,7 +38,7 @@ const VictoryScreen = ({ winnerId, matchId = null, isPublicMatch = false, onNewG
     <div className="victory-overlay fixed inset-0 z-[140] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-black/76 px-4 py-8 text-center backdrop-blur-sm sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(234,179,8,0.12),transparent_46%)]"></div>
 
-      <section className="victory-card relative flex w-full max-w-4xl flex-col items-center rounded-[28px] border border-gold/35 bg-[#070503]/88 px-5 py-7 shadow-[0_0_70px_rgba(0,0,0,0.84),inset_0_0_56px_rgba(234,179,8,0.08)] sm:px-9 sm:py-9 lg:py-10">
+      <section className="victory-card relative flex w-full max-w-4xl flex-col items-center rounded-[28px] border border-gold/45 bg-[#100e0c]/95 px-5 py-7 shadow-[0_0_70px_rgba(0,0,0,0.78),inset_0_0_56px_rgba(234,179,8,0.07)] sm:px-9 sm:py-9 lg:py-10">
         {onHome && (
           <button
             type="button"
@@ -84,20 +84,34 @@ const VictoryScreen = ({ winnerId, matchId = null, isPublicMatch = false, onNewG
         {isPublicMatch && (
           <div data-testid="public-match-settlement" className="mt-4 w-full max-w-2xl rounded-xl border border-emerald/30 bg-emerald/8 px-4 py-3 text-sm text-white/80">
             {settlement ? (
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-white/50">{t('matchPool', 'Pool')}</div>
-                  <div className="font-bold text-gold">{settlement.grossPool}</div>
+              <>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">{t('matchPool', 'Pool')}</div>
+                    <div className="font-bold text-gold">{settlement.grossPool}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">{t('matchFee', 'Match Fee')}</div>
+                    <div className="font-bold text-ruby">-{settlement.matchFee}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-white/70">{t('yourPayout', 'Your Payout')}</div>
+                    <div className="font-bold text-emerald">+{settlement.payout}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-white/50">{t('matchFee', 'Match Fee')}</div>
-                  <div className="font-bold text-ruby">-{settlement.matchFee}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-white/50">{t('yourPayout', 'Your Payout')}</div>
-                  <div className="font-bold text-emerald">+{settlement.payout}</div>
-                </div>
-              </div>
+                {settlement.winnerCount > 1 && (
+                  <p className="mt-2 text-center text-xs font-semibold text-[#dfffea]">
+                    {t(
+                      'teamPrizeSettlement',
+                      '{{winnerCount}} winning human teammates receive {{prize}} coins each',
+                      {
+                        winnerCount: settlement.winnerCount,
+                        prize: settlement.prizePerWinner,
+                      },
+                    )}
+                  </p>
+                )}
+              </>
             ) : (
               <span>{t('settlementPending', 'Confirming coin settlement…')}</span>
             )}

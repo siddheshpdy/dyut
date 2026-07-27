@@ -130,9 +130,11 @@ loser reward = 0
 | 1v1 | 2 | 1,000 | 100 | 900 |
 | 4-player FFA | 4 | 2,000 | 200 | 1,800 |
 
-Team payout is an unresolved product decision. Do not enable pooled entry for
-2v2 until it is decided whether the 90% prize is split equally between winning
-team members or awarded in another published way.
+Public 2v2 pools only paid human entries and splits the post-fee prize equally
+among winning human teammates. Four humans produce a 2,000-coin gross pool and
+pay 900 coins to each of two winning humans. Two humans plus two bots produce a
+1,000-coin gross pool and pay the sole winning human 900 coins. Bots never pay
+an entry or receive a prize share.
 
 The 500-coin entry, 500-coin daily-login grant, and 10% fee are initial
 server-configured economy values. Version them so they can be tuned without

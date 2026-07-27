@@ -9,7 +9,11 @@ import { DYUT_ICONS } from './dyut-icons';
 import { getEffectiveMuteState, toggleUserMutePreference } from './audio';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 import { useEconomy } from './EconomyContext';
-import { MATCH_FEE_BPS, PUBLIC_MATCH_ENTRY_COINS, requiresPublicMatchEntry } from './economy';
+import {
+  MATCH_FEE_BPS,
+  PUBLIC_MATCH_ENTRY_COINS,
+  requiresPublicMatchEntry,
+} from './economy';
 import { PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
 
 const ALL_COLORS = [
@@ -27,6 +31,12 @@ const INSTANT_MULTIPLAYER_CONFIG = {
   isVoidRuleEnabled: true,
   botDifficulty: 'easy'
 };
+const getPublicEconomyMetadata = (matchType) => ({
+  entryPerPlayer: PUBLIC_MATCH_ENTRY_COINS,
+  matchFeeBps: MATCH_FEE_BPS,
+  prizeSplit: matchType === '2v2' ? 'equal_winning_humans' : 'winner_take_pool',
+  winnerEligibility: 'paid_humans',
+});
 
 const OrnateDivider = () => (
   <div className="flex shrink-0 items-center justify-center gap-3 text-gold/60">
@@ -83,7 +93,7 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = fal
 };
 
 const ConfigSectionTitle = ({ children }) => (
-  <div className="lobby-config-section-title flex w-full items-center justify-center gap-3 text-gold/80 lg:gap-2">
+  <div className="lobby-config-section-title flex w-full items-center justify-center gap-3 text-[#f6dda4] lg:gap-2">
     <span className="h-px flex-1 bg-gradient-to-r from-transparent via-gold/40 to-gold/70"></span>
     <span className="h-1.5 w-1.5 rotate-45 border border-gold/70 lg:h-1 lg:w-1"></span>
     <span className="font-display text-xs font-bold uppercase tracking-[0.22em] sm:text-sm lg:text-[0.68rem]">{children}</span>
@@ -95,20 +105,20 @@ const ConfigSectionTitle = ({ children }) => (
 const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, children, onClick, disabled = false, className = '' }) => {
   const toneClasses = {
     gold: active
-      ? 'border-gold bg-gold/18 text-gold shadow-[0_0_24px_rgba(234,179,8,0.28),inset_0_0_30px_rgba(234,179,8,0.12)]'
-      : 'border-gold/35 bg-black/35 text-gold/65 hover:border-gold/70 hover:text-gold',
+      ? 'border-gold bg-gold/30 text-[#fff4c7] shadow-[0_0_28px_rgba(234,179,8,0.32),inset_0_0_34px_rgba(234,179,8,0.14)]'
+      : 'border-gold/50 bg-[#15110c]/90 text-[#f2e7ca] hover:border-gold/80 hover:text-white',
     sapphire: active
-      ? 'border-sapphire bg-sapphire/18 text-sapphire shadow-[0_0_24px_rgba(56,189,248,0.28),inset_0_0_30px_rgba(56,189,248,0.12)]'
-      : 'border-sapphire/35 bg-black/35 text-sapphire/65 hover:border-sapphire/70 hover:text-sapphire',
+      ? 'border-sapphire bg-sapphire/30 text-[#dff4ff] shadow-[0_0_28px_rgba(56,189,248,0.32),inset_0_0_34px_rgba(56,189,248,0.14)]'
+      : 'border-sapphire/50 bg-[#0c1317]/90 text-[#dff4ff] hover:border-sapphire/80 hover:text-white',
     emerald: active
-      ? 'border-emerald bg-emerald/18 text-emerald shadow-[0_0_24px_rgba(52,211,153,0.24),inset_0_0_30px_rgba(52,211,153,0.1)]'
-      : 'border-emerald/35 bg-black/35 text-emerald/65 hover:border-emerald/70 hover:text-emerald',
+      ? 'border-emerald bg-emerald/30 text-[#dcfce7] shadow-[0_0_28px_rgba(52,211,153,0.3),inset_0_0_34px_rgba(52,211,153,0.13)]'
+      : 'border-emerald/50 bg-[#0b1510]/90 text-[#dcfce7] hover:border-emerald/80 hover:text-white',
     ruby: active
-      ? 'border-ruby bg-ruby/18 text-ruby shadow-[0_0_24px_rgba(220,38,38,0.28),inset_0_0_30px_rgba(220,38,38,0.12)]'
-      : 'border-ruby/35 bg-black/35 text-ruby/65 hover:border-ruby/70 hover:text-ruby',
+      ? 'border-ruby bg-ruby/30 text-[#ffe4e6] shadow-[0_0_28px_rgba(244,63,94,0.32),inset_0_0_34px_rgba(244,63,94,0.14)]'
+      : 'border-ruby/50 bg-[#170d10]/90 text-[#ffe4e6] hover:border-ruby/80 hover:text-white',
     violet: active
-      ? 'border-purple-400 bg-purple-500/15 text-purple-300 shadow-[0_0_24px_rgba(168,85,247,0.25),inset_0_0_30px_rgba(168,85,247,0.1)]'
-      : 'border-purple-400/35 bg-black/35 text-purple-300/65 hover:border-purple-300/70 hover:text-purple-200',
+      ? 'border-purple-300 bg-purple-500/30 text-[#f3e8ff] shadow-[0_0_28px_rgba(168,85,247,0.3),inset_0_0_34px_rgba(168,85,247,0.13)]'
+      : 'border-purple-400/50 bg-[#140f18]/90 text-[#f3e8ff] hover:border-purple-300/80 hover:text-white',
   }[tone];
 
   return (
@@ -116,18 +126,25 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`lobby-config-card group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 sm:p-4 lg:p-2.5 ${disabled ? 'cursor-not-allowed opacity-45' : 'hover:-translate-y-0.5'} ${toneClasses} ${className}`}
+      aria-pressed={active}
+      data-selected={active ? 'true' : 'false'}
+      className={`lobby-config-card group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 sm:p-4 lg:p-2.5 ${active ? 'z-10 ring-2 ring-[#fff4c7] ring-offset-2 ring-offset-[#120f0c]' : ''} ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5'} ${toneClasses} ${className}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(255,255,255,0.12),transparent_38%)] opacity-70"></div>
+      {active && (
+        <span className="lobby-config-selected-badge absolute right-2 top-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-[#fff4c7] font-sans text-xs font-black leading-none text-[#17120b] shadow-[0_0_12px_rgba(255,244,199,0.65)]" aria-hidden="true">
+          ✓
+        </span>
+      )}
       <div className="lobby-config-card-content relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
         <div className="lobby-config-card-extra contents">{children}</div>
         {icon && (
-          <span className={`lobby-config-card-icon mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/30 bg-black/20 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-50'}`}>
+          <span className={`lobby-config-card-icon mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-current/40 bg-black/25 sm:h-11 sm:w-11 lg:mt-0.5 lg:h-7 lg:w-7 ${active ? 'opacity-100' : 'opacity-80'}`}>
             {icon}
           </span>
         )}
         <div className="lobby-config-card-title font-display text-lg font-bold uppercase tracking-wider sm:text-xl lg:text-[0.95rem]">{title}</div>
-        {subtitle && <div className="lobby-config-card-subtitle hidden text-xs leading-snug text-white/70 sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
+        {subtitle && <div className="lobby-config-card-subtitle hidden text-xs leading-snug text-[#d8d1c7] sm:block sm:text-sm lg:text-[0.7rem] lg:leading-tight">{subtitle}</div>}
       </div>
     </button>
   );
@@ -163,7 +180,7 @@ const EconomySummary = ({ compact = false }) => {
 const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onSkinChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
-  const typeColor = seat.type === 'human' ? 'text-gold bg-gold/10 border-gold/30' : seat.type === 'bot' ? 'text-sapphire bg-sapphire/10 border-sapphire/30' : 'text-white/40 bg-white/5 border-white/10';
+  const typeColor = seat.type === 'human' ? 'text-[#fff4c7] bg-gold/10 border-gold/45' : seat.type === 'bot' ? 'text-[#dff4ff] bg-sapphire/10 border-sapphire/45' : 'text-white/65 bg-white/10 border-white/15';
   const DropdownIcon = DYUT_ICONS.dropdown;
   
   const isOwnedByMe = seat.uid === userUid;
@@ -183,8 +200,8 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   };
 
   return (
-  <div className={`lobby-seat-card flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/40 border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'bg-black/40 border-transparent opacity-50 hover:opacity-80'}`}>
-       <span className={`lobby-seat-label mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-gold drop-shadow-md' : 'text-white/50'}`}>
+  <div className={`lobby-seat-card flex flex-col items-center rounded-xl border p-3 transition-all lg:p-2.5 ${isActive ? (isOwnedByMe ? 'bg-black/60 border-gold shadow-[0_0_15px_rgba(251,191,36,0.4)] scale-[1.02]' : 'bg-black/50 border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.5)]') : 'border-white/10 bg-black/45 opacity-75 hover:opacity-90'}`}>
+       <span className={`lobby-seat-label mb-1.5 whitespace-nowrap text-[9px] font-bold uppercase tracking-widest lg:mb-1 lg:text-[8px] ${isOwnedByMe ? 'text-[#fff4c7] drop-shadow-md' : 'text-white/70'}`}>
         {label} {isOwnedByMe && <span className="opacity-80">({t('you', 'YOU')})</span>}
       </span>
       
@@ -198,15 +215,15 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         >
           <option value="human" className="bg-charcoal text-gold">{t('human', 'Human')}</option>
           <option value="bot" className="bg-charcoal text-sapphire">{t('bot', 'Bot')}</option>
-          <option value="closed" className="bg-charcoal text-white/50">{t('closed', 'Closed')}</option>
+          <option value="closed" className="bg-charcoal text-white/70">{t('closed', 'Closed')}</option>
         </select>
         <div className="pointer-events-none absolute inset-y-0 right-1 flex items-center px-1">
-          <DropdownIcon className={`h-3 w-3 ${seat.type === 'closed' ? 'text-white/40' : seat.type === 'human' ? 'text-gold/70' : 'text-sapphire/70'}`} aria-hidden="true" />
+          <DropdownIcon className={`h-3 w-3 ${seat.type === 'closed' ? 'text-white/65' : seat.type === 'human' ? 'text-[#fff4c7]' : 'text-[#dff4ff]'}`} aria-hidden="true" />
         </div>
       </div>
       
       {isUnclaimedHuman ? (
-        <div className="w-full mt-2 py-1.5 text-white/50 text-[10px] uppercase font-bold tracking-widest text-center border border-dashed border-white/20 rounded animate-pulse">
+        <div className="mt-2 w-full rounded border border-dashed border-white/25 py-1.5 text-center text-[10px] font-bold uppercase tracking-widest text-white/70 animate-pulse">
           {t('waiting', 'WAITING...')}
         </div>
       ) : (
@@ -228,7 +245,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         value={normalizePieceSkinId(seat.pieceSkinId)}
         onChange={(event) => onSkinChange(event.target.value)}
         disabled={!editable || !isActive || isUnclaimedHuman}
-        className={`mt-1.5 w-full rounded border border-gold/25 bg-black/45 px-1 py-1 text-center text-[9px] font-bold uppercase tracking-wider text-gold outline-none lg:text-[8px] ${!editable || !isActive || isUnclaimedHuman ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:border-gold/55'}`}
+        className={`mt-1.5 w-full rounded border border-gold/35 bg-black/55 px-1 py-1 text-center text-[9px] font-bold uppercase tracking-wider text-[#fff4c7] outline-none lg:text-[8px] ${!editable || !isActive || isUnclaimedHuman ? 'cursor-not-allowed opacity-65' : 'cursor-pointer hover:border-gold/65'}`}
       >
         {PIECE_SKINS.map((skin) => (
           <option key={skin.id} value={skin.id} className="bg-charcoal text-gold">
@@ -854,7 +871,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     }
     setEconomyNotice(null);
     promptForSavedResume('online', () => {
-      if (matchType === '2v2') setMatchType('1v1');
       setSetupMode('public');
       setSetupStep('config');
     });
@@ -934,10 +950,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       matchType: currentMatchType,
       hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null,
       isPublic: isPublicMatch,
-      economy: isPublicMatch ? {
-        entryPerPlayer: PUBLIC_MATCH_ENTRY_COINS,
-        matchFeeBps: MATCH_FEE_BPS,
-      } : null
+      economy: isPublicMatch ? getPublicEconomyMetadata(currentMatchType) : null
     });
   };
 
@@ -995,10 +1008,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         version: 2,
         lastPing: Date.now(),
         openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length,
-        economy: isPublic ? {
-          entryPerPlayer: PUBLIC_MATCH_ENTRY_COINS,
-          matchFeeBps: MATCH_FEE_BPS,
-        } : null
+        economy: isPublic ? getPublicEconomyMetadata(currentMatchType) : null
       });
   
       setSeats(newSeats);
@@ -1255,11 +1265,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       )}
       {isLobbyStage && (
-        <div className="fixed inset-0 z-0 overflow-hidden bg-[#070605]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.34),transparent_36%),linear-gradient(90deg,rgba(0,0,0,0.96),rgba(8,6,5,0.48)_28%,rgba(8,6,5,0.48)_72%,rgba(0,0,0,0.96))]"></div>
+        <div className="fixed inset-0 z-0 overflow-hidden bg-[#0f0d0b]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.28),transparent_38%),linear-gradient(90deg,rgba(4,3,2,0.9),rgba(18,14,11,0.5)_28%,rgba(18,14,11,0.5)_72%,rgba(4,3,2,0.9))]"></div>
           <div className="absolute inset-x-0 bottom-0 h-1/3 bg-[radial-gradient(ellipse_at_center,rgba(126,32,18,0.42),transparent_58%)]"></div>
           <div className="absolute inset-x-0 bottom-0 hidden h-40 bg-[linear-gradient(0deg,rgba(108,28,14,0.34),transparent)] lg:block"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,transparent_0,rgba(0,0,0,0.08)_38%,rgba(0,0,0,0.72)_100%)]"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,transparent_0,rgba(0,0,0,0.05)_38%,rgba(0,0,0,0.58)_100%)]"></div>
         </div>
       )}
       {/* Top Navigation Bar */}
@@ -1339,7 +1349,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-[clamp(0.75rem,2dvh,1rem)] w-full shrink-0 max-w-[min(92vw,760px)]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[clamp(1.1rem,2vw,1.5rem)] border border-gold/40 bg-black/70 p-[clamp(0.5rem,1.2vw,0.85rem)] shadow-[0_0_55px_rgba(0,0,0,0.75),inset_0_0_45px_rgba(234,179,8,0.08)]' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[clamp(1.1rem,2vw,1.5rem)] border border-gold/45 bg-[#100e0c]/90 p-[clamp(0.5rem,1.2vw,0.85rem)] shadow-[0_0_55px_rgba(0,0,0,0.68),inset_0_0_45px_rgba(234,179,8,0.07)]' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
             {isInitialMenu && (
               <>
                 <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
@@ -1471,14 +1481,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
         {/* --- STATE 2: INTERMEDIATE CONFIG SCREEN --- */}
         {!activeLobbyId && setupMode && setupStep === 'config' && (
-          <div className="lobby-config-panel relative w-full animate-fade-in rounded-[24px] border border-gold/40 bg-black/72 p-4 shadow-[0_0_60px_rgba(0,0,0,0.82),inset_0_0_48px_rgba(234,179,8,0.08)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
+          <div className="lobby-config-panel relative w-full animate-fade-in rounded-[24px] border border-gold/50 bg-[#120f0c]/95 p-4 shadow-[0_0_60px_rgba(0,0,0,0.72),inset_0_0_48px_rgba(234,179,8,0.07)] sm:p-6 lg:mx-auto lg:max-w-[min(60vw,780px)] lg:overflow-hidden lg:p-3.5 xl:max-w-[800px]">
             <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
             <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
 
             <div className="mb-3 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:mb-4 lg:mb-2">
-              <button onClick={() => setSetupMode(null)} className="flex items-center gap-2 rounded-lg border border-gold/30 bg-white/5 px-4 py-2 font-display text-xs font-bold uppercase tracking-widest text-white/70 transition-colors hover:border-gold/60 hover:text-gold lg:px-3 lg:py-1.5 lg:text-[0.68rem]">
+              <button onClick={() => setSetupMode(null)} className="flex items-center gap-2 rounded-lg border border-gold/40 bg-white/[0.07] px-4 py-2 font-display text-xs font-bold uppercase tracking-widest text-white/85 transition-colors hover:border-gold/70 hover:bg-gold/10 hover:text-[#fff4c7] lg:px-3 lg:py-1.5 lg:text-[0.68rem]">
                 <BackIcon className="h-4 w-4" aria-hidden="true" />
                 {t('back', 'BACK')}
               </button>
@@ -1492,7 +1502,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               <ConfigSectionTitle>{t('matchType', 'Match Type')}</ConfigSectionTitle>
               {setupMode === 'public' && (
                 <div data-testid="public-match-fee" className="rounded-xl border border-gold/35 bg-gold/10 px-3 py-2 text-center text-xs font-semibold text-[#fff4c7]">
-                  {t('publicMatchFeeDisclosure', '{{entry}} coins per player · 10% match fee · Winner receives 90% of the pool', { entry: PUBLIC_MATCH_ENTRY_COINS })}
+                  {matchType === '2v2'
+                    ? t(
+                      'publicTeamFeeDisclosure',
+                      '{{entry}} coins per human · 10% match fee · Winning team gets 90% of the pool',
+                      { entry: PUBLIC_MATCH_ENTRY_COINS },
+                    )
+                    : t(
+                      'publicMatchFeeDisclosure',
+                      '{{entry}} coins per player · 10% match fee · Winner receives 90% of the pool',
+                      { entry: PUBLIC_MATCH_ENTRY_COINS },
+                    )}
                 </div>
               )}
               <div className="lobby-config-grid grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
@@ -1500,7 +1520,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
                 </ConfigChoiceCard>
-                <ConfigChoiceCard active={matchType === '2v2'} tone="gold" title={t('2v2', '2 vs 2')} subtitle={setupMode === 'public' ? t('publicTeamsComingSoon', 'Public team prizes coming later') : t('teamUpDominate', 'Team up and dominate')} onClick={() => setMatchType('2v2')} disabled={setupMode === 'public'}>
+                <ConfigChoiceCard active={matchType === '2v2'} tone="gold" title={t('2v2', '2 vs 2')} subtitle={setupMode === 'public' ? t('publicTeamPrizeSplit', 'Winning team gets 90% of the pool') : t('teamUpDominate', 'Team up and dominate')} onClick={() => setMatchType('2v2')}>
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-emerald shadow-[0_0_10px_rgba(52,211,153,0.8)]"></span><span className="h-3 w-3 rounded-full bg-amber shadow-[0_0_10px_rgba(245,158,11,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
                 </ConfigChoiceCard>
@@ -1569,7 +1589,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         {!activeLobbyId && setupMode === 'local' && setupStep === 'seats' && (
           <div className="lobby-seat-layout w-full space-y-6 animate-fade-in lg:mx-auto lg:max-w-[min(34vw,430px)] lg:space-y-3.5">
             <div className="lobby-seat-header mb-4 flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/20 p-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] lg:mb-3">
-              <button onClick={() => IS_PORTAL ? setSetupStep('config') : setSetupMode(null)} className="px-3 py-1.5 bg-white/5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
+              <button onClick={() => IS_PORTAL ? setSetupStep('config') : setSetupMode(null)} className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white/75 transition-colors hover:border-gold/45 hover:bg-white/15 hover:text-white"><BackIcon className="h-3 w-3" aria-hidden="true" /> {t('back', 'BACK')}</button>
               <h2 className="text-sm font-bold uppercase tracking-widest text-white/80 lg:text-xs">{t('localPlay', 'LOCAL PLAY')}</h2>
               <div className="w-[72px]"></div>
             </div>

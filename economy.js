@@ -151,6 +151,7 @@ export const settlePublicMatch = (
     participantCount,
     didWin = false,
     isDraw = false,
+    winnerCount = 1,
     now = Date.now(),
   },
 ) => {
@@ -165,6 +166,11 @@ export const settlePublicMatch = (
   }
 
   const pool = calculatePublicMatchPool(participantCount);
+  const winners = Number(winnerCount);
+  if (!Number.isSafeInteger(winners) || winners < 1 || winners > pool.participantCount) {
+    throw new Error('Winner count must be between one and the paid participant count');
+  }
+  const prizePerWinner = Math.floor(pool.winnerPrize / winners);
   const eventId = `settlement:${matchId}`;
   const type = isDraw
     ? ECONOMY_EVENT_TYPES.PUBLIC_REFUND
@@ -174,7 +180,7 @@ export const settlePublicMatch = (
   const delta = isDraw
     ? PUBLIC_MATCH_ENTRY_COINS
     : didWin
-      ? pool.winnerPrize
+      ? prizePerWinner
       : 0;
 
   return {
@@ -183,6 +189,8 @@ export const settlePublicMatch = (
       delta,
       matchId,
       ...pool,
+      winnerCount: winners,
+      prizePerWinner,
       didWin: Boolean(didWin),
       isDraw: Boolean(isDraw),
       createdAt: now,
@@ -190,6 +198,8 @@ export const settlePublicMatch = (
     eventId,
     settlement: {
       ...pool,
+      winnerCount: winners,
+      prizePerWinner,
       didWin: Boolean(didWin),
       isDraw: Boolean(isDraw),
       payout: delta,

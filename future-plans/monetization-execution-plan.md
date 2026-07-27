@@ -62,7 +62,8 @@ Record each answer in this section before its dependent milestone starts.
   to the winner; losers receive no pool payout.
 - [ ] Choose the rewarded-ad coin amount and daily ad cap.
 - [x] Daily reward resets at a fixed UTC calendar-day boundary.
-- [ ] Define 2v2 team prize distribution before enabling pooled team matches.
+- [x] Public 2v2 splits 90% of the paid human-entry pool equally among
+  winning human teammates; bots do not pay or receive a share.
 - [ ] Validate the approved 500/500/10% values with a source/sink simulation
   before production rollout.
 - [ ] Decide whether the first paid release uses direct cosmetic prices or
@@ -550,7 +551,10 @@ impact.
 
    For 1v1 this records a 1,000-coin gross pool, a 100-coin fee, and a
    900-coin winner prize. For 4-player FFA it records 2,000, 200, and 1,800.
-   Keep 2v2 disabled until team prize distribution is approved.
+   For public 2v2, split the post-fee prize equally among winning paid humans.
+   With four humans this is 900 coins each for two winners. With two humans
+   and two bot teammates, the sole winning human receives the 900-coin net
+   prize. Bots never contribute an entry or consume a winner share.
 6. Add minimum-play, repeat-opponent, daily-cap, and suspicious-cluster controls.
 7. Below 500 coins, disable only public Online Match and show the next daily
    grant time, available rewarded ad, Play with Friends, offline, and portal

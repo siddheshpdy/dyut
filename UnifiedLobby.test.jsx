@@ -287,6 +287,55 @@ describe('UnifiedLobby standalone menu', () => {
       economy: {
         entryPerPlayer: 500,
         matchFeeBps: 1000,
+        prizeSplit: 'winner_take_pool',
+        winnerEligibility: 'paid_humans',
+      },
+    });
+  });
+
+  it('enables public 2v2 and stores the equal team prize split', async () => {
+    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.resetModules();
+    const { findRandomPublicGame } = await import('./matchmaking.js');
+    findRandomPublicGame.mockResolvedValueOnce(null);
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /onlineMatch/i }));
+    const twoVsTwo = screen.getByRole('button', { name: /2v2/i });
+    expect(twoVsTwo).toBeEnabled();
+
+    fireEvent.click(twoVsTwo);
+    expect(twoVsTwo).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('public-match-fee')).toHaveTextContent('publicTeamFeeDisclosure');
+    fireEvent.click(screen.getByRole('button', { name: /findMatch/i }));
+
+    await waitFor(() => expect(databaseMocks.set).toHaveBeenCalledOnce());
+    expect(databaseMocks.set.mock.calls[0][1]).toMatchObject({
+      isPublic: true,
+      matchType: '2v2',
+      isTeamMode: true,
+      openSeats: 3,
+      economy: {
+        entryPerPlayer: 500,
+        matchFeeBps: 1000,
+        prizeSplit: 'equal_winning_humans',
+        winnerEligibility: 'paid_humans',
       },
     });
   });

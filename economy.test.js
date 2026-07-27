@@ -93,6 +93,35 @@ describe('Temple Coin economy', () => {
     expect(loser.settlement.payout).toBe(0);
   });
 
+  it('splits a four-player public 2v2 prize equally between the two winning teammates', () => {
+    const winnerEntry = reservePublicMatchEntry({ coins: 500 }, 'TEAM-MATCH');
+    const loserEntry = reservePublicMatchEntry({ coins: 500 }, 'TEAM-MATCH');
+    const winner = settlePublicMatch(winnerEntry.state, {
+      matchId: 'TEAM-MATCH',
+      participantCount: 4,
+      winnerCount: 2,
+      didWin: true,
+    });
+    const loser = settlePublicMatch(loserEntry.state, {
+      matchId: 'TEAM-MATCH',
+      participantCount: 4,
+      winnerCount: 2,
+      didWin: false,
+    });
+
+    expect(winner.state.coins).toBe(900);
+    expect(winner.settlement).toMatchObject({
+      grossPool: 2000,
+      matchFee: 200,
+      winnerPrize: 1800,
+      winnerCount: 2,
+      prizePerWinner: 900,
+      payout: 900,
+    });
+    expect(loser.state.coins).toBe(0);
+    expect(loser.settlement.payout).toBe(0);
+  });
+
   it('refunds the entry on a draw and keeps settlement idempotent', () => {
     const entry = reservePublicMatchEntry({ coins: 500 }, 'MATCH1');
     const draw = settlePublicMatch(entry.state, {

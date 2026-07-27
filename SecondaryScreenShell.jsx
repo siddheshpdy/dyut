@@ -16,7 +16,7 @@ const SecondaryScreenShell = ({
 
   return (
     <div className={`secondary-screen-shell relative w-full ${maxWidthClass}`}>
-      <div className="secondary-screen-card relative flex max-h-full flex-col overflow-hidden rounded-[28px] border border-gold/45 bg-[#090705]/88 p-5 text-white shadow-[0_0_55px_rgba(0,0,0,0.8),inset_0_0_42px_rgba(234,179,8,0.08)] backdrop-blur-md sm:p-7 lg:p-8">
+      <div className="secondary-screen-card relative flex max-h-full flex-col overflow-hidden rounded-[28px] border border-gold/50 bg-[#12100e]/95 p-5 text-white shadow-[0_0_55px_rgba(0,0,0,0.72),inset_0_0_42px_rgba(234,179,8,0.07)] backdrop-blur-md sm:p-7 lg:p-8">
         <span className={`${cornerClass} -left-1 -top-1 rounded-tl-[28px] border-l border-t`}></span>
         <span className={`${cornerClass} -right-1 -top-1 rounded-tr-[28px] border-r border-t`}></span>
         <span className={`${cornerClass} -bottom-1 -left-1 rounded-bl-[28px] border-b border-l`}></span>
@@ -35,7 +35,7 @@ const SecondaryScreenShell = ({
           </h1>
         </header>
 
-        <div className={`secondary-screen-body min-h-0 space-y-6 text-left text-sm font-sans text-white/85 sm:text-base ${bodyClassName}`}>
+        <div className={`secondary-screen-body min-h-0 space-y-6 text-left text-sm font-sans text-[#ece7df] sm:text-base ${bodyClassName}`}>
           {children}
         </div>
 

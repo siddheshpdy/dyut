@@ -404,12 +404,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
               className={`relative flex flex-col items-center rounded-2xl border px-2 py-2 transition-all ${activeRollHighlightClass} ${canTriggerRoll ? 'cursor-pointer active:scale-[0.99]' : 'cursor-default'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
             >
               <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} isActive={canTriggerRoll} />
-              <span className={`mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
+              <span className={`mb-1.5 font-display text-[10px] font-bold uppercase tracking-[0.22em] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/70'}`}>{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
                 <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact isHighlighted={canTriggerRoll} />
                 <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact isHighlighted={canTriggerRoll} />
               </div>
-              <span className={`mt-1.5 text-center text-[10px] font-bold uppercase tracking-[0.18em] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
+              <span className={`mt-1.5 text-center text-[10px] font-bold uppercase tracking-[0.18em] ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/60'}`}>
                 {canTriggerRoll ? t('tapDiceToRoll', 'Tap dice to roll') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
               </span>
             </button>
@@ -429,12 +429,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
               className={`relative flex flex-col items-center transition-all ${isCompactLandscapeTray ? 'w-full shrink-0 rounded-xl border px-3 py-2' : 'lg:w-full lg:shrink-0 lg:rounded-2xl lg:border lg:px-4 lg:py-3'} ${canTriggerRoll ? 'cursor-pointer border-gold/80 bg-gold/10 shadow-[0_0_38px_rgba(251,191,36,0.55),inset_0_0_30px_rgba(234,179,8,0.16)] ring-2 ring-gold/30 hover:border-gold hover:bg-gold/20 active:scale-[0.99]' : 'cursor-default border-white/15 bg-black/30 grayscale-[0.18] lg:shadow-[inset_0_0_22px_rgba(0,0,0,0.6)]'} ${isAutoControlledTurn ? 'pointer-events-none opacity-90 grayscale-[0.2]' : ''} disabled:opacity-100`}
             >
               <TurnTimerOutline progress={turnTimerProgress} isCritical={isTimerCritical} isActive={canTriggerRoll} />
-              <span className={`mb-2 font-display text-sm font-bold uppercase tracking-widest ${isCompactLandscapeTray ? 'block text-[0.8rem]' : 'hidden lg:block lg:text-[0.95rem]'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/45'}`}>{t('currentDice', 'Current Dice')}</span>
+              <span className={`mb-2 font-display text-sm font-bold uppercase tracking-widest ${isCompactLandscapeTray ? 'block text-[0.8rem]' : 'hidden lg:block lg:text-[0.95rem]'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/70'}`}>{t('currentDice', 'Current Dice')}</span>
               <div className="flex gap-2 sm:gap-4 lg:gap-4">
                 <Die value={lastRoll.d1 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile' || isCompactLandscapeTray} isHighlighted={canTriggerRoll} />
                 <Die value={lastRoll.d2 || '-'} isRolling={isRolling} compact={layoutMode === 'mobile' || isCompactLandscapeTray} isHighlighted={canTriggerRoll} />
               </div>
-              <span className={`mt-2 text-center font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] ${isCompactLandscapeTray ? 'block text-[0.62rem]' : 'hidden lg:block'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/35'}`}>
+              <span className={`mt-2 text-center font-sans text-[0.72rem] font-bold uppercase tracking-[0.18em] ${isCompactLandscapeTray ? 'block text-[0.62rem]' : 'hidden lg:block'} ${canTriggerRoll ? 'text-gold text-glow-gold' : 'text-white/60'}`}>
                 {canTriggerRoll ? t('rollDice') : (isRolling ? t('rolling') : t('currentDice', 'Current Dice'))}
               </span>
             </button>
@@ -446,7 +446,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
             {layoutMode === 'mobile' ? (
               <div className="mb-1 flex w-full items-center justify-between gap-2">
                 <span className="font-display text-[10px] uppercase tracking-[0.22em] text-gold/80">{t('queue')}</span>
-                <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-gold/20 bg-black/35 px-1.5 text-[10px] font-bold leading-none text-white/55">
+                <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-gold/25 bg-black/35 px-1.5 text-[10px] font-bold leading-none text-white/70">
                   {state.turnQueue.length}
                 </span>
               </div>
@@ -469,12 +469,12 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
                 );
               })
             ) : (
-              <span className={`text-white/60 text-[10px] sm:text-xs italic ${layoutMode === 'mobile' ? 'flex w-full items-center justify-center rounded-xl border border-dashed border-gold/15 bg-black/25 py-1.5 text-center not-italic' : ''}`}>{t('empty')}</span>
+              <span className={`text-white/75 text-[10px] sm:text-xs italic ${layoutMode === 'mobile' ? 'flex w-full items-center justify-center rounded-xl border border-dashed border-gold/20 bg-black/25 py-1.5 text-center not-italic' : ''}`}>{t('empty')}</span>
             )}
             </div>
             {layoutMode !== 'mobile' && state.turnQueue.length > 8 && (
               <div className="pointer-events-none absolute inset-x-5 bottom-3 h-7 bg-gradient-to-t from-[#050403] via-[#050403]/82 to-transparent">
-                <div className="absolute bottom-0 right-1 font-display text-[9px] uppercase tracking-[0.22em] text-gold/55">
+                <div className="absolute bottom-0 right-1 font-display text-[9px] uppercase tracking-[0.22em] text-gold/75">
                   {t('more', 'More')}
                 </div>
               </div>

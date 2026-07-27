@@ -546,6 +546,103 @@ describe('GameContext reducer AFK reclaim', () => {
       participantCount: 2,
       didWin: true,
       isDraw: false,
+      winnerCount: 1,
+    });
+  });
+
+  it('settles public 2v2 with an equal payout for both winning teammates', async () => {
+    economyContextMocks.settlePublicMatch.mockClear();
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 4,
+          activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
+          playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
+          playerAliases: {
+            Player1: 'Alice',
+            Player2: 'Bob',
+            Player3: 'Cara',
+            Player4: 'Dev',
+          },
+          playerUids: {
+            Player1: 'user-1',
+            Player2: 'user-2',
+            Player3: 'user-3',
+            Player4: 'user-4',
+          },
+          bots: [],
+          isOnline: true,
+          isPublic: true,
+          isTeamMode: true,
+          gameId: 'paid-team-match',
+          hostUid: 'user-1',
+          localUid: 'user-3',
+          initialStateOverride: {
+            status: 'finished',
+            winnerPlayerId: 'Player1',
+          },
+        },
+      },
+      React.createElement('div'),
+    ));
+
+    await waitFor(() => expect(economyContextMocks.settlePublicMatch).toHaveBeenCalledOnce());
+    expect(economyContextMocks.settlePublicMatch).toHaveBeenCalledWith({
+      matchId: 'paid-team-match',
+      participantCount: 4,
+      didWin: true,
+      isDraw: false,
+      winnerCount: 2,
+    });
+  });
+
+  it('does not count bot teammates as paid public 2v2 winners', async () => {
+    economyContextMocks.settlePublicMatch.mockClear();
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 4,
+          activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
+          playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
+          playerAliases: {
+            Player1: 'Alice',
+            Player2: 'Bob',
+            Player3: 'Bot 3',
+            Player4: 'Bot 4',
+          },
+          playerUids: {
+            Player1: 'user-1',
+            Player2: 'user-2',
+            Player3: null,
+            Player4: null,
+          },
+          bots: ['Player3', 'Player4'],
+          isOnline: true,
+          isPublic: true,
+          isTeamMode: true,
+          gameId: 'paid-bot-fill-team-match',
+          hostUid: 'user-1',
+          localUid: 'user-1',
+          initialStateOverride: {
+            status: 'finished',
+            winnerPlayerId: 'Player1',
+          },
+        },
+      },
+      React.createElement('div'),
+    ));
+
+    await waitFor(() => expect(economyContextMocks.settlePublicMatch).toHaveBeenCalledOnce());
+    expect(economyContextMocks.settlePublicMatch).toHaveBeenCalledWith({
+      matchId: 'paid-bot-fill-team-match',
+      participantCount: 2,
+      didWin: true,
+      isDraw: false,
+      winnerCount: 1,
     });
   });
 

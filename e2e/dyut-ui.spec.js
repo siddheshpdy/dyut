@@ -22,6 +22,64 @@ const expectNoViewportOverflow = async (page) => {
   expect(overflow.vertical).toBeLessThanOrEqual(1);
 };
 
+const expectReadableText = async (locator, minimumRatio = 4.5) => {
+  const reports = await locator.evaluateAll((nodes) => {
+    const backdrop = [18, 15, 12];
+    const parseColor = (value) => {
+      const values = value.match(/[\d.]+/g)?.map(Number) || [];
+      const usesUnitChannels = value.startsWith('color(srgb');
+      return {
+        rgb: values.slice(0, 3).map((channel) => usesUnitChannels ? channel * 255 : channel),
+        alpha: values.length > 3 ? values[3] : 1,
+      };
+    };
+    const luminance = (rgb) => {
+      const channels = rgb.map((value) => {
+        const normalized = value / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+    };
+    const contrast = (first, second) => {
+      const lighter = Math.max(luminance(first), luminance(second));
+      const darker = Math.min(luminance(first), luminance(second));
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+
+    return nodes
+      .filter((node) => {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      })
+      .map((node) => {
+        const colorValue = getComputedStyle(node).color;
+        const color = parseColor(colorValue);
+        let ancestorOpacity = 1;
+        for (let current = node; current; current = current.parentElement) {
+          ancestorOpacity *= Number(getComputedStyle(current).opacity || 1);
+        }
+        const alpha = color.alpha * ancestorOpacity;
+        const renderedColor = color.rgb.map((channel, index) => (
+          (channel * alpha) + (backdrop[index] * (1 - alpha))
+        ));
+        return {
+          text: node.textContent.trim().replace(/\s+/g, ' ').slice(0, 60),
+          ratio: contrast(renderedColor, backdrop),
+          colorValue,
+          ancestorOpacity,
+        };
+      });
+  });
+
+  expect(reports.length).toBeGreaterThan(0);
+  for (const report of reports) {
+    expect(report.ratio, `${report.text} contrast ratio (${report.colorValue}, opacity ${report.ancestorOpacity})`).toBeGreaterThanOrEqual(minimumRatio);
+  }
+};
+
 test.beforeEach(async ({ page }) => {
   await clearSavedState(page);
 });
@@ -192,5 +250,49 @@ test('public Online Match is blocked below 500 while free modes remain available
   await expect(page.getByRole('alert')).toContainText('500');
   await expect(page.getByRole('button', { name: /single player|local play/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /^play with friends\b/i })).toBeVisible();
+  await expectNoViewportOverflow(page);
+});
+
+test('major menu and setup text keeps readable contrast', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.locator('.lobby-viewport')).toBeVisible();
+  await expectReadableText(page.locator('.lobby-viewport p'));
+  await page.getByRole('button', { name: /online match/i }).click();
+  await expectReadableText(page.locator('.lobby-config-card-title'));
+  await expectReadableText(page.locator('.lobby-config-card-subtitle'));
+
+  await page.getByRole('button', { name: /^back$/i }).click();
+  await page.getByRole('button', { name: /single player|local play/i }).click();
+  await expectReadableText(page.locator('.lobby-seat-label'));
+  await expectNoViewportOverflow(page);
+});
+
+test('public setup stays readable in compact landscape', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 450 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.locator('.lobby-viewport')).toBeVisible();
+  await page.getByRole('button', { name: /online match/i }).click();
+  const oneOnOne = page.getByRole('button', { name: /1 vs 1/i });
+  const twoVsTwo = page.getByRole('button', { name: /2 vs 2/i });
+  const freeForAll = page.getByRole('button', { name: /ffa 4p/i });
+
+  await expect(oneOnOne).toHaveAttribute('aria-pressed', 'true');
+  await expect(oneOnOne.locator('.lobby-config-selected-badge')).toBeVisible();
+  await expect(twoVsTwo).toBeEnabled();
+  await expect(twoVsTwo).toHaveAttribute('aria-pressed', 'false');
+  await expect(freeForAll).toHaveAttribute('aria-pressed', 'false');
+  await twoVsTwo.click();
+  await expect(oneOnOne).toHaveAttribute('aria-pressed', 'false');
+  await expect(twoVsTwo).toHaveAttribute('aria-pressed', 'true');
+  await expect(twoVsTwo.locator('.lobby-config-selected-badge')).toBeVisible();
+  await expect(page.getByTestId('public-match-fee')).toContainText('Winning team gets 90% of the pool');
+  await freeForAll.click();
+  await expect(twoVsTwo).toHaveAttribute('aria-pressed', 'false');
+  await expect(freeForAll).toHaveAttribute('aria-pressed', 'true');
+  await expect(freeForAll.locator('.lobby-config-selected-badge')).toBeVisible();
+  await expectReadableText(page.locator('.lobby-config-card-title'));
   await expectNoViewportOverflow(page);
 });

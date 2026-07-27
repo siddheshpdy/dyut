@@ -175,20 +175,51 @@ function releaseAutoControlForPlayer(state, playerId) {
   };
 }
 
+export function getWinningTeamId(currentState) {
+  if (!currentState?.isTeamMode || !currentState.players) return null;
+
+  if (currentState.winnerPlayerId && currentState.players[currentState.winnerPlayerId]) {
+    return currentState.players[currentState.winnerPlayerId].team;
+  }
+
+  if (currentState.isQuickGame) {
+    return Object.values(currentState.players).find(player => (
+      player.pieces.some(pos => pos === 999)
+    ))?.team ?? null;
+  }
+
+  const teamIds = [...new Set(Object.values(currentState.players).map(player => player.team))];
+  return teamIds.find(teamId => (
+    Object.values(currentState.players)
+      .filter(player => player.team === teamId)
+      .every(player => player.pieces.every(pos => pos === 999))
+  )) ?? null;
+}
+
+export function getWinningPaidParticipantCount(currentState, winningTeamId) {
+  if (!currentState?.players || winningTeamId === null || winningTeamId === undefined) return 0;
+
+  const botIds = new Set(currentState.bots || []);
+  const winningHumanUids = Object.entries(currentState.playerUids || {})
+    .filter(([playerId, uid]) => (
+      Boolean(uid)
+      && !botIds.has(playerId)
+      && currentState.players[playerId]?.team === winningTeamId
+    ))
+    .map(([, uid]) => uid);
+
+  return new Set(winningHumanUids).size;
+}
+
 function hasGameplayWinnerState(currentState) {
   if (!currentState?.players) return false;
 
-  if (currentState.isQuickGame) {
-    return Object.values(currentState.players).some(player => player.pieces.some(pos => pos === 999));
+  if (currentState.isTeamMode) {
+    return getWinningTeamId(currentState) !== null;
   }
 
-  if (currentState.isTeamMode) {
-    const teams = {};
-    for (const player of Object.values(currentState.players)) {
-      if (!teams[player.team]) teams[player.team] = { allFinished: true };
-      if (!player.pieces.every(pos => pos === 999)) teams[player.team].allFinished = false;
-    }
-    return Object.values(teams).some(team => team.allFinished);
+  if (currentState.isQuickGame) {
+    return Object.values(currentState.players).some(player => player.pieces.some(pos => pos === 999));
   }
 
   return Object.values(currentState.players).some(player => player.pieces.every(pos => pos === 999));
@@ -889,19 +920,17 @@ const dispatch = useCallback((action) => {
           ? Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid)
           : null;
         const localPlayerIsHuman = myPlayerId && !state.bots?.includes(myPlayerId);
+        const winningTeamId = getWinningTeamId(state);
         let localUserWon = false;
 
         if (myPlayerId) {
-          if (state.winnerPlayerId) {
-            localUserWon = state.isTeamMode
-              ? state.players[state.winnerPlayerId]?.team === state.players[myPlayerId]?.team
-              : state.winnerPlayerId === myPlayerId;
+          if (state.isTeamMode) {
+            localUserWon = winningTeamId !== null
+              && state.players[myPlayerId]?.team === winningTeamId;
+          } else if (state.winnerPlayerId) {
+            localUserWon = state.winnerPlayerId === myPlayerId;
           } else if (state.isQuickGame) {
             localUserWon = state.players[myPlayerId].pieces.some(pos => pos === 999);
-          } else if (state.isTeamMode) {
-            localUserWon = Object.values(state.players)
-              .filter(player => player.team === state.players[myPlayerId].team)
-              .every(player => player.pieces.every(pos => pos === 999));
           } else {
             localUserWon = state.players[myPlayerId].pieces.every(pos => pos === 999);
           }
@@ -925,12 +954,16 @@ const dispatch = useCallback((action) => {
             Object.values(state.playerUids || {}).filter(Boolean),
           ).size;
           const hasKnownWinner = Boolean(state.winnerPlayerId) || hasGameplayWinner;
+          const winnerCount = state.isTeamMode && winningTeamId !== null
+            ? Math.max(1, getWinningPaidParticipantCount(state, winningTeamId))
+            : 1;
 
           economyContext.settlePublicMatch({
             matchId: state.gameId,
             participantCount,
             didWin: hasKnownWinner && localUserWon,
             isDraw: !hasKnownWinner,
+            winnerCount,
           }).catch((settlementError) => {
             economySettlementAttemptsRef.current.delete(state.gameId);
             console.error('Failed to settle public match economy:', settlementError);
