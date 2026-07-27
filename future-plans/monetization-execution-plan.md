@@ -80,7 +80,7 @@ Record each answer in this section before its dependent milestone starts.
 
 - [x] Monetization and platform strategy documented.
 - [x] Current client, Firebase, piece-rendering, and Playwright surfaces audited.
-- [x] Client economy boundary, integer math, automatic 500-coin daily reward,
+- [x] Client economy boundary, integer math, manually claimed 500-coin daily reward,
   500-coin public entry, 10% fee, 90% winner payout, free-mode exemptions, and
   local Chrome fixtures implemented.
 - [x] Free piece-design MVP: stable catalog IDs, safe default fallback,
@@ -329,9 +329,9 @@ entry, and leaderboards.
 2. Lazily create existing-user wallets at zero or grant one versioned starter
    transaction. Never rewrite profile history.
 3. Add server-controlled economy configuration by mode and version.
-4. At the first authenticated session in each eligible period, automatically
-   grant exactly 500 daily-login coins through an idempotent server transaction
-   and show a non-blocking confirmation.
+4. Let the player explicitly claim exactly 500 daily coins once per eligible
+   period through an idempotent server transaction and show the result in the
+   rewards dialog.
 5. Add server-configured rewarded-ad grants and daily caps only when the
    producing platform supports ads and the completion signal is accepted.
 6. Keep public match entry and pool settlement disabled until Milestone 6.

@@ -100,7 +100,7 @@ export const loadEconomy = async (user) => {
   return normalizeEconomyState(remoteEconomy || loadLocalState(user));
 };
 
-export const initializeDailyEconomy = async (user, now = Date.now()) => (
+export const claimDailyReward = async (user, now = Date.now()) => (
   mutateEconomy(user, (state) => applyDailyLoginReward(state, now))
 );
 

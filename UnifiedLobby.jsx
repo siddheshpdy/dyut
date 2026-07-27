@@ -10,6 +10,7 @@ import { getEffectiveMuteState, toggleUserMutePreference } from './audio';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 import { useEconomy } from './EconomyContext';
 import {
+  DAILY_LOGIN_REWARD_COINS,
   MATCH_FEE_BPS,
   PUBLIC_MATCH_ENTRY_COINS,
   requiresPublicMatchEntry,
@@ -151,8 +152,28 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
 };
 
 const EconomySummary = ({ compact = false }) => {
-  const { balance, status, dailyReward } = useEconomy();
+  const {
+    balance,
+    status,
+    dailyReward,
+    dailyRewardAvailable,
+    isClaimingDailyReward,
+    claimDailyReward,
+  } = useEconomy();
   const { t } = useTranslation();
+  const [isRewardsOpen, setIsRewardsOpen] = useState(false);
+  const [claimError, setClaimError] = useState(null);
+  const RewardsIcon = DYUT_ICONS.rewards;
+  const CloseIcon = DYUT_ICONS.close;
+
+  const handleClaimDailyReward = async () => {
+    setClaimError(null);
+    try {
+      await claimDailyReward();
+    } catch {
+      setClaimError(t('dailyRewardClaimError', 'Could not claim your reward. Please try again.'));
+    }
+  };
 
   return (
     <>
@@ -164,13 +185,92 @@ const EconomySummary = ({ compact = false }) => {
         <span aria-hidden="true" className="text-amber">◆</span>
         <span>{status === 'loading' ? '…' : balance.toLocaleString()}</span>
       </div>
-      {dailyReward && (
+      <button
+        type="button"
+        data-testid="daily-reward-button"
+        onClick={() => setIsRewardsOpen(true)}
+        aria-label={t('rewards', 'Rewards')}
+        title={t('rewards', 'Rewards')}
+        className={`relative flex items-center justify-center rounded-full border transition-colors ${compact ? 'h-7 w-7' : 'h-8 w-8'} ${dailyRewardAvailable ? 'border-emerald/60 bg-emerald/15 text-emerald shadow-[0_0_18px_rgba(52,211,153,0.22)] hover:bg-emerald/25' : 'border-white/15 bg-black/55 text-white/65 hover:border-gold/45 hover:text-gold'}`}
+      >
+        <RewardsIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden="true" />
+        {dailyRewardAvailable && (
+          <span
+            data-testid="daily-reward-available"
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-[#07130d] bg-emerald shadow-[0_0_8px_rgba(52,211,153,0.9)]"
+          />
+        )}
+      </button>
+      {isRewardsOpen && (
         <div
-          role="status"
-          data-testid="daily-reward-notice"
-          className="fixed left-1/2 top-[4.25rem] z-[80] -translate-x-1/2 whitespace-nowrap rounded-full border border-emerald/45 bg-[#07130d]/95 px-4 py-2 text-xs font-bold text-emerald shadow-[0_0_28px_rgba(52,211,153,0.22)]"
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          onClick={() => setIsRewardsOpen(false)}
         >
-          {t('dailyRewardGranted', 'Daily reward: +{{amount}} coins', { amount: dailyReward.amount })}
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="daily-reward-dialog-title"
+            data-testid="daily-reward-dialog"
+            onClick={(event) => event.stopPropagation()}
+            className="relative w-full max-w-sm rounded-2xl border border-gold/40 bg-[#100e0c]/98 p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.8),inset_0_0_28px_rgba(234,179,8,0.06)]"
+          >
+            <button
+              type="button"
+              onClick={() => setIsRewardsOpen(false)}
+              aria-label={t('close', 'Close')}
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/65 hover:border-gold/45 hover:text-gold"
+            >
+              <CloseIcon className="h-4 w-4" aria-hidden="true" />
+            </button>
+
+            <div className="flex items-center gap-3 pr-8">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-gold/45 bg-gold/10 text-gold">
+                <RewardsIcon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="daily-reward-dialog-title" className="font-display text-xl font-bold uppercase tracking-wider text-gold">
+                  {t('dailyRewardTitle', 'Daily Reward')}
+                </h2>
+                <p className="mt-1 text-xs text-white/75">
+                  {t('dailyRewardDescription', 'Claim {{amount}} Temple Coins once per day.', { amount: DAILY_LOGIN_REWARD_COINS })}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-emerald/30 bg-emerald/8 p-4 text-center">
+              <div className="text-2xl font-black text-emerald">+{DAILY_LOGIN_REWARD_COINS}</div>
+              {dailyRewardAvailable ? (
+                <button
+                  type="button"
+                  data-testid="daily-reward-claim"
+                  onClick={handleClaimDailyReward}
+                  disabled={isClaimingDailyReward}
+                  className="mt-3 w-full rounded-lg border border-emerald/50 bg-emerald/18 px-4 py-2 text-sm font-bold uppercase tracking-wider text-[#dfffea] transition-colors hover:bg-emerald/28 disabled:cursor-wait disabled:opacity-65"
+                >
+                  {isClaimingDailyReward
+                    ? t('claimingReward', 'Claiming…')
+                    : t('claimReward', 'Claim Reward')}
+                </button>
+              ) : (
+                <p role="status" data-testid="daily-reward-claimed" className="mt-2 text-sm font-bold text-emerald">
+                  {dailyReward
+                    ? t('dailyRewardGranted', 'Daily reward: +{{amount}} coins', { amount: dailyReward.amount })
+                    : t('dailyRewardClaimed', 'Claimed today')}
+                </p>
+              )}
+              {claimError && <p role="alert" className="mt-2 text-xs font-semibold text-ruby">{claimError}</p>}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-white/12 bg-white/5 px-4 py-3">
+              <div>
+                <div className="text-sm font-bold text-white/75">{t('watchAdForCoins', 'Watch ad for coins')}</div>
+                <div className="text-[11px] text-white/55">{t('rewardedAdsComingSoon', 'More rewards coming soon')}</div>
+              </div>
+              <button type="button" disabled className="rounded-lg border border-white/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/45">
+                {t('comingSoon', 'Coming Soon')}
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </>
@@ -864,7 +964,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     if (!canAffordPublicMatch) {
       setEconomyNotice(t(
         'publicMatchInsufficientCoins',
-        'Public Online Match requires {{entry}} coins. Your next daily login reward is free.',
+        'Public Online Match requires {{entry}} coins. Check Rewards to claim your free daily coins.',
         { entry: PUBLIC_MATCH_ENTRY_COINS },
       ));
       return;
@@ -923,7 +1023,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       } catch (entryError) {
         startingGameIdsRef.current.delete(targetGameId);
         const message = entryError?.code === 'insufficient-coins'
-          ? t('publicMatchInsufficientCoins', 'Public Online Match requires {{entry}} coins. Your next daily login reward is free.', { entry: PUBLIC_MATCH_ENTRY_COINS })
+          ? t('publicMatchInsufficientCoins', 'Public Online Match requires {{entry}} coins. Check Rewards to claim your free daily coins.', { entry: PUBLIC_MATCH_ENTRY_COINS })
           : t('publicMatchEntryFailed', 'Could not reserve the public match entry. Please try again.');
         setEconomyNotice(message);
         alert(message);
@@ -1066,7 +1166,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     if (economyStatus === 'loading' || !canAffordPublicMatch) {
       setEconomyNotice(t(
         'publicMatchInsufficientCoins',
-        'Public Online Match requires {{entry}} coins. Your next daily login reward is free.',
+        'Public Online Match requires {{entry}} coins. Check Rewards to claim your free daily coins.',
         { entry: PUBLIC_MATCH_ENTRY_COINS },
       ));
       return;

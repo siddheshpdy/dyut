@@ -193,17 +193,27 @@ test('long player names stay above the base and render with ellipsis', async ({ 
   await expectNoViewportOverflow(page);
 });
 
-test('daily login grants 500 coins once and remains idempotent after reload', async ({ page }) => {
+test('daily reward is claimed from the rewards dialog once per UTC day', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?qa=economy', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByTestId('coin-balance')).toContainText('500');
-  await expect(page.getByTestId('daily-reward-notice')).toContainText('+500');
+  await expect(page.getByTestId('coin-balance')).toContainText('0');
+  await expect(page.getByTestId('daily-reward-available')).toBeVisible();
+  await page.getByTestId('daily-reward-button').click();
+  await expect(page.getByRole('dialog', { name: /daily reward/i })).toBeVisible();
+  await expect(page.getByText(/watch ad for coins/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /coming soon/i })).toBeDisabled();
+  await page.getByTestId('daily-reward-claim').click();
 
+  await expect(page.getByTestId('coin-balance')).toContainText('500');
+  await expect(page.getByTestId('daily-reward-claimed')).toContainText('+500');
   await page.reload({ waitUntil: 'domcontentloaded' });
 
   await expect(page.getByTestId('coin-balance')).toContainText('500');
-  await expect(page.getByTestId('daily-reward-notice')).toHaveCount(0);
+  await expect(page.getByTestId('daily-reward-available')).toHaveCount(0);
+  await page.getByTestId('daily-reward-button').click();
+  await expect(page.getByTestId('daily-reward-claimed')).toContainText(/claimed today/i);
+  await expect(page.getByTestId('daily-reward-claim')).toHaveCount(0);
   await expectNoViewportOverflow(page);
 });
 
@@ -211,7 +221,10 @@ test('public Online Match discloses the 500 entry and 10 percent fee', async ({ 
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?qa=economy', { waitUntil: 'domcontentloaded' });
 
+  await page.getByTestId('daily-reward-button').click();
+  await page.getByTestId('daily-reward-claim').click();
   await expect(page.getByTestId('coin-balance')).toContainText('500');
+  await page.getByRole('button', { name: /close/i }).click();
   await page.getByRole('button', { name: /online match/i }).click();
 
   const disclosure = page.getByTestId('public-match-fee');
@@ -259,6 +272,10 @@ test('major menu and setup text keeps readable contrast', async ({ page }) => {
 
   await expect(page.locator('.lobby-viewport')).toBeVisible();
   await expectReadableText(page.locator('.lobby-viewport p'));
+  await page.getByTestId('daily-reward-button').click();
+  await page.getByTestId('daily-reward-claim').click();
+  await expect(page.getByTestId('coin-balance')).toContainText('500');
+  await page.getByRole('button', { name: /close/i }).click();
   await page.getByRole('button', { name: /online match/i }).click();
   await expectReadableText(page.locator('.lobby-config-card-title'));
   await expectReadableText(page.locator('.lobby-config-card-subtitle'));
@@ -274,6 +291,10 @@ test('public setup stays readable in compact landscape', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('.lobby-viewport')).toBeVisible();
+  await page.getByTestId('daily-reward-button').click();
+  await page.getByTestId('daily-reward-claim').click();
+  await expect(page.getByTestId('coin-balance')).toContainText('500');
+  await page.getByRole('button', { name: /close/i }).click();
   await page.getByRole('button', { name: /online match/i }).click();
   const oneOnOne = page.getByRole('button', { name: /1 vs 1/i });
   const twoVsTwo = page.getByRole('button', { name: /2 vs 2/i });

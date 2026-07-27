@@ -25,9 +25,9 @@ The recommended economy has three strict rules:
 2. The entry pool is reduced by a 10% match fee and the remaining 90% is awarded
    to the winner after server-authoritative settlement.
 3. Offline play, Play with Friends, and CrazyGames Instant Multiplayer are free.
-4. Players receive 500 Temple Coins automatically on the first eligible daily
-   login and may earn additional coins from opt-in rewarded ads where the
-   platform permits them.
+4. Players may explicitly claim 500 Temple Coins once per eligible UTC day and
+   may earn additional coins from opt-in rewarded ads where the platform
+   permits them.
 5. Purchased premium currency may buy cosmetics only. It must never be used as
    an entry fee, prize, tradeable asset, or cash-equivalent reward.
 
@@ -84,8 +84,8 @@ in the first economy release.
 
 Confirmed sources:
 
-- daily-login grant: 500 coins automatically on the first authenticated session
-  in each eligible calendar/cooldown period
+- daily reward: 500 coins claimed from the rewards dialog once per eligible
+  calendar/cooldown period
 - opt-in rewarded ads: amount and daily cap are server-configured
 
 Possible later sources:
@@ -355,7 +355,7 @@ past settlements can be reconstructed.
 
 ### Phase B — earned economy
 
-- add the automatic 500-coin daily-login grant
+- add the manually claimed 500-coin daily reward
 - add rewarded-ad coin grants only where platform status permits
 - add cosmetic sinks and observe source/sink telemetry
 - keep public entry disabled while validating wallet integrity
@@ -377,16 +377,17 @@ past settlements can be reconstructed.
 
 ## UI and Playwright Acceptance Plan
 
-The client MVP includes a balance badge, automatic daily reward notice,
-public-match fee disclosure, insufficient-balance handling, and victory
-settlement summary. Continued Playwright coverage should include:
+The client MVP includes a balance badge, rewards icon with a manual daily-claim
+dialog, a disabled future rewarded-ad slot, public-match fee disclosure,
+insufficient-balance handling, and victory settlement summary. Continued
+Playwright coverage should include:
 
 - Basic Launch has no working ad or purchase controls
 - normal public Online Match requires 500 coins
 - a two-player completion deducts 500 from each player, records a 100-coin fee,
   and awards 900 to the winner
 - a losing player receives no pool payout
-- the first eligible daily login grants exactly 500 coins once
+- the first eligible daily claim grants exactly 500 coins once
 - rewarded-ad success grants the configured amount while cancel/error grants
   nothing
 - CrazyGames Instant Multiplayer can start with a zero balance

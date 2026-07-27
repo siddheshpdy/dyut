@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
-  initializeDailyEconomy,
+  claimDailyReward as claimDailyRewardService,
   getEconomyIdentity,
   loadEconomy,
   refundPublicMatchEntry as refundEntry,
@@ -10,27 +10,13 @@ import {
 import { getUtcDayKey, normalizeEconomyState } from './economy.js';
 
 const EconomyContext = createContext(null);
-const dailyInitializationPromises = new Map();
-
-const initializeDailyOnce = (identity, user) => {
-  const initializationKey = `${identity}:${getUtcDayKey()}`;
-  if (!dailyInitializationPromises.has(initializationKey)) {
-    dailyInitializationPromises.set(
-      initializationKey,
-      initializeDailyEconomy(user).catch((error) => {
-        dailyInitializationPromises.delete(initializationKey);
-        throw error;
-      }),
-    );
-  }
-  return dailyInitializationPromises.get(initializationKey);
-};
 
 export const EconomyProvider = ({ user, children }) => {
   const [economy, setEconomy] = useState(() => normalizeEconomyState());
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
   const [dailyReward, setDailyReward] = useState(null);
+  const [isClaimingDailyReward, setIsClaimingDailyReward] = useState(false);
   const [lastSettlement, setLastSettlement] = useState(null);
   const economyIdentity = getEconomyIdentity(user);
   const economyIsAnonymous = user?.isAnonymous ?? true;
@@ -51,33 +37,24 @@ export const EconomyProvider = ({ user, children }) => {
     setError(null);
     setDailyReward(null);
 
-    initializeDailyOnce(economyIdentity, economyUser)
-      .then((result) => {
+    loadEconomy(economyUser)
+      .then((loaded) => {
         if (cancelled) return;
-        setEconomy(result.state);
-        setDailyReward(result.applied ? {
-          amount: result.event.delta,
-          dayKey: result.event.dayKey,
-        } : null);
+        setEconomy(loaded);
         setStatus('ready');
       })
-      .catch(async (initializationError) => {
+      .catch((initializationError) => {
         if (cancelled) return;
-        console.error('Failed to initialize daily economy:', initializationError);
+        console.error('Failed to load economy:', initializationError);
         setError(initializationError);
-        try {
-          const loaded = await loadEconomy(economyUser);
-          if (!cancelled) setEconomy(loaded);
-        } catch {
-          setEconomy(normalizeEconomyState());
-        }
-        if (!cancelled) setStatus('error');
+        setEconomy(normalizeEconomyState());
+        setStatus('error');
       });
 
     return () => {
       cancelled = true;
     };
-  }, [economyIdentity, economyUser, refresh]);
+  }, [economyIdentity, economyUser]);
 
   const runMutation = useCallback(async (operation) => {
     setError(null);
@@ -95,6 +72,20 @@ export const EconomyProvider = ({ user, children }) => {
     (matchId) => runMutation(() => reserveEntry(economyUser, matchId)),
     [economyUser, runMutation],
   );
+
+  const claimDailyReward = useCallback(async () => {
+    setIsClaimingDailyReward(true);
+    try {
+      const result = await runMutation(() => claimDailyRewardService(economyUser));
+      setDailyReward(result.applied ? {
+        amount: result.event.delta,
+        dayKey: result.event.dayKey,
+      } : null);
+      return result;
+    } finally {
+      setIsClaimingDailyReward(false);
+    }
+  }, [economyUser, runMutation]);
 
   const settlePublicMatch = useCallback(
     (settlement) => runMutation(() => settleMatch(economyUser, settlement)).then((result) => {
@@ -119,15 +110,20 @@ export const EconomyProvider = ({ user, children }) => {
     status,
     error,
     dailyReward,
+    dailyRewardAvailable: status === 'ready' && economy.lastDailyRewardDay !== getUtcDayKey(),
+    isClaimingDailyReward,
     lastSettlement,
     refresh,
+    claimDailyReward,
     reservePublicEntry,
     settlePublicMatch,
     refundPublicEntry,
   }), [
+    claimDailyReward,
     dailyReward,
     economy,
     error,
+    isClaimingDailyReward,
     lastSettlement,
     refresh,
     refundPublicEntry,

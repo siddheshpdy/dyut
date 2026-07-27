@@ -14,7 +14,7 @@ The repository is already beyond prototype stage. It currently includes:
 - Spawn rules, movement priority, pair shields, pair attacks, safe zones, assassin-style spawn captures, blood debt, and terminal victory handling that locks further play until a new game starts
 - Single-player bot support with heuristic AI, Max Value-aware bot decisions, queued-roll fallback, and team-mode effective-player ownership
 - Firebase authentication, player profiles, and online multiplayer sync
-- Temple Coin economy with an automatic 500-coin UTC daily-login reward, a 500-coin public Online Match entry, a 10% match fee, and idempotent prize settlement; 1v1/FFA award the remaining pool to one winner, while public 2v2 divides 90% of the paid human-entry pool equally among winning human teammates. Bots neither pay an entry nor receive a prize share. Offline play, Play with Friends, and CrazyGames Instant Multiplayer remain free
+- Temple Coin economy with a manually claimed 500-coin UTC daily reward, a 500-coin public Online Match entry, a 10% match fee, and idempotent prize settlement; 1v1/FFA award the remaining pool to one winner, while public 2v2 divides 90% of the paid human-entry pool equally among winning human teammates. Bots neither pay an entry nor receive a prize share. Offline play, Play with Friends, and CrazyGames Instant Multiplayer remain free
 - Four selectable piece designs carried in match snapshots independently from seat color; players may choose the same design while unique seat colors preserve player identity
 - Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling with visible strike warnings, host-owned auto-roll handoff for bot/AFK-controlled turns (including recovery of missing bot ownership metadata from legacy cached clients, so bot-filled seats do not wait for the turn timeout), bot takeover for disconnected/AFK online players, automatic online match finish with a forfeit winner when fewer than two human seats remain, player reclaim on return before permanent takeover, and signed-in account-backed resume for resumable private online matches across devices
 - Mobile and desktop play both support rolling directly from the dice panel, with the dice area muted for inactive turns and gold-highlighted when the local human player can roll
@@ -55,7 +55,7 @@ Key files:
 - [firebaseSetup.js](./firebaseSetup.js): Firebase initialization, auth helpers, and profile/stat updates
 - [economy.js](./economy.js): integer-only reward, entry, pool, fee, payout, draw-refund, and idempotency rules
 - [economyService.js](./economyService.js): standalone, anonymous/local, and CrazyGames economy persistence adapters
-- [EconomyContext.jsx](./EconomyContext.jsx): automatic daily reward initialization and app-wide balance/settlement state
+- [EconomyContext.jsx](./EconomyContext.jsx): wallet loading, manual daily-reward claims, and app-wide balance/settlement state
 - [pieceSkins.js](./pieceSkins.js): safe piece-design catalog, default fallback, and stable design identifiers
 
 ## Rules Coverage
@@ -134,7 +134,7 @@ npm run test:ui:report
 npm run test:all
 ```
 
-Playwright starts a temporary Vite server on `127.0.0.1:4173` unless `PLAYWRIGHT_BASE_URL` points to an already-running server. The suite covers responsive menu layout, local game startup, Play with Friends navigation, victory controls, long-name ellipsis positioning, automatic daily rewards, public-match fee disclosure, public 2v2 selection and human-only prize-split disclosure, and insufficient-balance behavior. Failure screenshots and traces are written under ignored `artifacts/` and `e2e/test-output/` directories.
+Playwright starts a temporary Vite server on `127.0.0.1:4173` unless `PLAYWRIGHT_BASE_URL` points to an already-running server. The suite covers responsive menu layout, local game startup, Play with Friends navigation, victory controls, long-name ellipsis positioning, manual daily-reward claims, public-match fee disclosure, public 2v2 selection and human-only prize-split disclosure, and insufficient-balance behavior. Failure screenshots and traces are written under ignored `artifacts/` and `e2e/test-output/` directories.
 
 ## Environment
 

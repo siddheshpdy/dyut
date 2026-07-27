@@ -12,6 +12,10 @@ const databaseMocks = vi.hoisted(() => ({
 const economyMocks = vi.hoisted(() => ({
   balance: 500,
   status: 'ready',
+  dailyReward: null,
+  dailyRewardAvailable: false,
+  isClaimingDailyReward: false,
+  claimDailyReward: vi.fn(async () => ({ applied: true })),
   reservePublicEntry: vi.fn(async () => ({ applied: true })),
 }));
 
@@ -57,7 +61,10 @@ vi.mock('./EconomyContext', () => ({
   useEconomy: () => ({
     balance: economyMocks.balance,
     status: economyMocks.status,
-    dailyReward: null,
+    dailyReward: economyMocks.dailyReward,
+    dailyRewardAvailable: economyMocks.dailyRewardAvailable,
+    isClaimingDailyReward: economyMocks.isClaimingDailyReward,
+    claimDailyReward: economyMocks.claimDailyReward,
     reservePublicEntry: economyMocks.reservePublicEntry,
   }),
 }));
@@ -73,6 +80,10 @@ beforeEach(() => {
   databaseMocks.remove.mockReset().mockResolvedValue(undefined);
   economyMocks.balance = 500;
   economyMocks.status = 'ready';
+  economyMocks.dailyReward = null;
+  economyMocks.dailyRewardAvailable = false;
+  economyMocks.isClaimingDailyReward = false;
+  economyMocks.claimDailyReward.mockReset().mockResolvedValue({ applied: true });
   economyMocks.reservePublicEntry.mockReset().mockResolvedValue({ applied: true });
   delete window.CrazyGames;
   delete window.cgInitPromise;
@@ -186,6 +197,38 @@ describe('UnifiedLobby CrazyGames menu', () => {
 });
 
 describe('UnifiedLobby standalone menu', () => {
+  it('opens the rewards dialog from an icon and claims the available daily reward', async () => {
+    economyMocks.dailyRewardAvailable = true;
+    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId('daily-reward-dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('daily-reward-button'));
+
+    expect(screen.getByRole('dialog', { name: 'dailyRewardTitle' })).toBeInTheDocument();
+    expect(screen.getByText('watchAdForCoins')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('daily-reward-claim'));
+
+    await waitFor(() => expect(economyMocks.claimDailyReward).toHaveBeenCalledOnce());
+  });
+
   it('starts local players with the same piece design and unique seat colors', async () => {
     vi.stubEnv('VITE_IS_PORTAL', 'false');
     vi.resetModules();
