@@ -1,5 +1,12 @@
 # Phase 26.3: Ad Integration Plan
 
+> **Superseded:** Use
+> [monetization-strategy.md](./monetization-strategy.md) and
+> [monetization-execution-plan.md](./monetization-execution-plan.md). Rewarded
+> ads grant a server-configured number of coins with a daily cap; no amount is
+> approved yet. CrazyGames Basic Launch must not expose a non-working rewarded
+> ad control.
+
 ## Objective
 
 Add ad monetization for non-premium users while preserving portal compliance, gameplay flow, and user trust.

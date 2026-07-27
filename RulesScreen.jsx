@@ -29,7 +29,7 @@ const RulesScreen = ({ onBack }) => {
       <div className="rules-screen-body flex min-h-0 flex-col text-left text-sm font-sans text-white/88 sm:text-base">
         <div className="rules-section-tabs mb-5 grid grid-cols-3 gap-2">
           {sections.map((item, index) => (
-            <button key={item.title} type="button" onClick={() => setActiveRuleSection(index)} className={`rounded-lg border px-2 py-2 font-display text-[0.65rem] font-bold uppercase tracking-[0.08em] transition-colors sm:text-xs ${activeRuleSection === index ? 'border-gold/60 bg-gold/15 text-gold' : 'border-white/15 bg-black/25 text-white/60 hover:border-gold/35 hover:text-white/85'}`}>
+            <button key={item.title} type="button" onClick={() => setActiveRuleSection(index)} className={`rounded-lg border px-2 py-2 font-display text-[0.65rem] font-bold uppercase tracking-[0.08em] transition-colors sm:text-xs ${activeRuleSection === index ? 'border-gold/70 bg-gold/15 text-[#fff4c7]' : 'border-white/20 bg-black/25 text-white/75 hover:border-gold/45 hover:text-white'}`}>
               {item.title}
             </button>
           ))}

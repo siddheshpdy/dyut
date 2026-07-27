@@ -10,6 +10,11 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ui": "playwright test",
+    "test:ui:headed": "playwright test --headed",
+    "test:ui:debug": "playwright test --ui",
+    "test:ui:report": "playwright show-report artifacts/playwright-report",
+    "test:all": "npm test && npm run test:ui",
     "capture:screenshots": "node scripts/capture-crazygames-screenshots.mjs",
     "capture:screenshots:crazygames": "node scripts/capture-crazygames-screenshots.mjs --portal",
     "capture:covers": "node scripts/capture-crazygames-covers.mjs",
@@ -25,6 +30,7 @@
     "react-i18next": "^14.1.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.2",
     "@types/react": "^18.2.66",

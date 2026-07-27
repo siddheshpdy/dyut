@@ -6,13 +6,21 @@ This document outlines the roadmap for transitioning Dyut into a publicly scalab
 
 ## Phase 26: Monetization Strategies (Revenue)
 
+> **Planning update (July 2026):** The authoritative cross-platform direction is
+> [future-plans/monetization-strategy.md](./future-plans/monetization-strategy.md).
+> Do not implement the client-side wager writes below. The approved direction
+> is a server-authoritative 500-coin public Online Match entry, a 10% match fee,
+> and a 90% winner payout. Daily login grants 500 coins. CrazyGames Instant
+> Multiplayer, Play with Friends, and offline play remain free, and purchased
+> currency stays separate from match entry and rewards.
+
 ### 26.1 Virtual Currency & Wagers (Soft Economy)
 *   **Objective:** Introduce "Dyut Coins" to create stakes and an in-game economy.
 *   **Implementation Steps:**
-    1.  **Database Update:** Add `coins` (default: 1000) and `lastDailyReward` timestamp to the Firestore `users` schema.
-    2.  **Daily Reward UI:** Create a modal (`DailyReward.jsx`) that checks `lastDailyReward` on login. If 24 hours have passed, offer a button to claim daily coins.
-    3.  **Lobby Wagers:** Update `UnifiedLobby.jsx`. Add a "Wager Amount" selector for hosts. Deduct the entry fee from all joining players' balances and move it to a `pot` field in the lobby document.
-    4.  **Payout Logic:** Update `GameContext.jsx` (or backend functions) so that when a game reaches `status: 'finished'`, the winner is awarded the total pot minus a 5-10% game sink/rake to balance the economy.
+    1.  **Wallet Ledger:** Add a server-owned wallet and append-only ledger; do not use a client-writable `coins` profile field.
+    2.  **Daily Login Reward:** Automatically grant 500 coins on the first eligible authenticated login, with an idempotent server transaction.
+    3.  **Public Match Entry:** Reserve 500 coins per participant at authoritative match start. Offline, Play with Friends, and CrazyGames Instant Multiplayer remain free.
+    4.  **Payout Logic:** After authoritative completion, record a 10% match fee and award the remaining 90% pool to the winner. The client only displays the confirmed settlement.
 
 ### 26.2 Cosmetic Store (In-App Purchases)
 *   **Objective:** Sell premium visual upgrades.
@@ -26,7 +34,7 @@ This document outlines the roadmap for transitioning Dyut into a publicly scalab
 *   **Objective:** Generate revenue from non-paying users.
 *   **Implementation Steps:**
     1.  **Plugin Setup:** Install `@capacitor-community/admob`. Initialize it in `App.jsx` based on the platform.
-    2.  **Rewarded Ads:** Add a "Watch Ad for 500 Coins" button in the Store and Lobby. Trigger `AdMob.showRewardVideoAd()`, and upon success, trigger a Cloud Function to credit the user.
+    2.  **Rewarded Ads:** Add a "Watch Ad for Coins" button outside active gameplay. Show the server-configured reward and daily cap before opt-in, and grant only after accepted completion through an idempotent backend.
     3.  **Banner Ads:** Configure a persistent banner ad at the bottom of the `UnifiedLobby.jsx` screen.
     4.  **Premium Flag:** Implement a one-time "Remove Ads" IAP. If `user.isPremium` is true, bypass all AdMob initialization logic.
 

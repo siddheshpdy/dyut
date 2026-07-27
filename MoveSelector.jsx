@@ -26,17 +26,17 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
             <button
               onClick={() => onFullMove(roll.d1)}
               disabled={!validMoves.sum} // We use 'sum' to check validity for the single move
-              className="w-full rounded-xl border border-gold/50 bg-gold/14 px-4 py-3 font-sans font-bold text-gold shadow-[0_0_10px_rgba(251,191,36,0.22)] transition-all hover:bg-gold/22 disabled:border-transparent disabled:bg-white/5 disabled:text-white/30 disabled:shadow-none"
+              className="w-full rounded-xl border border-gold/50 bg-gold/20 px-4 py-3 font-sans font-bold text-gold shadow-[0_0_10px_rgba(251,191,36,0.22)] transition-all hover:bg-gold/25 disabled:border-white/10 disabled:bg-white/10 disabled:text-white/55 disabled:shadow-none"
             >
               {title === 'Spawn Piece' ? t('spawn', 'Spawn') : `${t('move')} ${roll.d1}`}
             </button>
           )}
           {hasMultipleRolls && (
-            <button onClick={onNextRoll} className="w-full px-4 py-2 bg-transparent text-white/60 font-sans font-medium rounded-xl hover:text-white hover:bg-white/10 transition-colors mt-1 border border-white/10">
+            <button onClick={onNextRoll} className="mt-1 w-full rounded-xl border border-white/15 bg-transparent px-4 py-2 font-sans font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white">
               {t('useAnotherRoll')}
             </button>
           )}
-          <button onClick={onClose} className="mt-3 text-white/40 text-sm font-sans hover:text-white transition-colors uppercase tracking-wider font-semibold">{t('cancel')}</button>
+          <button onClick={onClose} className="mt-3 font-sans text-sm font-semibold uppercase tracking-wider text-white/65 transition-colors hover:text-white">{t('cancel')}</button>
         </div>
       </div>
     );
@@ -58,7 +58,7 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
           <button
             onClick={() => onFullMove(roll.sum)}
             disabled={!validMoves.sum}
-            className="w-full rounded-xl border border-gold/50 bg-gold/14 px-4 py-3 font-sans font-bold text-gold shadow-[0_0_10px_rgba(251,191,36,0.22)] transition-all hover:bg-gold/22 disabled:border-transparent disabled:bg-white/5 disabled:text-white/30 disabled:shadow-none"
+            className="w-full rounded-xl border border-gold/50 bg-gold/20 px-4 py-3 font-sans font-bold text-gold shadow-[0_0_10px_rgba(251,191,36,0.22)] transition-all hover:bg-gold/25 disabled:border-white/10 disabled:bg-white/10 disabled:text-white/55 disabled:shadow-none"
           >
             {title === 'Spawn Piece' ? t('spawn', 'Spawn') : `${t('move')} ${roll.sum} (${t('sum')})`}
           </button>
@@ -66,14 +66,14 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
         <button
           onClick={() => onSplitMove(high)}
           disabled={!validMoves.high}
-          className="w-full px-4 py-3 bg-white/10 text-white font-sans font-semibold rounded-xl hover:bg-white/20 disabled:bg-white/5 disabled:text-white/30 border border-white/10 disabled:border-transparent transition-all"
+          className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 font-sans font-semibold text-white transition-all hover:bg-white/20 disabled:border-white/10 disabled:bg-white/10 disabled:text-white/55"
         >
           {t('move')} {high} ({t('high')})
         </button>
         <button
           onClick={() => onSplitMove(low)}
           disabled={!validMoves.low}
-          className="w-full px-4 py-3 bg-white/10 text-white font-sans font-semibold rounded-xl hover:bg-white/20 disabled:bg-white/5 disabled:text-white/30 border border-white/10 disabled:border-transparent transition-all"
+          className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 font-sans font-semibold text-white transition-all hover:bg-white/20 disabled:border-white/10 disabled:bg-white/10 disabled:text-white/55"
         >
           {t('move')} {low} ({t('low')})
         </button>
@@ -88,11 +88,11 @@ const MoveSelector = ({ roll, validMoves, onFullMove, onSplitMove, onClose, onIn
           </button>
         ))}
         {hasMultipleRolls && (
-          <button onClick={onNextRoll} className="w-full px-4 py-2 bg-transparent text-white/60 font-sans font-medium rounded-xl hover:text-white hover:bg-white/10 transition-colors mt-2 border border-white/10">
+          <button onClick={onNextRoll} className="mt-2 w-full rounded-xl border border-white/15 bg-transparent px-4 py-2 font-sans font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white">
             {t('useAnotherRoll')}
           </button>
         )}
-        <button onClick={onClose} className="mt-3 text-white/40 text-sm font-sans hover:text-white transition-colors uppercase tracking-wider font-semibold">{t('cancel')}</button>
+        <button onClick={onClose} className="mt-3 font-sans text-sm font-semibold uppercase tracking-wider text-white/65 transition-colors hover:text-white">{t('cancel')}</button>
       </div>
     </div>
   );

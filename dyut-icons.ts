@@ -35,6 +35,7 @@ import {
   X,
   FileText,
   Menu,
+  Home,
 } from "lucide-react";
 
 export const DYUT_ICONS = {
@@ -81,4 +82,5 @@ export const DYUT_ICONS = {
   more: Ellipsis,
   close: X,
   menu: Menu,
+  home: Home,
 } as const;
