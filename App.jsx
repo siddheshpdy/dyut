@@ -17,6 +17,7 @@ import { DYUT_ICONS } from './dyut-icons';
 import { bindCrazyGamesMuteSetting, dispatchMuteState, getEffectiveMuteState, toggleUserMutePreference } from './audio';
 import { clearCrazyGamesOfflineResume, loadCrazyGamesOfflineResumeToLocal } from './crazyGamesStorage';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
+import { EconomyProvider } from './EconomyContext';
 
 const PLAYER_COUNT_KEY = 'dyut_player_count';
 const GAME_STATE_KEY = 'dyut_game_state';
@@ -37,12 +38,16 @@ const getQaPreviewScreen = () => {
   return new URLSearchParams(window.location.search).get('qa');
 };
 const getQaCaptureScenarioConfig = (screen) => {
-  if (screen !== 'scenario') return null;
+  if (screen !== 'scenario' && screen !== 'long-name') return null;
+  const playerOneName = screen === 'long-name'
+    ? 'A Very Long CrazyGames Player Name That Must Be Truncated'
+    : 'Capture Hero';
+
   return {
     playerCount: 4,
     activeSeats: ['Player1', 'Player2', 'Player3', 'Player4'],
     playerColors: ['ruby', 'sapphire', 'emerald', 'amber'],
-    playerAliases: { Player1: 'Bot 1', Player2: 'Bot 2', Player3: 'Bot 3', Player4: 'Bot 4' },
+    playerAliases: { Player1: playerOneName, Player2: 'Bot 2', Player3: 'Bot 3', Player4: 'Bot 4' },
     bots: ['Player1', 'Player2', 'Player3', 'Player4'],
     initialStateOverride: {
       currentPlayer: 'Player1',
@@ -55,7 +60,7 @@ const getQaCaptureScenarioConfig = (screen) => {
         { d1: 4, d2: 3 }, { d1: 1, d2: 6 }, { d1: 4, d2: 4 }, { d1: 6, d2: 3 },
       ],
       players: {
-        Player1: { color: 'ruby', name: 'Capture Hero', hasKilled: false, pieces: [10, 8, -1, -1], team: 0 },
+        Player1: { color: 'ruby', name: playerOneName, hasKilled: false, pieces: [10, 8, -1, -1], team: 0 },
         Player2: { color: 'sapphire', name: 'Rival', hasKilled: false, pieces: [65, -1, -1, -1], team: 0 },
         Player3: { color: 'emerald', name: 'Shield Pair', hasKilled: false, pieces: [20, 20, -1, -1], team: 0 },
         Player4: { color: 'amber', name: 'Bot 4', hasKilled: false, pieces: [18, -1, -1, -1], team: 0 },
@@ -902,23 +907,25 @@ function App() {
   };
 
   return (
-    <main className={`h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0' : 'p-3 sm:p-4'}`}>
-      {view !== 'menu' && view !== 'game' && (
-        <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-          <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
-        </button>
-      )}
-      {/* Abstract Blurred Board Background for Menus */}
-      {view !== 'game' && (
-        <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
-          <div className="w-[90vmin] h-[90vmin] relative">
-            <div className="absolute top-0 bottom-0 left-1/3 right-1/3 bg-dyut-board shadow-2xl rounded-3xl" />
-            <div className="absolute left-0 right-0 top-1/3 bottom-1/3 bg-dyut-board shadow-2xl rounded-3xl" />
+    <EconomyProvider user={user}>
+      <main className={`h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0' : 'p-3 sm:p-4'}`}>
+        {view !== 'menu' && view !== 'game' && (
+          <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+            <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+          </button>
+        )}
+        {/* Abstract Blurred Board Background for Menus */}
+        {view !== 'game' && (
+          <div className="absolute inset-0 z-0 flex items-center justify-center opacity-30 blur-xl pointer-events-none">
+            <div className="w-[90vmin] h-[90vmin] relative">
+              <div className="absolute top-0 bottom-0 left-1/3 right-1/3 bg-dyut-board shadow-2xl rounded-3xl" />
+              <div className="absolute left-0 right-0 top-1/3 bottom-1/3 bg-dyut-board shadow-2xl rounded-3xl" />
+            </div>
           </div>
-        </div>
-      )}
-      {renderView()}
-    </main>
+        )}
+        {renderView()}
+      </main>
+    </EconomyProvider>
   )
 }
 

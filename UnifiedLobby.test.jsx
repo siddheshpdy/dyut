@@ -9,6 +9,12 @@ const databaseMocks = vi.hoisted(() => ({
   remove: vi.fn()
 }));
 
+const economyMocks = vi.hoisted(() => ({
+  balance: 500,
+  status: 'ready',
+  reservePublicEntry: vi.fn(async () => ({ applied: true })),
+}));
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key) => key,
@@ -47,6 +53,15 @@ vi.mock('./audio', () => ({
   toggleUserMutePreference: vi.fn(() => false)
 }));
 
+vi.mock('./EconomyContext', () => ({
+  useEconomy: () => ({
+    balance: economyMocks.balance,
+    status: economyMocks.status,
+    dailyReward: null,
+    reservePublicEntry: economyMocks.reservePublicEntry,
+  }),
+}));
+
 afterEach(() => {
   vi.unstubAllEnvs();
 });
@@ -56,6 +71,9 @@ beforeEach(() => {
   databaseMocks.update.mockReset().mockResolvedValue(undefined);
   databaseMocks.get.mockReset().mockResolvedValue({ exists: () => false });
   databaseMocks.remove.mockReset().mockResolvedValue(undefined);
+  economyMocks.balance = 500;
+  economyMocks.status = 'ready';
+  economyMocks.reservePublicEntry.mockReset().mockResolvedValue({ applied: true });
   delete window.CrazyGames;
   delete window.cgInitPromise;
   localStorage.clear();
@@ -106,7 +124,19 @@ describe('UnifiedLobby CrazyGames menu', () => {
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
     const updateRoom = vi.fn();
-    window.CrazyGames = { SDK: { game: { updateRoom } } };
+    window.CrazyGames = {
+      SDK: {
+        game: { updateRoom },
+        user: {
+          getUser: vi.fn(async () => null),
+          addAuthListener: vi.fn(),
+          removeAuthListener: vi.fn()
+        },
+        data: {
+          getItem: vi.fn(async () => null)
+        }
+      }
+    };
 
     const InstantMultiplayerHarness = () => {
       const [shouldAutoStart, setShouldAutoStart] = React.useState(true);
@@ -151,10 +181,50 @@ describe('UnifiedLobby CrazyGames menu', () => {
       isJoinable: true,
       inviteParams: { roomId: expect.any(String) }
     }));
+    expect(economyMocks.reservePublicEntry).not.toHaveBeenCalled();
   });
 });
 
 describe('UnifiedLobby standalone menu', () => {
+  it('starts local players with the same piece design and unique seat colors', async () => {
+    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+    const onStartGame = vi.fn();
+
+    render(
+      <UnifiedLobby
+        onStartGame={onStartGame}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /localPlay/i }));
+    const enabledDesignSelectors = screen.getAllByLabelText('pieceDesignForPlayer')
+      .filter((selector) => !selector.disabled);
+    expect(enabledDesignSelectors).toHaveLength(2);
+
+    enabledDesignSelectors.forEach((selector) => fireEvent.change(selector, { target: { value: 'lotus' } }));
+    fireEvent.click(screen.getByRole('button', { name: /startMatch/i }));
+
+    await waitFor(() => expect(onStartGame).toHaveBeenCalledOnce());
+    const gameConfig = onStartGame.mock.calls[0][0];
+    expect(gameConfig.playerSkins).toEqual({
+      Player1: 'lotus',
+      Player2: 'lotus',
+    });
+    expect(new Set(gameConfig.playerColors).size).toBe(gameConfig.playerColors.length);
+  });
+
   it('labels the existing private setup flow as Play with Friends', async () => {
     vi.stubEnv('VITE_IS_PORTAL', 'false');
     vi.resetModules();
@@ -180,6 +250,74 @@ describe('UnifiedLobby standalone menu', () => {
     fireEvent.click(screen.getByRole('button', { name: /playWithFriends/i }));
 
     expect(screen.getByRole('heading', { name: 'playWithFriends' })).toBeInTheDocument();
+    expect(databaseMocks.set).not.toHaveBeenCalled();
+    expect(economyMocks.reservePublicEntry).not.toHaveBeenCalled();
+  });
+
+  it('shows the public entry disclosure and stores economy metadata on the lobby', async () => {
+    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.resetModules();
+    const { findRandomPublicGame } = await import('./matchmaking.js');
+    findRandomPublicGame.mockResolvedValueOnce(null);
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /onlineMatch/i }));
+    expect(screen.getByTestId('public-match-fee')).toHaveTextContent('publicMatchFeeDisclosure');
+    fireEvent.click(screen.getByRole('button', { name: /findMatch/i }));
+
+    await waitFor(() => expect(databaseMocks.set).toHaveBeenCalledOnce());
+    expect(databaseMocks.set.mock.calls[0][1]).toMatchObject({
+      isPublic: true,
+      economy: {
+        entryPerPlayer: 500,
+        matchFeeBps: 1000,
+      },
+    });
+  });
+
+  it('blocks public setup below 500 coins while keeping free modes enabled', async () => {
+    economyMocks.balance = 499;
+    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /onlineMatch/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('publicMatchInsufficientCoins');
+    expect(screen.getByRole('button', { name: /localPlay/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /playWithFriends/i })).toBeEnabled();
     expect(databaseMocks.set).not.toHaveBeenCalled();
   });
 });

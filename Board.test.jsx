@@ -82,6 +82,27 @@ describe('Board Component', () => {
         expect(nameLabel.parentElement.nextElementSibling).toHaveAttribute('data-player-base-card', 'Player1');
     });
 
+    it('allows duplicate piece designs while preserving unique seat colors', () => {
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: {
+                    Player1: { name: 'Alice', color: 'ruby', pieceSkinId: 'lotus', pieces: [-1, -1, -1, -1], hasKilled: false, team: 0 },
+                    Player2: { name: 'Bob', color: 'sapphire', pieceSkinId: 'lotus', pieces: [-1, -1, -1, -1], hasKilled: false, team: 0 }
+                },
+                turnQueue: [],
+                isTeamMode: false
+            },
+            dispatch: vi.fn()
+        });
+
+        const { container } = render(<Board onGoToMenu={vi.fn()} />);
+        const lotusPieces = [...container.querySelectorAll('[data-piece-skin="lotus"]')];
+
+        expect(lotusPieces).toHaveLength(8);
+        expect(new Set(lotusPieces.map((piece) => piece.dataset.seatColor))).toEqual(new Set(['ruby', 'sapphire']));
+    });
+
     it('shows the remaining human as winner when an online match ends by takeover', () => {
         useGame.mockReturnValue({
             state: {

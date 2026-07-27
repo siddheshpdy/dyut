@@ -203,5 +203,22 @@
   "firstGameHelpBodyWatch": "When it is your turn, the dice and playable pieces will light up.",
   "firstGameHelpTitleWait": "No move available",
   "firstGameHelpBodyWait": "If no legal move is possible, the game will end this turn automatically.",
-  "firstGameHelpDismiss": "Got it"
+  "firstGameHelpDismiss": "Got it",
+  "templeCoins": "Temple Coins",
+  "dailyRewardGranted": "Daily reward: +{{amount}} coins",
+  "economyLoading": "Loading your Temple Coins…",
+  "publicMatchInsufficientCoins": "Public Online Match requires {{entry}} coins. Your next daily login reward is free.",
+  "publicMatchEntryFailed": "Could not reserve the public match entry. Please try again.",
+  "publicMatchCoinSubtitle": "{{entry}} coins · Winner receives 90% of the pool.",
+  "publicMatchFeeDisclosure": "{{entry}} coins per player · 10% match fee · Winner receives 90% of the pool",
+  "publicTeamsComingSoon": "Public team prizes coming later",
+  "matchPool": "Pool",
+  "matchFee": "Match Fee",
+  "yourPayout": "Your Payout",
+  "pieceDesignForPlayer": "Piece design for {{player}}",
+  "pieceSkinClassic": "Classic",
+  "pieceSkinLotus": "Lotus",
+  "pieceSkinChakra": "Chakra",
+  "pieceSkinRoyal": "Royal",
+  "settlementPending": "Confirming coin settlement…"
 }

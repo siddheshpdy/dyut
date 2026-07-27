@@ -8,6 +8,9 @@ import { findRandomPublicGame } from './matchmaking.js';
 import { DYUT_ICONS } from './dyut-icons';
 import { getEffectiveMuteState, toggleUserMutePreference } from './audio';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
+import { useEconomy } from './EconomyContext';
+import { MATCH_FEE_BPS, PUBLIC_MATCH_ENTRY_COINS, requiresPublicMatchEntry } from './economy';
+import { PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -89,7 +92,7 @@ const ConfigSectionTitle = ({ children }) => (
   </div>
 );
 
-const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, children, onClick, className = '' }) => {
+const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, children, onClick, disabled = false, className = '' }) => {
   const toneClasses = {
     gold: active
       ? 'border-gold bg-gold/18 text-gold shadow-[0_0_24px_rgba(234,179,8,0.28),inset_0_0_30px_rgba(234,179,8,0.12)]'
@@ -112,7 +115,8 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
     <button
       type="button"
       onClick={onClick}
-      className={`lobby-config-card group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:-translate-y-0.5 sm:p-4 lg:p-2.5 ${toneClasses} ${className}`}
+      disabled={disabled}
+      className={`lobby-config-card group relative overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 sm:p-4 lg:p-2.5 ${disabled ? 'cursor-not-allowed opacity-45' : 'hover:-translate-y-0.5'} ${toneClasses} ${className}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(255,255,255,0.12),transparent_38%)] opacity-70"></div>
       <div className="lobby-config-card-content relative z-10 flex h-full flex-col items-center justify-center gap-1.5 lg:gap-1 [&_svg]:lg:h-5 [&_svg]:lg:w-5">
@@ -129,7 +133,34 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
   );
 };
 
-const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
+const EconomySummary = ({ compact = false }) => {
+  const { balance, status, dailyReward } = useEconomy();
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <div
+        data-testid="coin-balance"
+        className={`flex items-center gap-1.5 rounded-full border border-gold/40 bg-black/65 font-bold text-gold shadow-[0_0_18px_rgba(234,179,8,0.16)] ${compact ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs sm:text-sm'}`}
+        title={t('templeCoins', 'Temple Coins')}
+      >
+        <span aria-hidden="true" className="text-amber">◆</span>
+        <span>{status === 'loading' ? '…' : balance.toLocaleString()}</span>
+      </div>
+      {dailyReward && (
+        <div
+          role="status"
+          data-testid="daily-reward-notice"
+          className="fixed left-1/2 top-[4.25rem] z-[80] -translate-x-1/2 whitespace-nowrap rounded-full border border-emerald/45 bg-[#07130d]/95 px-4 py-2 text-xs font-bold text-emerald shadow-[0_0_28px_rgba(52,211,153,0.22)]"
+        >
+          {t('dailyRewardGranted', 'Daily reward: +{{amount}} coins', { amount: dailyReward.amount })}
+        </div>
+      )}
+    </>
+  );
+};
+
+const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onSkinChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
   const typeColor = seat.type === 'human' ? 'text-gold bg-gold/10 border-gold/30' : seat.type === 'bot' ? 'text-sapphire bg-sapphire/10 border-sapphire/30' : 'text-white/40 bg-white/5 border-white/10';
@@ -191,6 +222,20 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
           className={`lobby-seat-name mt-2 w-full rounded border border-white/10 bg-transparent py-1 text-center font-sans text-xs text-white/90 transition-opacity focus:outline-none focus:border-gold/50 lg:mt-1.5 lg:text-[11px] ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         />
       )}
+
+      <select
+        aria-label={t('pieceDesignForPlayer', 'Piece design for {{player}}', { player: label })}
+        value={normalizePieceSkinId(seat.pieceSkinId)}
+        onChange={(event) => onSkinChange(event.target.value)}
+        disabled={!editable || !isActive || isUnclaimedHuman}
+        className={`mt-1.5 w-full rounded border border-gold/25 bg-black/45 px-1 py-1 text-center text-[9px] font-bold uppercase tracking-wider text-gold outline-none lg:text-[8px] ${!editable || !isActive || isUnclaimedHuman ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:border-gold/55'}`}
+      >
+        {PIECE_SKINS.map((skin) => (
+          <option key={skin.id} value={skin.id} className="bg-charcoal text-gold">
+            {t(skin.nameKey, skin.fallbackName)}
+          </option>
+        ))}
+      </select>
 
       <div className={`lobby-seat-colors mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {ALL_COLORS.map(color => {
@@ -255,8 +300,9 @@ const PlayerProfile = ({ user }) => {
           } catch (e) { console.error(e); }
         }
       };
-      setTimeout(fetchPortalStats, 500); // Give SDK time to init
+      const fetchPortalStatsTimeout = setTimeout(fetchPortalStats, 500); // Give SDK time to init
       return () => {
+        clearTimeout(fetchPortalStatsTimeout);
         if (authListener && window.CrazyGames?.SDK?.user?.removeAuthListener) {
           try { window.CrazyGames.SDK.user.removeAuthListener(authListener); } catch(e) {}
         }
@@ -436,8 +482,16 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const [portalUser, setPortalUser] = useState(null);
   const [inviteUrl, setInviteUrl] = useState('');
   const [offlineResumeAction, setOfflineResumeAction] = useState(() => (qaShowOfflineResume ? () => {} : null));
+  const [economyNotice, setEconomyNotice] = useState(null);
 
   const { t } = useTranslation();
+  const {
+    balance,
+    status: economyStatus,
+    reservePublicEntry,
+  } = useEconomy();
+  const startingGameIdsRef = useRef(new Set());
+  const canAffordPublicMatch = balance >= PUBLIC_MATCH_ENTRY_COINS;
 
   const toggleMute = () => {
     setIsMuted(toggleUserMutePreference());
@@ -785,10 +839,33 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setSetupStep('seats');
   });
 
-  const openPublicSetup = () => promptForSavedResume('online', () => {
-    setSetupMode('public');
-    setSetupStep('config');
-  });
+  const openPublicSetup = () => {
+    if (economyStatus === 'loading') {
+      setEconomyNotice(t('economyLoading', 'Loading your Temple Coins…'));
+      return;
+    }
+    if (!canAffordPublicMatch) {
+      setEconomyNotice(t(
+        'publicMatchInsufficientCoins',
+        'Public Online Match requires {{entry}} coins. Your next daily login reward is free.',
+        { entry: PUBLIC_MATCH_ENTRY_COINS },
+      ));
+      return;
+    }
+    setEconomyNotice(null);
+    promptForSavedResume('online', () => {
+      if (matchType === '2v2') setMatchType('1v1');
+      setSetupMode('public');
+      setSetupStep('config');
+    });
+  };
+
+  const handleSeatSkinChange = (playerId, pieceSkinId) => {
+    const normalizedSkinId = normalizePieceSkinId(pieceSkinId);
+    const newSeats = { ...seats, [playerId]: { ...seats[playerId], pieceSkinId: normalizedSkinId } };
+    setSeats(newSeats);
+    pushUpdate('seats', newSeats);
+  };
 
   const openPrivateSetup = () => promptForSavedResume('online', () => {
     setSetupMode('private');
@@ -799,12 +876,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
   });
 
-  const executeStart = (isOnline = false, targetGameId = null, overrideData = null) => {
+  const executeStart = async (isOnline = false, targetGameId = null, overrideData = null) => {
     const currentSeats = overrideData?.seats || seats;
     const currentMatchType = overrideData?.matchType || matchType;
     const currentActiveSeats = Object.entries(currentSeats).filter(([_, s]) => s.type !== 'closed');
     const currentActiveColors = currentActiveSeats.map(([_, s]) => s.color);
     const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
+    const isPublicMatch = overrideData?.isPublic ?? isLobbyPublic;
     
     if (!overrideData) { // Only validate if we are initiating the start locally
       if (currentActiveSeats.length < 2) return alert(t('needTwoPlayers', "Need at least 2 players."));
@@ -820,23 +898,46 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       if (new Set(currentActiveColors).size !== currentActiveColors.length) return alert(t('uniqueColorsRequired', "Each active player must have a unique color."));
     }
 
+    if (requiresPublicMatchEntry({ isOnline, isPublic: isPublicMatch })) {
+      if (!targetGameId || startingGameIdsRef.current.has(targetGameId)) return;
+      startingGameIdsRef.current.add(targetGameId);
+
+      try {
+        await reservePublicEntry(targetGameId);
+      } catch (entryError) {
+        startingGameIdsRef.current.delete(targetGameId);
+        const message = entryError?.code === 'insufficient-coins'
+          ? t('publicMatchInsufficientCoins', 'Public Online Match requires {{entry}} coins. Your next daily login reward is free.', { entry: PUBLIC_MATCH_ENTRY_COINS })
+          : t('publicMatchEntryFailed', 'Could not reserve the public match entry. Please try again.');
+        setEconomyNotice(message);
+        alert(message);
+        return;
+      }
+    }
+
     const activeSeatIds = currentActiveSeats.map(([id]) => id).sort();
     const playerColors = activeSeatIds.map(id => currentSeats[id].color);
     
     const playerAliases = {};
     const playerUids = {};
+    const playerSkins = {};
     activeSeatIds.forEach(id => {
       playerAliases[id] = currentSeats[id].name.trim() || (currentSeats[id].type === 'bot' ? `${t('bot', 'Bot')} ${id.replace('Player', '')}` : `${t('player', 'Player')} ${id.replace('Player', '')}`);
       playerUids[id] = currentSeats[id].uid || null;
+      playerSkins[id] = normalizePieceSkinId(currentSeats[id].pieceSkinId);
     });
 
     onStartGame({ 
-      playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, playerUids,
+      playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, playerUids, playerSkins,
       isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
       matchType: currentMatchType,
       hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null,
-      isPublic: overrideData?.isPublic ?? isLobbyPublic
+      isPublic: isPublicMatch,
+      economy: isPublicMatch ? {
+        entryPerPlayer: PUBLIC_MATCH_ENTRY_COINS,
+        matchFeeBps: MATCH_FEE_BPS,
+      } : null
     });
   };
 
@@ -893,7 +994,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         isPublic, status: 'waiting', expiresAt, matchType: currentMatchType,
         version: 2,
         lastPing: Date.now(),
-        openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length
+        openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length,
+        economy: isPublic ? {
+          entryPerPlayer: PUBLIC_MATCH_ENTRY_COINS,
+          matchFeeBps: MATCH_FEE_BPS,
+        } : null
       });
   
       setSeats(newSeats);
@@ -948,6 +1053,15 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   }, [autoStartPlayWithFriendsConfig, activeLobbyId, setupMode, user, isHosting, isSearching, localPlayerName, onPlayWithFriendsAutoStartConsumed]);
 
   const handleFindMatch = async (overrideConfig = null) => {
+    if (economyStatus === 'loading' || !canAffordPublicMatch) {
+      setEconomyNotice(t(
+        'publicMatchInsufficientCoins',
+        'Public Online Match requires {{entry}} coins. Your next daily login reward is free.',
+        { entry: PUBLIC_MATCH_ENTRY_COINS },
+      ));
+      return;
+    }
+
     setIsSearching(true);
     const currentMatchType = overrideConfig?.matchType || matchType;
     const currentIsQuickGame = overrideConfig?.isQuickGame ?? isQuickGame;
@@ -1165,6 +1279,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </nav>
         
         <div className="flex items-center justify-end gap-3">
+          <EconomySummary compact />
           <PlayerProfile user={user} />
           
           <div className="relative flex items-center lg:hidden">
@@ -1243,13 +1358,13 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                     description={t('playNowSubtitle', 'Start an instant offline battle against temple-trained rivals.')}
                     onClick={() => promptForSavedResume('local', startPortalBotMatch)}
                   />
-                  <LobbyModeCard
-                    tone="ruby"
-                    icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
-                    title={isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
-                    description={t('playOnlineSubtitle', 'Enter matchmaking and face challengers across the realm.')}
-                    onClick={() => promptForSavedResume('online', () => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' }))}
-                    disabled={isSearching || isHosting}
+                    <LobbyModeCard
+                      tone="ruby"
+                      icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
+                      title={isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
+                      description={t('publicMatchCoinSubtitle', '{{entry}} coins · Winner receives 90% of the pool.', { entry: PUBLIC_MATCH_ENTRY_COINS })}
+                      onClick={() => promptForSavedResume('online', () => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' }))}
+                      disabled={isSearching || isHosting}
                   />
                   <LobbyModeCard
                     tone="sapphire"
@@ -1275,7 +1390,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                       tone="ruby"
                       icon={<OnlineModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                       title={t('onlineMatch', 'ONLINE MATCH')}
-                      description={t('onlineMatchSubtitle', 'Compete with players around the world.')}
+                      description={t('publicMatchCoinSubtitle', '{{entry}} coins · Winner receives 90% of the pool.', { entry: PUBLIC_MATCH_ENTRY_COINS })}
                       onClick={openPublicSetup}
                     />
                     <LobbyModeCard
@@ -1321,6 +1436,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                     {t('reconnectOnline', 'Reconnect')}
                   </button>
                 )}
+              </div>
+            )}
+            {economyNotice && (
+              <div role="alert" className="mx-auto mt-2 w-full max-w-md rounded-xl border border-ruby/40 bg-ruby/10 px-3 py-2 text-center text-xs font-semibold text-white/90">
+                {economyNotice}
               </div>
             )}
             {IS_PORTAL && (
@@ -1370,12 +1490,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
             <div className="lobby-config-stack flex flex-col gap-3 sm:gap-4 lg:gap-2">
               <ConfigSectionTitle>{t('matchType', 'Match Type')}</ConfigSectionTitle>
+              {setupMode === 'public' && (
+                <div data-testid="public-match-fee" className="rounded-xl border border-gold/35 bg-gold/10 px-3 py-2 text-center text-xs font-semibold text-[#fff4c7]">
+                  {t('publicMatchFeeDisclosure', '{{entry}} coins per player · 10% match fee · Winner receives 90% of the pool', { entry: PUBLIC_MATCH_ENTRY_COINS })}
+                </div>
+              )}
               <div className="lobby-config-grid grid grid-cols-3 gap-2 sm:gap-4 lg:gap-2">
                 <ConfigChoiceCard active={matchType === '1v1'} tone="sapphire" title={t('1v1', '1 vs 1')} subtitle={t('oneOnOne', 'Face off one on one')} onClick={() => setMatchType('1v1')}>
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-sapphire shadow-[0_0_10px_rgba(56,189,248,0.8)]"></span><span className="h-3 w-3 rounded-full bg-ruby shadow-[0_0_10px_rgba(220,38,38,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
                 </ConfigChoiceCard>
-                <ConfigChoiceCard active={matchType === '2v2'} tone="gold" title={t('2v2', '2 vs 2')} subtitle={t('teamUpDominate', 'Team up and dominate')} onClick={() => setMatchType('2v2')}>
+                <ConfigChoiceCard active={matchType === '2v2'} tone="gold" title={t('2v2', '2 vs 2')} subtitle={setupMode === 'public' ? t('publicTeamsComingSoon', 'Public team prizes coming later') : t('teamUpDominate', 'Team up and dominate')} onClick={() => setMatchType('2v2')} disabled={setupMode === 'public'}>
                   <div className="flex gap-1.5"><span className="h-3 w-3 rounded-full bg-emerald shadow-[0_0_10px_rgba(52,211,153,0.8)]"></span><span className="h-3 w-3 rounded-full bg-amber shadow-[0_0_10px_rgba(245,158,11,0.8)]"></span></div>
                   <LocalModeIcon className="h-5 w-5 text-white/80" aria-hidden="true" />
                 </ConfigChoiceCard>
@@ -1452,10 +1577,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             <div className="w-full flex flex-col items-center">
               <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
               <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
-                 <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player4', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player3', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player1', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player2', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
               </div>
             </div>
 
@@ -1471,10 +1596,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             <div className="w-full flex flex-col items-center">
               <h2 className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/70 lg:mb-3">{t('seatArrangement', 'Seat Arrangement')}</h2>
               <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
-                 <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player4', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player3', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player1', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player2', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
               </div>
             </div>
 

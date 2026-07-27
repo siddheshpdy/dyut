@@ -42,6 +42,10 @@ vi.mock('./crazyGamesStorage', () => ({
   loadCrazyGamesOfflineResumeToLocal: vi.fn(async () => false)
 }));
 
+vi.mock('./EconomyContext', () => ({
+  EconomyProvider: ({ children }) => children,
+}));
+
 vi.mock('./audio', () => ({
   bindCrazyGamesMuteSetting: vi.fn(async () => undefined),
   dispatchMuteState: vi.fn(),

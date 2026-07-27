@@ -193,5 +193,22 @@
   "firstGameHelpBodyWatch": "तुमची पाळी आल्यावर फासे आणि चालता येणाऱ्या सोंगट्या उजळतील.",
   "firstGameHelpTitleWait": "चाल उपलब्ध नाही",
   "firstGameHelpBodyWait": "वैध चाल शक्य नसेल, तर खेळ ही पाळी आपोआप संपवेल.",
-  "firstGameHelpDismiss": "समजले"
+  "firstGameHelpDismiss": "समजले",
+  "templeCoins": "मंदिर नाणी",
+  "dailyRewardGranted": "दैनिक बक्षीस: +{{amount}} नाणी",
+  "economyLoading": "तुमची नाणी लोड होत आहेत…",
+  "publicMatchInsufficientCoins": "सार्वजनिक ऑनलाइन सामन्यासाठी {{entry}} नाणी आवश्यक आहेत. पुढील दैनिक लॉगिन बक्षीस मोफत आहे.",
+  "publicMatchEntryFailed": "सार्वजनिक सामन्याचे प्रवेश नोंदवता आले नाही. पुन्हा प्रयत्न करा.",
+  "publicMatchCoinSubtitle": "{{entry}} नाणी · विजेत्याला पूलचे 90% मिळेल.",
+  "publicMatchFeeDisclosure": "प्रति खेळाडू {{entry}} नाणी · 10% सामना शुल्क · विजेत्याला पूलचे 90%",
+  "publicTeamsComingSoon": "सार्वजनिक संघ बक्षिसे नंतर येतील",
+  "matchPool": "पूल",
+  "matchFee": "सामना शुल्क",
+  "yourPayout": "तुमचे बक्षीस",
+  "pieceDesignForPlayer": "{{player}} च्या सोंगटीची रचना",
+  "pieceSkinClassic": "क्लासिक",
+  "pieceSkinLotus": "कमळ",
+  "pieceSkinChakra": "चक्र",
+  "pieceSkinRoyal": "राजेशाही",
+  "settlementPending": "नाण्यांचा हिशेब निश्चित होत आहे…"
 }

@@ -3,13 +3,18 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { dispatchMuteState } from './audio';
 import { DYUT_ICONS } from './dyut-icons';
+import { useOptionalEconomy } from './EconomyContext';
 
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const cornerClass = 'pointer-events-none absolute h-8 w-8 border-gold/75';
 
-const VictoryScreen = ({ winnerId, onNewGame, onHome }) => {
+const VictoryScreen = ({ winnerId, matchId = null, isPublicMatch = false, onNewGame, onHome }) => {
   const { t } = useTranslation();
   const HomeIcon = DYUT_ICONS.home;
+  const economy = useOptionalEconomy();
+  const settlement = isPublicMatch && economy?.lastSettlement?.matchId === matchId
+    ? economy.lastSettlement
+    : null;
 
   const handleNewGame = () => {
     if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
@@ -75,6 +80,29 @@ const VictoryScreen = ({ winnerId, onNewGame, onHome }) => {
             {t('hasWonTheGame', ' has won the game!')}
           </p>
         </div>
+
+        {isPublicMatch && (
+          <div data-testid="public-match-settlement" className="mt-4 w-full max-w-2xl rounded-xl border border-emerald/30 bg-emerald/8 px-4 py-3 text-sm text-white/80">
+            {settlement ? (
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/50">{t('matchPool', 'Pool')}</div>
+                  <div className="font-bold text-gold">{settlement.grossPool}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/50">{t('matchFee', 'Match Fee')}</div>
+                  <div className="font-bold text-ruby">-{settlement.matchFee}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/50">{t('yourPayout', 'Your Payout')}</div>
+                  <div className="font-bold text-emerald">+{settlement.payout}</div>
+                </div>
+              </div>
+            ) : (
+              <span>{t('settlementPending', 'Confirming coin settlement…')}</span>
+            )}
+          </div>
+        )}
 
         <button
           onClick={handleNewGame}

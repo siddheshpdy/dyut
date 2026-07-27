@@ -5,10 +5,13 @@ import { ref, onValue, set, update, remove } from 'firebase/database';
 import { clearAccountResumeGame, rtdb, updateUserStats } from './firebaseSetup.js';
 import { getProxyPlayerId } from './gameLogic';
 import { clearCrazyGamesOfflineResume, saveCrazyGamesOfflineResume } from './crazyGamesStorage';
+import { useOptionalEconomy } from './EconomyContext';
+import { requiresPublicMatchEntry } from './economy';
+import { DEFAULT_PIECE_SKIN_ID, normalizePieceSkinId } from './pieceSkins';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, initialStateOverride = null } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], playerSkins = {}, isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, economy = null, initialStateOverride = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
@@ -18,6 +21,7 @@ const createInitialState = (gameConfig) => {
     const team = isTeamMode ? (playerNum % 2 !== 0 ? 1 : 2) : 0;
     players[playerId] = {
       color: playerColors[index],
+      pieceSkinId: normalizePieceSkinId(playerSkins[playerId] || DEFAULT_PIECE_SKIN_ID),
       name: playerAliases[playerId] || playerId,
       hasKilled: false,
       pieces: [-1, -1, -1, -1],
@@ -44,6 +48,7 @@ const createInitialState = (gameConfig) => {
     hostUid,
     localUid,
     isPublic,
+    economy,
     lastPing: null,
     turnStartedAt: Date.now(),
     lastActionTime: Date.now(),
@@ -573,6 +578,9 @@ export const initGameState = (initialState) => {
 
 export function GameProvider({ gameConfig, children }) {
   const { t } = useTranslation();
+  const economyContext = useOptionalEconomy();
+  const economySettlementAttemptsRef = useRef(new Set());
+  const statsUpdateAttemptedRef = useRef(false);
   const getInitialState = () => createInitialState(gameConfig);
 
   const enhancedReducer = (state, action) => {
@@ -850,6 +858,7 @@ const dispatch = useCallback((action) => {
           isVoidRuleEnabled: state.isVoidRuleEnabled,
           isQuickGame: state.isQuickGame,
           isTeamMode: state.isTeamMode,
+          economy: state.economy || null,
           status: gameConfig.status || 'playing',
             lastPing: Date.now(),
             turnStartedAt: state.turnStartedAt,
@@ -876,20 +885,56 @@ const dispatch = useCallback((action) => {
           clearCrazyGamesOfflineResume().catch(console.error);
         }
         
-        // Calculate and push stats for the local user if they are playing
-        if (state.localUid && hasGameplayWinner) {
-          const myPlayerId = Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid);
-          if (myPlayerId && !state.bots?.includes(myPlayerId)) {
-            let localUserWon = false;
-            if (state.isQuickGame) {
-              localUserWon = state.players[myPlayerId].pieces.some(pos => pos === 999);
-            } else if (state.isTeamMode) {
-              localUserWon = Object.values(state.players).filter(p => p.team === state.players[myPlayerId].team).every(p => p.pieces.every(pos => pos === 999));
-            } else {
-              localUserWon = state.players[myPlayerId].pieces.every(pos => pos === 999);
-            }
-            updateUserStats(state.localUid, localUserWon);
+        const myPlayerId = state.localUid
+          ? Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid)
+          : null;
+        const localPlayerIsHuman = myPlayerId && !state.bots?.includes(myPlayerId);
+        let localUserWon = false;
+
+        if (myPlayerId) {
+          if (state.winnerPlayerId) {
+            localUserWon = state.isTeamMode
+              ? state.players[state.winnerPlayerId]?.team === state.players[myPlayerId]?.team
+              : state.winnerPlayerId === myPlayerId;
+          } else if (state.isQuickGame) {
+            localUserWon = state.players[myPlayerId].pieces.some(pos => pos === 999);
+          } else if (state.isTeamMode) {
+            localUserWon = Object.values(state.players)
+              .filter(player => player.team === state.players[myPlayerId].team)
+              .every(player => player.pieces.every(pos => pos === 999));
+          } else {
+            localUserWon = state.players[myPlayerId].pieces.every(pos => pos === 999);
           }
+        }
+
+        // Calculate and push stats for the local user if they are playing
+        if (localPlayerIsHuman && hasGameplayWinner && !statsUpdateAttemptedRef.current) {
+          statsUpdateAttemptedRef.current = true;
+          updateUserStats(state.localUid, localUserWon);
+        }
+
+        if (
+          requiresPublicMatchEntry(state)
+          && state.gameId
+          && myPlayerId
+          && economyContext?.settlePublicMatch
+          && !economySettlementAttemptsRef.current.has(state.gameId)
+        ) {
+          economySettlementAttemptsRef.current.add(state.gameId);
+          const participantCount = new Set(
+            Object.values(state.playerUids || {}).filter(Boolean),
+          ).size;
+          const hasKnownWinner = Boolean(state.winnerPlayerId) || hasGameplayWinner;
+
+          economyContext.settlePublicMatch({
+            matchId: state.gameId,
+            participantCount,
+            didWin: hasKnownWinner && localUserWon,
+            isDraw: !hasKnownWinner,
+          }).catch((settlementError) => {
+            economySettlementAttemptsRef.current.delete(state.gameId);
+            console.error('Failed to settle public match economy:', settlementError);
+          });
         }
 
         if (state.isOnline) {
@@ -905,7 +950,7 @@ const dispatch = useCallback((action) => {
         saveCrazyGamesOfflineResume(state).catch(console.error);
       }
     }
-  }, [state]);
+  }, [state, economyContext]);
 
   return <GameContext.Provider value={{ state, dispatch, leaveGame }}>{children}</GameContext.Provider>;
 }

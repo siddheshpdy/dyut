@@ -7,6 +7,7 @@ import VictoryScreen from './VictoryScreen';
 import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } from './gameLogic';
 import { usePrevious } from './usePrevious';
 import { getEffectiveMuteState, playSound } from './audio';
+import { getPieceSkin } from './pieceSkins';
 
 const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
 
@@ -69,7 +70,7 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
               {finishedPieces.map((fp) => (
                 <div key={fp.playerId} className="flex flex-col items-center">
                   <div className="flex items-center justify-center w-3.5 h-3.5 sm:w-6 sm:h-6 md:w-8 md:h-8">
-                    <Piece color={fp.color} />
+                    <Piece color={fp.color} skinId={fp.pieceSkinId} />
                   </div>
                   <span className="text-[5px] sm:text-[8px] md:text-[10px] text-white font-bold leading-none mt-px sm:mt-0.5">{fp.count}/4</span>
                 </div>
@@ -109,7 +110,7 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
               const sizeClass = getOccupantSizeClass(occupants.length, spreadPair);
               return (
                 <div key={i} className={`absolute ${sizeClass} flex items-center justify-center transition-all ${occ.isMovable ? 'cursor-pointer hover:scale-110' : 'cursor-default'} ${offsetClass}`} style={{ pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); occ.onClick(); }}>
-                  <Piece color={occ.color} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
+                  <Piece color={occ.color} skinId={occ.pieceSkinId} isMovable={occ.isMovable} isHomeStretch={occ.isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
                 </div>
               );
             });
@@ -121,7 +122,8 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
 };
 
 // Visual Piece Token
-const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
+const Piece = ({ color, skinId, isMovable, isHomeStretch, playerId, pieceIndex }) => {
+  const skin = getPieceSkin(skinId);
   // Map the state color to our Tailwind classes
   const bgClass = {
     yellow: 'bg-piece-yellow',
@@ -149,10 +151,6 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
     ? 'w-[70%] sm:w-[75%] h-[80%] sm:h-[85%] rounded-t-full rounded-b-[10px] shadow-[inset_-2px_-4px_8px_rgba(0,0,0,0.5),0_5px_8px_rgba(0,0,0,0.6)]'
     : 'w-[70%] sm:w-[80%] aspect-square rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]';
 
-  const innerShapeClass = isHomeStretch
-    ? 'w-[35%] aspect-square bg-white/90 shadow-[inset_0_-2px_3px_rgba(0,0,0,0.4)] -translate-y-[15%]'
-    : 'w-[35%] h-[35%] bg-white/80 shadow-[inset_0_-1px_2px_rgba(0,0,0,0.3)]';
-
   const homeStretchDirectionClass = isHomeStretch ? ({
     Player1: 'rotate-0',
     Player2: '-rotate-90',
@@ -161,8 +159,17 @@ const Piece = ({ color, isMovable, isHomeStretch, playerId, pieceIndex }) => {
   }[playerId] || '') : '';
 
   return (
-    <div className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass} ${homeStretchDirectionClass}`}>
-      <div className={`rounded-full pointer-events-none ${innerShapeClass}`}></div>
+    <div
+      className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass} ${homeStretchDirectionClass}`}
+      data-piece-skin={skin.id}
+      data-seat-color={color}
+    >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none select-none font-serif text-[clamp(5px,1.1vw,14px)] font-black leading-none text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] ${isHomeStretch ? '-translate-y-[15%]' : ''}`}
+      >
+        {skin.symbol}
+      </span>
     </div>
   );
 };
@@ -254,7 +261,7 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
       <div className={pieceGridClass}>
         {lockedIndices.map((pieceIndex) => (
           <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}>
-            <Piece color={player.color} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
+            <Piece color={player.color} skinId={player.pieceSkinId} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
           </div>
         ))}
       </div>
@@ -495,7 +502,7 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
     Object.entries(visualPlayers).forEach(([playerId, player]) => {
       const count = player.pieces.filter(p => p === 999).length;
       if (count > 0) {
-        counts.push({ playerId, count, color: player.color });
+        counts.push({ playerId, count, color: player.color, pieceSkinId: player.pieceSkinId });
       }
     });
     return counts;
@@ -746,7 +753,7 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
             onClick={(e) => { e.stopPropagation(); handlePieceClick(occ.playerId, occ.pieceIndex); }}
           >
             <div className={`${sizeClass} flex items-center justify-center pointer-events-none`}>
-              <Piece color={occ.player.color} isMovable={isMovable} isHomeStretch={isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
+              <Piece color={occ.player.color} skinId={occ.player.pieceSkinId} isMovable={isMovable} isHomeStretch={isHomeStretch} playerId={occ.playerId} pieceIndex={occ.pieceIndex} />
             </div>
           </div>
         );
@@ -772,6 +779,8 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
         {winnerInfo && (
           <VictoryScreen
             winnerId={winnerInfo.id}
+            matchId={state.gameId}
+            isPublicMatch={Boolean(state.isOnline && state.isPublic)}
             onNewGame={() => {
               if (state.isOnline) leaveGame();
               onNewGame?.();

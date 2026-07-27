@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('./boardMapping', () => ({
@@ -13,8 +13,18 @@ vi.mock('./boardMapping', () => ({
 vi.mock('./firebaseSetup.js', () => ({
   db: {},
   rtdb: {},
-  clearAccountResumeGame: vi.fn(),
+  clearAccountResumeGame: vi.fn(async () => {}),
   updateUserStats: vi.fn(),
+}));
+
+const economyContextMocks = vi.hoisted(() => ({
+  settlePublicMatch: vi.fn(async () => ({ applied: true })),
+}));
+
+vi.mock('./EconomyContext', () => ({
+  useOptionalEconomy: () => ({
+    settlePublicMatch: economyContextMocks.settlePublicMatch,
+  }),
 }));
 
 vi.mock('firebase/database', () => ({
@@ -501,6 +511,42 @@ describe('GameContext reducer AFK reclaim', () => {
     const updates = buildPublicPresenceLossUpdates(onlineState, ['Player2']);
 
     expect(updates).toEqual({ status: 'finished', winnerPlayerId: 'Player2' });
+  });
+
+  it('settles a completed public match once using all paid participant UIDs', async () => {
+    economyContextMocks.settlePublicMatch.mockClear();
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 2,
+          activeSeats: ['Player1', 'Player2'],
+          playerColors: ['ruby', 'sapphire'],
+          playerAliases: { Player1: 'Alice', Player2: 'Bob' },
+          playerUids: { Player1: 'user-1', Player2: 'user-2' },
+          bots: [],
+          isOnline: true,
+          isPublic: true,
+          gameId: 'paid-match',
+          hostUid: 'user-1',
+          localUid: 'user-1',
+          initialStateOverride: {
+            status: 'finished',
+            winnerPlayerId: 'Player1',
+          },
+        },
+      },
+      React.createElement('div'),
+    ));
+
+    await waitFor(() => expect(economyContextMocks.settlePublicMatch).toHaveBeenCalledOnce());
+    expect(economyContextMocks.settlePublicMatch).toHaveBeenCalledWith({
+      matchId: 'paid-match',
+      participantCount: 2,
+      didWin: true,
+      isDraw: false,
+    });
   });
 
   it('keeps an online match alive while at least two human players remain', () => {

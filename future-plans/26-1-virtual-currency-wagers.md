@@ -1,5 +1,12 @@
 # Phase 26.1: Virtual Currency & Wagers Plan
 
+> **Superseded:** Use
+> [monetization-strategy.md](./monetization-strategy.md) and
+> [monetization-execution-plan.md](./monetization-execution-plan.md). The
+> approved model is a server-authoritative 500-coin public entry, automatic
+> 500-coin daily login grant, 10% match fee, and 90% winner payout. Offline,
+> Play with Friends, and CrazyGames Instant Multiplayer are free.
+
 ## Objective
 
 Introduce Dyut Coins as a soft currency that supports daily rewards, wagered matches, and future rewards from quests, referrals, ads, and progression.
