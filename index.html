@@ -11,7 +11,7 @@
     
     <!-- Portal SDK Setup -->
     <script>
-      if ("%VITE_IS_PORTAL%" === "true") {
+      if ("%VITE_CRAZYGAMES_BUILD%" === "true") {
         window.cgInitPromise = new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
@@ -36,8 +36,8 @@
         });
       }
     </script>
-    
-    <!-- Google Search Console Verification -->
+
+    <!-- Google Search Console Verification: replace with the value issued by Google. -->
     <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE_HERE" />
     
     <!-- Canonical URL -->

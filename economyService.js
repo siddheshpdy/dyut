@@ -2,14 +2,17 @@ import { doc, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from './firebaseSetup.js';
 import {
   applyDailyLoginReward,
+  claimGoalReward as applyGoalClaim,
+  claimRewardMultiplier as applyRewardMultiplier,
   normalizeEconomyState,
+  recordOnlineGoalProgress as applyGoalProgress,
   refundPublicMatchEntry as applyPublicMatchRefund,
   reservePublicMatchEntry as applyPublicEntry,
   settlePublicMatch as applyPublicSettlement,
 } from './economy.js';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData.js';
 
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const PORTAL_ECONOMY_KEY = 'dyut_economy';
 const LOCAL_ECONOMY_PREFIX = 'dyut_economy:';
 
@@ -102,6 +105,18 @@ export const loadEconomy = async (user) => {
 
 export const claimDailyReward = async (user, now = Date.now()) => (
   mutateEconomy(user, (state) => applyDailyLoginReward(state, now))
+);
+
+export const recordOnlineGoalProgress = async (user, progress) => (
+  mutateEconomy(user, (state) => applyGoalProgress(state, progress))
+);
+
+export const claimGoalReward = async (user, reward) => (
+  mutateEconomy(user, (state) => applyGoalClaim(state, reward))
+);
+
+export const claimRewardMultiplier = async (user, reward) => (
+  mutateEconomy(user, (state) => applyRewardMultiplier(state, reward))
 );
 
 export const reservePublicMatchEntry = async (user, matchId, now = Date.now()) => (

@@ -14,7 +14,7 @@ import blehMochiGif from './assets/bleh-mochi.gif';
 import { auth, signInUserAnonymously, checkAuthRedirect, initializeUserProfile, loadAccountResumeGame, saveAccountResumeGame } from './firebaseSetup.js';
 import { onIdTokenChanged } from 'firebase/auth';
 import { DYUT_ICONS } from './dyut-icons';
-import { bindCrazyGamesMuteSetting, dispatchMuteState, getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { bindCrazyGamesMuteSetting, getEffectiveMuteState, toggleUserMutePreference } from './audio';
 import { clearCrazyGamesOfflineResume, loadCrazyGamesOfflineResumeToLocal } from './crazyGamesStorage';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 import { EconomyProvider } from './EconomyContext';
@@ -24,8 +24,7 @@ const GAME_STATE_KEY = 'dyut_game_state';
 const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 const FIRST_GAME_HELP_KEY = 'dyut_has_seen_in_game_how_to_play';
 const CRAZYGAMES_STATS_KEY = 'dyut_stats';
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
-const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 const SHORT_MOBILE_HEIGHT_MEDIA_QUERY = '(max-height: 740px)';
 const COMPACT_LANDSCAPE_MEDIA_QUERY = '(orientation: landscape) and (min-width: 760px) and (max-height: 740px)';
@@ -635,29 +634,6 @@ function App() {
     };
   }, []);
 
-  // Centralized function to call midgame ads and handle audio muting
-  const triggerMidgameAd = () => {
-    if (IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
-      // Save the user's current mute preference before the ad forces a mute
-      const wasMuted = localStorage.getItem('dyut_muted') === 'true';
-
-      const callbacks = {
-        adStarted: () => {
-          window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true }));
-        },
-        adFinished: () => {
-          localStorage.setItem('dyut_muted', wasMuted);
-          dispatchMuteState();
-        },
-        adError: () => {
-          localStorage.setItem('dyut_muted', wasMuted);
-          dispatchMuteState();
-        },
-      };
-      window.CrazyGames.SDK.ad.requestAd('midgame', callbacks);
-    }
-  };
-
   const handleStartNewGame = (config) => {
     handleGameSetupComplete(config);
   };
@@ -779,7 +755,6 @@ function App() {
     setGameInfoView(null);
     setShowFirstGameHelper(false);
     setView('menu');
-    triggerMidgameAd();
     if (IS_PORTAL && window.CrazyGames?.SDK) {
       try { window.CrazyGames.SDK.game.leftRoom(); } catch (e) {}
     }
@@ -793,7 +768,6 @@ function App() {
     setGameInfoView(null);
     setShowFirstGameHelper(false);
     setView('menu');
-    triggerMidgameAd();
     if (IS_PORTAL && window.CrazyGames?.SDK) {
       try { window.CrazyGames.SDK.game.leftRoom(); } catch (e) {}
     }

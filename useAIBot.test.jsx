@@ -85,6 +85,34 @@ describe('useAIBot', () => {
     expect(dispatch).not.toHaveBeenCalled();
   });
 
+  it('waits for board movement to settle before evaluating the next bot action', () => {
+    const bestMove = { type: 'MOVE_WITH_FULL_ROLL', payload: { pieceIndex: 0, rollIndex: 0, distance: 4 } };
+    getBestAIMove.mockReturnValue(bestMove);
+    const dispatch = vi.fn();
+
+    useGame.mockReturnValue({
+      state: {
+        currentPlayer: 'Player1',
+        players: { Player1: { name: 'Alice' } },
+        hasRolledThisTurn: true,
+        rollingPhaseComplete: true,
+        turnQueue: [{ d1: 4, d2: null, sum: 4 }],
+        isOnline: false,
+      },
+      dispatch,
+    });
+
+    const { rerender } = render(<BotHarness botPlayerIds={['Player1']} onAutoRoll />);
+    act(() => vi.advanceTimersByTime(1200));
+    expect(dispatch).not.toHaveBeenCalled();
+
+    rerender(<BotHarness botPlayerIds={['Player1']} />);
+    act(() => vi.advanceTimersByTime(799));
+    expect(dispatch).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(dispatch).toHaveBeenCalledWith({ ...bestMove, _autoControlledAction: true });
+  });
+
   it('does not let a finished bot seat control its human teammate', () => {
     const dispatch = vi.fn();
     getActiveTurnPlayerId.mockReturnValue('Player3');

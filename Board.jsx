@@ -9,7 +9,7 @@ import { usePrevious } from './usePrevious';
 import { getEffectiveMuteState, playSound } from './audio';
 import { getPieceSkin } from './pieceSkins';
 
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 
 const getOccupantOffsetClass = (count, index, spreadPair = false) => {
   if (count === 2) {

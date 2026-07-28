@@ -1,6 +1,6 @@
 import { parseCrazyGamesStoredValue } from './crazyGamesData';
 
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const OFFLINE_RESUME_DATA_KEY = 'dyut_offline_resume';
 const LOCAL_GAME_STATE_KEY = 'dyut_game_state';
 const LOCAL_PLAYER_COUNT_KEY = 'dyut_player_count';

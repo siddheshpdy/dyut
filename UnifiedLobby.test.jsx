@@ -16,6 +16,9 @@ const economyMocks = vi.hoisted(() => ({
   dailyRewardAvailable: false,
   isClaimingDailyReward: false,
   claimDailyReward: vi.fn(async () => ({ applied: true })),
+  goals: [],
+  claimGoalReward: vi.fn(async () => ({ applied: true })),
+  claimRewardMultiplier: vi.fn(async () => ({ applied: true })),
   reservePublicEntry: vi.fn(async () => ({ applied: true })),
 }));
 
@@ -53,6 +56,7 @@ vi.mock('./matchmaking.js', () => ({
 }));
 
 vi.mock('./audio', () => ({
+  dispatchMuteState: vi.fn(),
   getEffectiveMuteState: vi.fn(() => false),
   toggleUserMutePreference: vi.fn(() => false)
 }));
@@ -65,6 +69,9 @@ vi.mock('./EconomyContext', () => ({
     dailyRewardAvailable: economyMocks.dailyRewardAvailable,
     isClaimingDailyReward: economyMocks.isClaimingDailyReward,
     claimDailyReward: economyMocks.claimDailyReward,
+    goals: economyMocks.goals,
+    claimGoalReward: economyMocks.claimGoalReward,
+    claimRewardMultiplier: economyMocks.claimRewardMultiplier,
     reservePublicEntry: economyMocks.reservePublicEntry,
   }),
 }));
@@ -83,16 +90,20 @@ beforeEach(() => {
   economyMocks.dailyReward = null;
   economyMocks.dailyRewardAvailable = false;
   economyMocks.isClaimingDailyReward = false;
+  economyMocks.goals = [];
   economyMocks.claimDailyReward.mockReset().mockResolvedValue({ applied: true });
+  economyMocks.claimGoalReward.mockReset().mockResolvedValue({ applied: true });
+  economyMocks.claimRewardMultiplier.mockReset().mockResolvedValue({ applied: true });
   economyMocks.reservePublicEntry.mockReset().mockResolvedValue({ applied: true });
   delete window.CrazyGames;
   delete window.cgInitPromise;
   localStorage.clear();
+  window.history.replaceState({}, '', '/');
 });
 
 describe('UnifiedLobby CrazyGames menu', () => {
   it('replaces Custom Game with an invite-only Play with Friends lobby', async () => {
-    vi.stubEnv('VITE_IS_PORTAL', 'true');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'true');
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
 
@@ -122,6 +133,7 @@ describe('UnifiedLobby CrazyGames menu', () => {
       isPublic: false,
       status: 'waiting',
       matchType: 'ffa',
+      isVoidRuleEnabled: false,
       hostUid: 'host-user',
       openSeats: 3
     });
@@ -131,7 +143,7 @@ describe('UnifiedLobby CrazyGames menu', () => {
   });
 
   it('creates three invite slots for an instant multiplayer launch', async () => {
-    vi.stubEnv('VITE_IS_PORTAL', 'true');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'true');
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
     const updateRoom = vi.fn();
@@ -180,6 +192,7 @@ describe('UnifiedLobby CrazyGames menu', () => {
       isPublic: false,
       status: 'waiting',
       matchType: 'ffa',
+      isVoidRuleEnabled: false,
       hostUid: 'host-user',
       openSeats: 3
     });
@@ -194,12 +207,13 @@ describe('UnifiedLobby CrazyGames menu', () => {
     }));
     expect(economyMocks.reservePublicEntry).not.toHaveBeenCalled();
   });
+
 });
 
 describe('UnifiedLobby standalone menu', () => {
   it('opens the rewards dialog from an icon and claims the available daily reward', async () => {
     economyMocks.dailyRewardAvailable = true;
-    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
 
@@ -223,14 +237,85 @@ describe('UnifiedLobby standalone menu', () => {
     fireEvent.click(screen.getByTestId('daily-reward-button'));
 
     expect(screen.getByRole('dialog', { name: 'dailyRewardTitle' })).toBeInTheDocument();
-    expect(screen.getByText('watchAdForCoins')).toBeInTheDocument();
+    expect(screen.queryByText('watchAdForCoins')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('daily-reward-claim'));
 
     await waitFor(() => expect(economyMocks.claimDailyReward).toHaveBeenCalledOnce());
   });
 
+  it('shows completed daily and weekly goals and claims them from the rewards dialog', async () => {
+    economyMocks.goals = [
+      { id: 'daily-win', scope: 'daily', periodKey: '2026-07-28', progress: 1, target: 1, reward: 100, claimable: true, claimed: false },
+      { id: 'weekly-win', scope: 'weekly', periodKey: '2026-07-28', progress: 2, target: 3, reward: 300, claimable: false, claimed: false },
+    ];
+    economyMocks.claimGoalReward.mockResolvedValueOnce({ applied: true, eventId: 'goal-claim:daily-win', event: { delta: 100 } });
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('daily-reward-button'));
+    expect(screen.getByTestId('reward-goal-daily-win')).toBeInTheDocument();
+    expect(screen.getByTestId('reward-goal-weekly-win')).toHaveTextContent('2/3');
+    fireEvent.click(screen.getByTestId('reward-goal-claim-daily-win'));
+    await waitFor(() => expect(economyMocks.claimGoalReward).toHaveBeenCalledWith({ goalId: 'daily-win' }));
+  });
+
+  it('offers and applies a flagged double reward after the local ad simulation', async () => {
+    economyMocks.goals = [
+      { id: 'daily-win', scope: 'daily', periodKey: '2026-07-28', progress: 1, target: 1, reward: 100, claimable: true, claimed: false },
+    ];
+    economyMocks.claimGoalReward.mockResolvedValueOnce({ applied: true, eventId: 'goal-claim:daily-win', event: { delta: 100 } });
+    economyMocks.claimRewardMultiplier.mockResolvedValueOnce({ applied: true, event: { delta: 100 } });
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
+    vi.stubEnv('VITE_CG_ENABLE_ADS', 'true');
+    window.history.replaceState({}, '', '/?qa=economy-ads');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('daily-reward-button'));
+    fireEvent.click(screen.getByTestId('reward-goal-claim-daily-win'));
+    await waitFor(() => expect(screen.getByTestId('reward-multiplier-dialog')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('reward-multiplier-watch'));
+    await waitFor(() => expect(economyMocks.claimRewardMultiplier).toHaveBeenCalledWith({
+      sourceEventId: 'goal-claim:daily-win',
+      multiplier: 2,
+    }));
+  });
+
   it('starts local players with the same piece design and unique seat colors', async () => {
-    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
     const onStartGame = vi.fn();
@@ -269,7 +354,7 @@ describe('UnifiedLobby standalone menu', () => {
   });
 
   it('labels the existing private setup flow as Play with Friends', async () => {
-    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
 
@@ -298,7 +383,7 @@ describe('UnifiedLobby standalone menu', () => {
   });
 
   it('shows the public entry disclosure and stores economy metadata on the lobby', async () => {
-    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
     vi.resetModules();
     const { findRandomPublicGame } = await import('./matchmaking.js');
     findRandomPublicGame.mockResolvedValueOnce(null);
@@ -328,7 +413,7 @@ describe('UnifiedLobby standalone menu', () => {
     expect(databaseMocks.set.mock.calls[0][1]).toMatchObject({
       isPublic: true,
       economy: {
-        entryPerPlayer: 500,
+        entryPerPlayer: 200,
         matchFeeBps: 1000,
         prizeSplit: 'winner_take_pool',
         winnerEligibility: 'paid_humans',
@@ -337,7 +422,7 @@ describe('UnifiedLobby standalone menu', () => {
   });
 
   it('enables public 2v2 and stores the equal team prize split', async () => {
-    vi.stubEnv('VITE_IS_PORTAL', 'false');
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
     vi.resetModules();
     const { findRandomPublicGame } = await import('./matchmaking.js');
     findRandomPublicGame.mockResolvedValueOnce(null);
@@ -375,7 +460,7 @@ describe('UnifiedLobby standalone menu', () => {
       isTeamMode: true,
       openSeats: 3,
       economy: {
-        entryPerPlayer: 500,
+        entryPerPlayer: 200,
         matchFeeBps: 1000,
         prizeSplit: 'equal_winning_humans',
         winnerEligibility: 'paid_humans',
@@ -383,9 +468,9 @@ describe('UnifiedLobby standalone menu', () => {
     });
   });
 
-  it('blocks public setup below 500 coins while keeping free modes enabled', async () => {
-    economyMocks.balance = 499;
-    vi.stubEnv('VITE_IS_PORTAL', 'false');
+  it('blocks public setup below 200 coins while keeping free modes enabled', async () => {
+    economyMocks.balance = 199;
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
     vi.resetModules();
     const { default: UnifiedLobby } = await import('./UnifiedLobby');
 

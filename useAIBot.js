@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { getActiveTurnPlayerId, isGameOverState, useGame } from './GameContext';
 import { getBestAIMove } from './aiLogic';
 
-export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
+export function useAIBot(botPlayerIds = [], difficulty = 'hard', isBoardAnimating = false) {
     const { state, dispatch } = useGame();
     const isGameOver = isGameOverState(state);
 
@@ -15,7 +15,7 @@ export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
 
         const activePlayerId = getActiveTurnPlayerId(state);
         const isBotTurn = botPlayerIds.includes(activePlayerId);
-        if (!isBotTurn) return;
+        if (!isBotTurn || isBoardAnimating) return;
 
         const actionTimer = setTimeout(() => {
             const canRoll = !state.hasRolledThisTurn || !state.rollingPhaseComplete;
@@ -34,5 +34,5 @@ export function useAIBot(botPlayerIds = [], difficulty = 'hard') {
         }, 800); // Wait 800ms to simulate "thinking" and make tracking moves easier for humans
 
         return () => clearTimeout(actionTimer);
-    }, [state, botPlayerIds, difficulty, dispatch, isGameOver]);
+    }, [state, botPlayerIds, difficulty, dispatch, isBoardAnimating, isGameOver]);
 }
