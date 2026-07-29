@@ -1,7 +1,8 @@
+const GOOGLE_ADS_CLIENT_ID = 'ca-pub-8676646466866124';
 const configuredProvider = String(import.meta.env.VITE_ADS_PROVIDER || 'auto').trim().toLowerCase();
 const isCrazyGamesBuild = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const adsEnabled = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
-const googleAdsClientId = String(import.meta.env.VITE_GOOGLE_ADS_CLIENT_ID || '').trim();
+const googleAdsClientId = String(import.meta.env.VITE_GOOGLE_ADS_CLIENT_ID || GOOGLE_ADS_CLIENT_ID).trim();
 const isLocalEconomyQa = () => import.meta.env.DEV
   && typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).get('qa')?.startsWith('economy');

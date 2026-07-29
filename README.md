@@ -151,7 +151,7 @@ The project expects Firebase environment variables, including:
 
 There is also CrazyGames-specific behavior gated by `VITE_CRAZYGAMES_BUILD`.
 `VITE_CG_ENABLE_ADS` gates ad behavior; the Basic Launch portal build keeps this set to `false`.
-`VITE_ADS_PROVIDER` selects `crazygames`, `google`, `none`, or `auto` (the default, which chooses CrazyGames for portal builds and Google H5 Games Ads for standalone builds). Portal builds always resolve to the CrazyGames SDK provider for platform compliance. Google standalone builds also require `VITE_GOOGLE_ADS_CLIENT_ID=ca-pub-...`; without it, no Google script is loaded.
+`VITE_ADS_PROVIDER` selects `crazygames`, `google`, `none`, or `auto` (the default, which chooses CrazyGames for portal builds and Google H5 Games Ads for standalone builds). Portal builds always resolve to the CrazyGames SDK provider for platform compliance. Google standalone builds use publisher ID `ca-pub-8676646466866124` by default; `VITE_GOOGLE_ADS_CLIENT_ID=ca-pub-...` can override it for another deployment.
 The game uses rewarded ads only: banners and midgame interstitials are not requested. When ads are disabled, the rewarded-ad placeholder and multiplier offer are hidden, and paid public matches use the 200-coin entry amount. Enabling the existing `VITE_CG_ENABLE_ADS=true` flag shows the post-claim reward popup; the player receives the base reward first and can receive one idempotent 2x bonus only after the rewarded ad completes. Local QA can simulate the ad with `VITE_CG_ENABLE_ADS=true` and `?qa=economy-ads`.
 
 Gameplay timing can be tuned with positive whole-number millisecond values:

@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#161616" />
     
     <!-- Portal SDK Setup -->
-    <script>
+    <script id="dyut-crazygames-sdk-loader">
       if ("%VITE_CRAZYGAMES_BUILD%" === "true") {
         window.cgInitPromise = new Promise((resolve, reject) => {
           const script = document.createElement('script');
@@ -35,6 +35,26 @@
           document.head.appendChild(script);
         });
       }
+    </script>
+
+    <!-- Google H5 Games Ads: standalone Dyut builds only. -->
+    <script id="dyut-google-h5-ads-loader">
+      (() => {
+        const isCrazyGamesBuild = "%VITE_CRAZYGAMES_BUILD%" === "true";
+        const adsEnabled = "%VITE_CG_ENABLE_ADS%" === "true";
+        if (isCrazyGamesBuild || !adsEnabled) return;
+
+        const script = document.createElement('script');
+        script.async = true;
+        script.dataset.dyutGoogleAds = 'true';
+        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8676646466866124';
+        script.crossOrigin = 'anonymous';
+        script.onload = () => {
+          window.adsbygoogle = window.adsbygoogle || [];
+          window.adBreak = window.adConfig = (options) => window.adsbygoogle.push(options);
+        };
+        document.head.appendChild(script);
+      })();
     </script>
 
     <!-- Google Search Console Verification: replace with the value issued by Google. -->
