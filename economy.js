@@ -1,7 +1,16 @@
-export const PUBLIC_MATCH_ENTRY_COINS = 500;
+const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+
+export const PUBLIC_MATCH_ENTRY_COINS = CRAZYGAMES_ADS_ENABLED ? 500 : 200;
 export const DAILY_LOGIN_REWARD_COINS = 500;
 export const MATCH_FEE_BPS = 1000;
 export const MAX_ECONOMY_EVENTS = 200;
+
+export const GOAL_DEFINITIONS = Object.freeze([
+  { id: 'daily-win', scope: 'daily', metric: 'wins', target: 1, reward: 100 },
+  { id: 'daily-capture', scope: 'daily', metric: 'captures', target: 3, reward: 75 },
+  { id: 'weekly-win', scope: 'weekly', metric: 'wins', target: 3, reward: 300 },
+  { id: 'weekly-capture', scope: 'weekly', metric: 'captures', target: 10, reward: 500 },
+]);
 
 export const ECONOMY_EVENT_TYPES = Object.freeze({
   DAILY_LOGIN: 'daily_login',
@@ -9,6 +18,9 @@ export const ECONOMY_EVENT_TYPES = Object.freeze({
   PUBLIC_PRIZE: 'public_prize',
   PUBLIC_LOSS: 'public_loss',
   PUBLIC_REFUND: 'public_refund',
+  GOAL_PROGRESS: 'goal_progress',
+  GOAL_REWARD: 'goal_reward',
+  REWARDED_MULTIPLIER: 'rewarded_multiplier',
 });
 
 const toSafeInteger = (value, fallback = 0) => {
@@ -20,6 +32,14 @@ export const getUtcDayKey = (value = Date.now()) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) throw new Error('Invalid daily reward date');
   return date.toISOString().slice(0, 10);
+};
+
+export const getUtcWeekKey = (value = Date.now()) => {
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error('Invalid weekly reward date');
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - day + 1);
+  return getUtcDayKey(date);
 };
 
 export const requiresPublicMatchEntry = ({ isOnline = false, isPublic = false } = {}) => (
@@ -34,8 +54,177 @@ export const normalizeEconomyState = (value = {}) => ({
   events: value?.events && typeof value.events === 'object' && !Array.isArray(value.events)
     ? { ...value.events }
     : {},
+  goalProgress: {
+    daily: {
+      periodKey: typeof value?.goalProgress?.daily?.periodKey === 'string'
+        ? value.goalProgress.daily.periodKey
+        : null,
+      wins: toSafeInteger(value?.goalProgress?.daily?.wins),
+      captures: toSafeInteger(value?.goalProgress?.daily?.captures),
+      claimed: value?.goalProgress?.daily?.claimed && typeof value.goalProgress.daily.claimed === 'object'
+        ? { ...value.goalProgress.daily.claimed }
+        : {},
+    },
+    weekly: {
+      periodKey: typeof value?.goalProgress?.weekly?.periodKey === 'string'
+        ? value.goalProgress.weekly.periodKey
+        : null,
+      wins: toSafeInteger(value?.goalProgress?.weekly?.wins),
+      captures: toSafeInteger(value?.goalProgress?.weekly?.captures),
+      claimed: value?.goalProgress?.weekly?.claimed && typeof value.goalProgress.weekly.claimed === 'object'
+        ? { ...value.goalProgress.weekly.claimed }
+        : {},
+    },
+  },
   version: 1,
 });
+
+const getCurrentGoalProgress = (stateValue, now = Date.now()) => {
+  const state = normalizeEconomyState(stateValue);
+  const dailyPeriodKey = getUtcDayKey(now);
+  const weeklyPeriodKey = getUtcWeekKey(now);
+  const daily = state.goalProgress.daily.periodKey === dailyPeriodKey
+    ? state.goalProgress.daily
+    : { periodKey: dailyPeriodKey, wins: 0, captures: 0, claimed: {} };
+  const weekly = state.goalProgress.weekly.periodKey === weeklyPeriodKey
+    ? state.goalProgress.weekly
+    : { periodKey: weeklyPeriodKey, wins: 0, captures: 0, claimed: {} };
+
+  return { ...state, goalProgress: { daily, weekly } };
+};
+
+export const getRewardGoals = (stateValue, now = Date.now()) => {
+  const state = getCurrentGoalProgress(stateValue, now);
+  return GOAL_DEFINITIONS.map((definition) => {
+    const progressBucket = state.goalProgress[definition.scope];
+    const progress = Math.min(progressBucket[definition.metric], definition.target);
+    const claimed = Boolean(progressBucket.claimed[definition.id]);
+    return {
+      ...definition,
+      periodKey: progressBucket.periodKey,
+      progress,
+      completed: progress >= definition.target,
+      claimed,
+      claimable: progress >= definition.target && !claimed,
+    };
+  });
+};
+
+export const recordOnlineGoalProgress = (
+  stateValue,
+  { matchId, didWin = false, captures = 0, now = Date.now() },
+) => {
+  if (!matchId) throw new Error('A match ID is required to record goal progress');
+  const captureCount = toSafeInteger(captures);
+  const state = getCurrentGoalProgress(stateValue, now);
+  const eventId = `goal-progress:${matchId}`;
+  const result = applyEvent(state, eventId, {
+    type: ECONOMY_EVENT_TYPES.GOAL_PROGRESS,
+    delta: 0,
+    matchId,
+    wins: didWin ? 1 : 0,
+    captures: captureCount,
+    createdAt: now instanceof Date ? now.getTime() : now,
+  });
+
+  if (!result.applied) return { ...result, eventId };
+
+  const updateBucket = (bucket) => ({
+    ...bucket,
+    wins: bucket.wins + (didWin ? 1 : 0),
+    captures: bucket.captures + captureCount,
+  });
+  return {
+    ...result,
+    eventId,
+    state: {
+      ...result.state,
+      goalProgress: {
+        daily: updateBucket(result.state.goalProgress.daily),
+        weekly: updateBucket(result.state.goalProgress.weekly),
+      },
+    },
+  };
+};
+
+export const claimGoalReward = (
+  stateValue,
+  { goalId, now = Date.now() },
+) => {
+  if (!goalId) throw new Error('A goal ID is required to claim a goal reward');
+  const state = getCurrentGoalProgress(stateValue, now);
+  const goal = getRewardGoals(state, now).find((candidate) => candidate.id === goalId);
+  if (!goal) throw new Error('Unknown reward goal');
+  const eventId = `goal-claim:${goal.periodKey}:${goal.id}`;
+  if (state.events[eventId]) {
+    return { state, event: state.events[eventId], applied: false, eventId, goal };
+  }
+  if (!goal.claimable) {
+    const error = new Error(goal.claimed ? 'Reward goal was already claimed' : 'Reward goal is not complete');
+    error.code = goal.claimed ? 'goal-already-claimed' : 'goal-not-complete';
+    throw error;
+  }
+
+  const result = applyEvent(state, eventId, {
+    type: ECONOMY_EVENT_TYPES.GOAL_REWARD,
+    delta: goal.reward,
+    goalId: goal.id,
+    periodKey: goal.periodKey,
+    createdAt: now instanceof Date ? now.getTime() : now,
+  });
+  return {
+    ...result,
+    eventId,
+    goal,
+    state: {
+      ...result.state,
+      goalProgress: {
+        ...result.state.goalProgress,
+        [goal.scope]: {
+          ...result.state.goalProgress[goal.scope],
+          claimed: {
+            ...result.state.goalProgress[goal.scope].claimed,
+            [goal.id]: true,
+          },
+        },
+      },
+    },
+  };
+};
+
+export const claimRewardMultiplier = (
+  stateValue,
+  { sourceEventId, multiplier = 2, now = Date.now() },
+) => {
+  if (!sourceEventId) throw new Error('A reward event is required for a multiplier');
+  const numericMultiplier = Number(multiplier);
+  if (!Number.isSafeInteger(numericMultiplier) || numericMultiplier < 2 || numericMultiplier > 5) {
+    throw new Error('Reward multiplier must be an integer between 2 and 5');
+  }
+  const state = normalizeEconomyState(stateValue);
+  const sourceEvent = state.events[sourceEventId];
+  const multiplierEligibleTypes = new Set([
+    ECONOMY_EVENT_TYPES.DAILY_LOGIN,
+    ECONOMY_EVENT_TYPES.GOAL_REWARD,
+  ]);
+  if (!sourceEvent || sourceEvent.delta <= 0 || !multiplierEligibleTypes.has(sourceEvent.type)) {
+    const error = new Error('The reward is not eligible for a multiplier');
+    error.code = 'reward-not-found';
+    throw error;
+  }
+  const eventId = `reward-multiplier:${sourceEventId}`;
+  if (state.events[eventId]) return { state, event: state.events[eventId], applied: false, eventId };
+  return {
+    ...applyEvent(state, eventId, {
+      type: ECONOMY_EVENT_TYPES.REWARDED_MULTIPLIER,
+      delta: sourceEvent.delta * (numericMultiplier - 1),
+      sourceEventId,
+      multiplier: numericMultiplier,
+      createdAt: now instanceof Date ? now.getTime() : now,
+    }),
+    eventId,
+  };
+};
 
 const trimEvents = (events) => {
   const entries = Object.entries(events);

@@ -237,17 +237,17 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     : 'border-white/15 bg-black/28 shadow-[inset_0_0_20px_rgba(0,0,0,0.52)] grayscale-[0.18]';
 
   // Activate AI hook (it safely idles if the current player is not in state.bots)
-  useAIBot(activeBots, state.botDifficulty || 'hard');
+  useAIBot(activeBots, state.botDifficulty || 'hard', isBoardAnimating);
 
   useEffect(() => {
-    if (!isAutoControlledTurn || !canAutoRoll) return;
+    if (!isAutoControlledTurn || !canAutoRoll || isBoardAnimating) return;
 
     const timer = setTimeout(() => {
       handleRoll({ autoControlled: true });
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [isAutoControlledTurn, canAutoRoll, handleRoll]);
+  }, [isAutoControlledTurn, canAutoRoll, handleRoll, isBoardAnimating]);
 
   const isStuckUI = hasRollsInQueue && !hasPlayableMoves && !canRoll && !isRolling && !isEvaluating && !showVoidGif;
 

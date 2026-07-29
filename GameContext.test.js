@@ -19,11 +19,13 @@ vi.mock('./firebaseSetup.js', () => ({
 
 const economyContextMocks = vi.hoisted(() => ({
   settlePublicMatch: vi.fn(async () => ({ applied: true })),
+  recordOnlineGoalProgress: vi.fn(async () => ({ applied: true })),
 }));
 
 vi.mock('./EconomyContext', () => ({
   useOptionalEconomy: () => ({
     settlePublicMatch: economyContextMocks.settlePublicMatch,
+    recordOnlineGoalProgress: economyContextMocks.recordOnlineGoalProgress,
   }),
 }));
 
@@ -84,7 +86,44 @@ const createBaseOnlineState = () => ({
   isTeamMode: false,
 });
 
+const StartingPiecesProbe = ({ testId }) => {
+  const { state } = useGame();
+  return React.createElement('output', { 'data-testid': testId }, JSON.stringify(state.players));
+};
+
 describe('GameContext reducer AFK reclaim', () => {
+  it('seeds active online players at path index 2 while local games remain fully locked', () => {
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 2,
+          activeSeats: ['Player1', 'Player2'],
+          playerColors: ['ruby', 'sapphire'],
+          isOnline: true,
+          initialPiecePathIndex: 2,
+        },
+      },
+      React.createElement(StartingPiecesProbe, { testId: 'online-starting-pieces' }),
+    ));
+
+    expect(screen.getByTestId('online-starting-pieces')).toHaveTextContent('"pieces":[2,-1,-1,-1]');
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 2,
+          activeSeats: ['Player1', 'Player2'],
+          playerColors: ['ruby', 'sapphire'],
+          isOnline: false,
+        },
+      },
+      React.createElement(StartingPiecesProbe, { testId: 'local-starting-pieces' }),
+    ));
+
+    expect(screen.getByTestId('local-starting-pieces')).toHaveTextContent('"pieces":[-1,-1,-1,-1]');
+  });
   it('exports positive timer and AFK configuration values', () => {
     expect(TURN_TIMEOUT_MS).toBeGreaterThan(0);
     expect(OFFLINE_TURN_TIMEOUT_MS).toBeGreaterThan(0);
@@ -547,6 +586,42 @@ describe('GameContext reducer AFK reclaim', () => {
       didWin: true,
       isDraw: false,
       winnerCount: 1,
+    });
+  });
+
+  it('records completed online-match goals once for its local human', async () => {
+    economyContextMocks.recordOnlineGoalProgress.mockClear();
+
+    render(React.createElement(
+      GameProvider,
+      {
+        gameConfig: {
+          playerCount: 2,
+          activeSeats: ['Player1', 'Player2'],
+          playerColors: ['ruby', 'sapphire'],
+          playerUids: { Player1: 'user-1', Player2: 'user-2' },
+          bots: [],
+          isOnline: true,
+          isPublic: true,
+          gameId: 'goal-reward-match',
+          hostUid: 'user-1',
+          localUid: 'user-1',
+          initialStateOverride: {
+            players: {
+              Player1: { color: 'ruby', name: 'Alice', hasKilled: false, pieces: [999, 999, 999, 999], team: 0 },
+              Player2: { color: 'sapphire', name: 'Bob', hasKilled: false, pieces: [-1, -1, -1, -1], team: 0 },
+            },
+          },
+        },
+      },
+      React.createElement('div'),
+    ));
+
+    await waitFor(() => expect(economyContextMocks.recordOnlineGoalProgress).toHaveBeenCalledOnce());
+    expect(economyContextMocks.recordOnlineGoalProgress).toHaveBeenCalledWith({
+      matchId: 'goal-reward-match',
+      didWin: true,
+      captures: 0,
     });
   });
 

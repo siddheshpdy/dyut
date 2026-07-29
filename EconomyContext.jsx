@@ -1,13 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   claimDailyReward as claimDailyRewardService,
+  claimGoalReward as claimGoalRewardService,
+  claimRewardMultiplier as claimRewardMultiplierService,
   getEconomyIdentity,
   loadEconomy,
+  recordOnlineGoalProgress as recordOnlineGoalProgressService,
   refundPublicMatchEntry as refundEntry,
   reservePublicMatchEntry as reserveEntry,
   settlePublicMatch as settleMatch,
 } from './economyService.js';
-import { getUtcDayKey, normalizeEconomyState } from './economy.js';
+import { getRewardGoals, getUtcDayKey, normalizeEconomyState } from './economy.js';
 
 const EconomyContext = createContext(null);
 
@@ -17,6 +20,7 @@ export const EconomyProvider = ({ user, children }) => {
   const [error, setError] = useState(null);
   const [dailyReward, setDailyReward] = useState(null);
   const [isClaimingDailyReward, setIsClaimingDailyReward] = useState(false);
+  const [lastReward, setLastReward] = useState(null);
   const [lastSettlement, setLastSettlement] = useState(null);
   const economyIdentity = getEconomyIdentity(user);
   const economyIsAnonymous = user?.isAnonymous ?? true;
@@ -36,6 +40,7 @@ export const EconomyProvider = ({ user, children }) => {
     setStatus('loading');
     setError(null);
     setDailyReward(null);
+    setLastReward(null);
 
     loadEconomy(economyUser)
       .then((loaded) => {
@@ -81,11 +86,41 @@ export const EconomyProvider = ({ user, children }) => {
         amount: result.event.delta,
         dayKey: result.event.dayKey,
       } : null);
+      if (result.applied) {
+        setLastReward({
+          sourceEventId: result.eventId,
+          amount: result.event.delta,
+          label: 'daily',
+        });
+      }
       return result;
     } finally {
       setIsClaimingDailyReward(false);
     }
   }, [economyUser, runMutation]);
+
+  const recordOnlineGoalProgress = useCallback(
+    (progress) => runMutation(() => recordOnlineGoalProgressService(economyUser, progress)),
+    [economyUser, runMutation],
+  );
+
+  const claimGoalReward = useCallback(async (reward) => {
+    const result = await runMutation(() => claimGoalRewardService(economyUser, reward));
+    if (result.applied) {
+      setLastReward({
+        sourceEventId: result.eventId,
+        amount: result.event.delta,
+        label: 'goal',
+        goalId: result.goal?.id,
+      });
+    }
+    return result;
+  }, [economyUser, runMutation]);
+
+  const claimRewardMultiplier = useCallback(
+    (reward) => runMutation(() => claimRewardMultiplierService(economyUser, reward)),
+    [economyUser, runMutation],
+  );
 
   const settlePublicMatch = useCallback(
     (settlement) => runMutation(() => settleMatch(economyUser, settlement)).then((result) => {
@@ -107,23 +142,32 @@ export const EconomyProvider = ({ user, children }) => {
   const value = useMemo(() => ({
     balance: economy.coins,
     economy,
+    goals: getRewardGoals(economy),
     status,
     error,
     dailyReward,
+    lastReward,
     dailyRewardAvailable: status === 'ready' && economy.lastDailyRewardDay !== getUtcDayKey(),
     isClaimingDailyReward,
     lastSettlement,
     refresh,
     claimDailyReward,
+    recordOnlineGoalProgress,
+    claimGoalReward,
+    claimRewardMultiplier,
     reservePublicEntry,
     settlePublicMatch,
     refundPublicEntry,
   }), [
+    claimGoalReward,
     claimDailyReward,
     dailyReward,
     economy,
     error,
     isClaimingDailyReward,
+    lastReward,
+    recordOnlineGoalProgress,
+    claimRewardMultiplier,
     lastSettlement,
     refresh,
     refundPublicEntry,

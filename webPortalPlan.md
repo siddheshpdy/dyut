@@ -5,9 +5,9 @@ Publishing to web portals requires adhering to strict iframe security policies, 
 ## Phase 31: Environment & Build Configuration
 *   **Objective:** Create a dedicated build pipeline that strips out incompatible features (like out-of-game links) without affecting the main web or Android builds.
 *   **Implementation Steps:**
-    1.  **Environment Variables:** Create a `.env.crazygames` file with `VITE_IS_PORTAL=true`.
+    1.  **Environment Variables:** Create a `.env.crazygames` file with `VITE_CRAZYGAMES_BUILD=true`.
     2.  **Vite Config:** Update `package.json` with a new build script: `"build:crazygames": "vite build --mode crazygames"`. Ensure `vite.config.js` uses `base: './'` so all asset paths are relative (required for portal zip uploads).
-    3.  **UI Toggles:** Wrap external links (Portfolio, Socials) and unsupported authentication methods (Google Sign-In popup) in `if (!import.meta.env.VITE_IS_PORTAL)` checks.
+    3.  **UI Toggles:** Wrap external links (Portfolio, Socials) and unsupported authentication methods (Google Sign-In popup) in `if (!import.meta.env.VITE_CRAZYGAMES_BUILD)` checks.
 
 ## Phase 32: SDK Integration & Ad Monetization
 *   **Objective:** Implement the required portal SDKs for gameplay tracking and revenue generation.
@@ -21,7 +21,7 @@ Publishing to web portals requires adhering to strict iframe security policies, 
 *   **Objective:** Handle iframe restrictions where third-party cookies (Firebase Auth) might be blocked by the browser.
 *   **Implementation Steps:**
     1.  **Persistent Storage (Progression):** Since Firebase Auth might fail inside an iframe on strict browsers, implement a wrapper around user progression (coins, skins, stats).
-        *   *Logic:* `if (VITE_IS_PORTAL) { use CrazyGames.SDK.data } else { use Firestore users collection }`.
+        *   *Logic:* `if (VITE_CRAZYGAMES_BUILD) { use CrazyGames.SDK.data } else { use Firestore users collection }`.
     2.  **Real-Time Multiplayer (Live State):** Continue using **Firebase Realtime Database (RTDB)** for active match syncing (`lobbies` and `games` nodes). CrazyGames does not provide multiplayer servers, so Firebase RTDB remains essential.
     3.  **Anonymous Auth Fallback:** For portal users playing online, force Firebase Anonymous Authentication to bypass popup blockers while still generating a valid `uid` for Firebase Security Rules.
 

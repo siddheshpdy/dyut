@@ -21,7 +21,7 @@ const AboutScreen = ({ onBack }) => {
             {t('aboutContactText', "Have feedback, found a bug, or just want to say hi? We'd love to hear from you!")}
           </p>
           <div className="flex flex-col gap-3">
-            {import.meta.env.VITE_IS_PORTAL ? (
+            {import.meta.env.VITE_CRAZYGAMES_BUILD === 'true' ? (
               <p className="font-bold tracking-wide text-emerald">Thank you for playing!</p>
             ) : (
               <a href="mailto:support@siddheshpadhye.co.in" className="inline-flex items-center gap-2 font-bold tracking-wide text-emerald transition-colors hover:text-emerald-400">

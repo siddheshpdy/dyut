@@ -1,4 +1,4 @@
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const MUTE_STORAGE_KEY = 'dyut_muted';
 let latestPlatformMuteState;
 

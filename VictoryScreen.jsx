@@ -1,11 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { dispatchMuteState } from './audio';
 import { DYUT_ICONS } from './dyut-icons';
 import { useOptionalEconomy } from './EconomyContext';
 
-const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 const cornerClass = 'pointer-events-none absolute h-8 w-8 border-gold/75';
 
 const VictoryScreen = ({ winnerId, matchId = null, isPublicMatch = false, onNewGame, onHome }) => {
@@ -16,23 +14,7 @@ const VictoryScreen = ({ winnerId, matchId = null, isPublicMatch = false, onNewG
     ? economy.lastSettlement
     : null;
 
-  const handleNewGame = () => {
-    if (import.meta.env.VITE_IS_PORTAL && CRAZYGAMES_ADS_ENABLED && window.CrazyGames?.SDK) {
-      const showAd = async () => {
-        try {
-          if (window.cgInitPromise) await window.cgInitPromise;
-          window.CrazyGames.SDK.ad.requestAd('midgame', {
-            adStarted: () => window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true })),
-            adFinished: () => { dispatchMuteState(); onNewGame(); },
-            adError: () => { dispatchMuteState(); onNewGame(); },
-          });
-        } catch(e) { onNewGame(); }
-      };
-      showAd();
-    } else {
-      onNewGame();
-    }
-  };
+  const handleNewGame = () => onNewGame();
 
   const overlay = (
     <div className="victory-overlay fixed inset-0 z-[140] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-black/76 px-4 py-8 text-center backdrop-blur-sm sm:px-6">

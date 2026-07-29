@@ -14,14 +14,14 @@ The repository is already beyond prototype stage. It currently includes:
 - Spawn rules, movement priority, pair shields, pair attacks, safe zones, assassin-style spawn captures, blood debt, and terminal victory handling that locks further play until a new game starts
 - Single-player bot support with heuristic AI, Max Value-aware bot decisions, queued-roll fallback, and team-mode effective-player ownership
 - Firebase authentication, player profiles, and online multiplayer sync
-- Temple Coin economy with a manually claimed 500-coin UTC daily reward, a 500-coin public Online Match entry, a 10% match fee, and idempotent prize settlement; 1v1/FFA award the remaining pool to one winner, while public 2v2 divides 90% of the paid human-entry pool equally among winning human teammates. Bots neither pay an entry nor receive a prize share. Offline play, Play with Friends, and CrazyGames Instant Multiplayer remain free
+- Temple Coin economy with a manually claimed 500-coin UTC daily reward, visible daily/weekly online-play goals with explicit claims, and an optional ad-based reward multiplier. Public Online Match uses a 200-coin entry while ads are disabled (500 when `VITE_CG_ENABLE_ADS=true`), a 10% match fee, and idempotent prize settlement. 1v1/FFA award the remaining pool to one winner, while public 2v2 divides 90% of the paid human-entry pool equally among winning human teammates. Bots neither pay an entry nor receive a prize share. Offline play, Play with Friends, and CrazyGames Instant Multiplayer remain free
 - Four selectable piece designs carried in match snapshots independently from seat color; players may choose the same design while unique seat colors preserve player identity
 - Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling with visible strike warnings, host-owned auto-roll handoff for bot/AFK-controlled turns (including recovery of missing bot ownership metadata from legacy cached clients, so bot-filled seats do not wait for the turn timeout), bot takeover for disconnected/AFK online players, automatic online match finish with a forfeit winner when fewer than two human seats remain, player reclaim on return before permanent takeover, and signed-in account-backed resume for resumable private online matches across devices
 - Mobile and desktop play both support rolling directly from the dice panel, with the dice area muted for inactive turns and gold-highlighted when the local human player can roll
 - Tutorial, rules, history, and about screens
 - First-time players see a compact in-game helper for rolling, spawning, and moving without opening the full tutorial during gameplay
 - English, Hindi, and Marathi localization
-- CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match, instant-multiplayer launches that create a private four-player lobby with three invite slots, standard local play opening the Human/Bot seat-selection lobby, SDK mute compliance, CrazyGames username display in portal lobbies, JSON-serialized portal stats, and Data-module-backed offline resume mirroring
+- CrazyGames portal integration hooks, including first-time-account onboarding that drops signed-in new portal players straight into a local bot match, an opening piece on the second path square for portal and online games, the Void Rule disabled in portal matches, instant-multiplayer launches that create a private four-player lobby with three invite slots, standard local play opening the Human/Bot seat-selection lobby, SDK mute compliance, CrazyGames username display in portal lobbies, JSON-serialized portal stats, and Data-module-backed offline resume mirroring
 - Victory actions now offer a same-configuration New Game and a direct home shortcut; both CrazyGames and standalone menus label the invite-only private flow as Play with Friends
 
 Resume behavior is intentionally split by mode:
@@ -53,9 +53,9 @@ Key files:
 - [UnifiedLobby.jsx](./UnifiedLobby.jsx): local/online match setup, seat claiming, lobby syncing, and profile controls
 - [aiLogic.js](./aiLogic.js): bot heuristics and move scoring
 - [firebaseSetup.js](./firebaseSetup.js): Firebase initialization, auth helpers, and profile/stat updates
-- [economy.js](./economy.js): integer-only reward, entry, pool, fee, payout, draw-refund, and idempotency rules
+- [economy.js](./economy.js): integer-only wallet, daily/weekly goal progress, claim, multiplier, entry, pool, fee, payout, draw-refund, and idempotency rules
 - [economyService.js](./economyService.js): standalone, anonymous/local, and CrazyGames economy persistence adapters
-- [EconomyContext.jsx](./EconomyContext.jsx): wallet loading, manual daily-reward claims, and app-wide balance/settlement state
+- [EconomyContext.jsx](./EconomyContext.jsx): wallet loading, manual daily/goal reward claims, optional ad multipliers, and app-wide balance/settlement state
 - [pieceSkins.js](./pieceSkins.js): safe piece-design catalog, default fallback, and stable design identifiers
 
 ## Rules Coverage
@@ -134,7 +134,7 @@ npm run test:ui:report
 npm run test:all
 ```
 
-Playwright starts a temporary Vite server on `127.0.0.1:4173` unless `PLAYWRIGHT_BASE_URL` points to an already-running server. The suite covers responsive menu layout, local game startup, Play with Friends navigation, victory controls, long-name ellipsis positioning, manual daily-reward claims, public-match fee disclosure, public 2v2 selection and human-only prize-split disclosure, and insufficient-balance behavior. Failure screenshots and traces are written under ignored `artifacts/` and `e2e/test-output/` directories.
+Playwright starts a temporary Vite server on `127.0.0.1:4173` unless `PLAYWRIGHT_BASE_URL` points to an already-running server. The suite covers responsive menu layout, local game startup, Play with Friends navigation, victory controls, long-name ellipsis positioning, manual daily/goal reward claims, public-match fee disclosure, public 2v2 selection and human-only prize-split disclosure, and insufficient-balance behavior. Failure screenshots and traces are written under ignored `artifacts/` and `e2e/test-output/` directories.
 
 ## Environment
 
@@ -149,8 +149,10 @@ The project expects Firebase environment variables, including:
 - `VITE_FIREBASE_MEASUREMENT_ID`
 - `VITE_FIREBASE_DATABASE_URL`
 
-There is also portal-specific behavior gated by `VITE_IS_PORTAL`.
-CrazyGames ad calls are gated separately by `VITE_CG_ENABLE_ADS`; the Basic Launch portal build keeps this set to `false`.
+There is also CrazyGames-specific behavior gated by `VITE_CRAZYGAMES_BUILD`.
+`VITE_CG_ENABLE_ADS` gates ad behavior; the Basic Launch portal build keeps this set to `false`.
+`VITE_ADS_PROVIDER` selects `crazygames`, `google`, `none`, or `auto` (the default, which chooses CrazyGames for portal builds and Google H5 Games Ads for standalone builds). Portal builds always resolve to the CrazyGames SDK provider for platform compliance. Google standalone builds also require `VITE_GOOGLE_ADS_CLIENT_ID=ca-pub-...`; without it, no Google script is loaded.
+The game uses rewarded ads only: banners and midgame interstitials are not requested. When ads are disabled, the rewarded-ad placeholder and multiplier offer are hidden, and paid public matches use the 200-coin entry amount. Enabling the existing `VITE_CG_ENABLE_ADS=true` flag shows the post-claim reward popup; the player receives the base reward first and can receive one idempotent 2x bonus only after the rewarded ad completes. Local QA can simulate the ad with `VITE_CG_ENABLE_ADS=true` and `?qa=economy-ads`.
 
 Gameplay timing can be tuned with positive whole-number millisecond values:
 
@@ -167,8 +169,8 @@ Current automated coverage includes:
 - shallow rendering tests for the board
 - shallow rendering tests for the dice tray, bot auto-roll trigger path, queued-roll AI selection, and team-mode bot proxy ownership
 - reducer-level AFK reclaim, AFK escalation, turn-timer, and terminal victory-state tests
-- Temple Coin unit tests for daily idempotency, 500-coin entry, 10% pool fees, winner/loser settlement, human-only public 2v2 team splits with bot-filled seats, and draw refunds
-- Playwright browser tests for desktop and compact layouts, local game startup, duplicate piece designs with unique seat colors, private-game navigation, victory UI, player-name overflow, daily rewards, and public-match coin gating
+- Temple Coin unit tests for daily idempotency, daily/weekly goal progress, explicit goal claims, idempotent ad multipliers, ads-disabled 200-coin entry, 10% pool fees, winner/loser settlement, human-only public 2v2 team splits with bot-filled seats, and draw refunds
+- Playwright browser tests for desktop and compact layouts, local game startup, duplicate piece designs with unique seat colors, private-game navigation, victory UI, player-name overflow, daily/goal rewards, optional ad multiplier behavior, and public-match coin gating
 
 The test suite is passing, but coverage is still relatively light compared to the complexity of the reducer, multiplayer sync, and UI-driven game flow.
 

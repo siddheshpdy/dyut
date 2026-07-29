@@ -201,8 +201,7 @@ test('daily reward is claimed from the rewards dialog once per UTC day', async (
   await expect(page.getByTestId('daily-reward-available')).toBeVisible();
   await page.getByTestId('daily-reward-button').click();
   await expect(page.getByRole('dialog', { name: /daily reward/i })).toBeVisible();
-  await expect(page.getByText(/watch ad for coins/i)).toBeVisible();
-  await expect(page.getByRole('button', { name: /coming soon/i })).toBeDisabled();
+  await expect(page.getByText(/watch ad for coins/i)).toHaveCount(0);
   await page.getByTestId('daily-reward-claim').click();
 
   await expect(page.getByTestId('coin-balance')).toContainText('500');
@@ -217,7 +216,33 @@ test('daily reward is claimed from the rewards dialog once per UTC day', async (
   await expectNoViewportOverflow(page);
 });
 
-test('public Online Match discloses the 500 entry and 10 percent fee', async ({ page }) => {
+test('completed online goals are visible and claimable from the rewards dialog', async ({ page }) => {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  await page.addInitScript(({ key, dayKey }) => {
+    localStorage.setItem(key, JSON.stringify({
+      coins: 0,
+      lastDailyRewardDay: dayKey,
+      version: 1,
+      goalProgress: {
+        daily: { periodKey: dayKey, wins: 1, captures: 3, claimed: {} },
+        weekly: { periodKey: dayKey, wins: 1, captures: 3, claimed: {} },
+      },
+      events: {},
+    }));
+  }, { key: QA_ECONOMY_KEY, dayKey });
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/?qa=economy-goals', { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('daily-reward-button').click();
+
+  await expect(page.getByTestId('reward-goal-claim-daily-win')).toBeVisible();
+  await expect(page.getByTestId('reward-goal-claim-daily-capture')).toBeVisible();
+  await page.getByTestId('reward-goal-claim-daily-win').click();
+  await expect(page.getByTestId('coin-balance')).toContainText('100');
+  await expectNoViewportOverflow(page);
+});
+
+test('public Online Match discloses the 200 entry and 10 percent fee when ads are disabled', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?qa=economy', { waitUntil: 'domcontentloaded' });
 
@@ -228,23 +253,23 @@ test('public Online Match discloses the 500 entry and 10 percent fee', async ({ 
   await page.getByRole('button', { name: /online match/i }).click();
 
   const disclosure = page.getByTestId('public-match-fee');
-  await expect(disclosure).toContainText('500');
+  await expect(disclosure).toContainText('200');
   await expect(disclosure).toContainText('10%');
   await expect(disclosure).toContainText('90%');
   await expectNoViewportOverflow(page);
 });
 
-test('public Online Match is blocked below 500 while free modes remain available', async ({ page }) => {
+test('public Online Match is blocked below 200 while free modes remain available', async ({ page }) => {
   await page.addInitScript(({ key, dayKey }) => {
     localStorage.setItem(key, JSON.stringify({
-      coins: 499,
+      coins: 199,
       lastDailyRewardDay: dayKey,
       version: 1,
       events: {
         [`daily:${dayKey}`]: {
           type: 'daily_login',
           delta: 500,
-          balanceAfter: 499,
+          balanceAfter: 199,
           dayKey,
           createdAt: Date.now(),
         },
@@ -258,9 +283,9 @@ test('public Online Match is blocked below 500 while free modes remain available
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?qa=economy-insufficient', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByTestId('coin-balance')).toContainText('499');
+  await expect(page.getByTestId('coin-balance')).toContainText('199');
   await page.getByRole('button', { name: /online match/i }).click();
-  await expect(page.getByRole('alert')).toContainText('500');
+  await expect(page.getByRole('alert')).toContainText('200');
   await expect(page.getByRole('button', { name: /single player|local play/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /^play with friends\b/i })).toBeVisible();
   await expectNoViewportOverflow(page);

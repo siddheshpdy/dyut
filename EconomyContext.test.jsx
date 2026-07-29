@@ -5,8 +5,11 @@ import { getUtcDayKey, normalizeEconomyState } from './economy';
 
 const serviceMocks = vi.hoisted(() => ({
   claimDailyReward: vi.fn(),
+  claimGoalReward: vi.fn(),
+  claimRewardMultiplier: vi.fn(),
   getEconomyIdentity: vi.fn(() => 'test-user'),
   loadEconomy: vi.fn(),
+  recordOnlineGoalProgress: vi.fn(),
   refundPublicMatchEntry: vi.fn(),
   reservePublicMatchEntry: vi.fn(),
   settlePublicMatch: vi.fn(),

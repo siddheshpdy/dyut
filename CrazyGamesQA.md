@@ -56,7 +56,7 @@ For each viewport:
 
 ## CrazyGames SDK
 
-- SDK script loads only in `VITE_IS_PORTAL=true` builds.
+- SDK script loads only in `VITE_CRAZYGAMES_BUILD=true` builds.
 - `loadingStart()` runs during SDK initialization.
 - `loadingStop()` runs after app setup.
 - `gameplayStart()` fires only when active gameplay starts.

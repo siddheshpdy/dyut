@@ -6,7 +6,8 @@ import { ref as rtdbRef, onValue, set as rtdbSet, update as rtdbUpdate, get as r
 import { db, rtdb, signInWithGoogle, logoutUser, updateUserName } from './firebaseSetup.js';
 import { findRandomPublicGame } from './matchmaking.js';
 import { DYUT_ICONS } from './dyut-icons';
-import { getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { dispatchMuteState, getEffectiveMuteState, toggleUserMutePreference } from './audio';
+import { getAdsConfig, requestRewardedAd } from './adProvider';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 import { useEconomy } from './EconomyContext';
 import {
@@ -24,12 +25,12 @@ const ALL_COLORS = [
   { name: 'amber', tw: 'bg-amber' },
 ];
 
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
-const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
+const { enabled: ADS_ENABLED } = getAdsConfig();
 const INSTANT_MULTIPLAYER_CONFIG = {
   matchType: 'ffa',
   isQuickGame: false,
-  isVoidRuleEnabled: true,
+  isVoidRuleEnabled: false,
   botDifficulty: 'easy'
 };
 const getPublicEconomyMetadata = (matchType) => ({
@@ -159,19 +160,58 @@ const EconomySummary = ({ compact = false }) => {
     dailyRewardAvailable,
     isClaimingDailyReward,
     claimDailyReward,
+    goals = [],
+    claimGoalReward,
+    claimRewardMultiplier,
   } = useEconomy();
   const { t } = useTranslation();
   const [isRewardsOpen, setIsRewardsOpen] = useState(false);
   const [claimError, setClaimError] = useState(null);
+  const [pendingMultiplier, setPendingMultiplier] = useState(null);
+  const [isWatchingRewardAd, setIsWatchingRewardAd] = useState(false);
+  const [multiplierResult, setMultiplierResult] = useState(null);
   const RewardsIcon = DYUT_ICONS.rewards;
   const CloseIcon = DYUT_ICONS.close;
+  const multiplierOfferEnabled = ADS_ENABLED;
 
-  const handleClaimDailyReward = async () => {
+  const claimRewardAndOfferMultiplier = async (claimOperation, label) => {
     setClaimError(null);
     try {
-      await claimDailyReward();
+      const result = await claimOperation();
+      if (result?.applied && multiplierOfferEnabled) {
+        setPendingMultiplier({ sourceEventId: result.eventId, amount: result.event.delta, label });
+      }
+      return result;
     } catch {
-      setClaimError(t('dailyRewardClaimError', 'Could not claim your reward. Please try again.'));
+      setClaimError(t('rewardClaimError', 'Could not claim this reward. Please try again.'));
+      return null;
+    }
+  };
+
+  const handleClaimDailyReward = () => claimRewardAndOfferMultiplier(claimDailyReward, 'daily');
+
+  const handleClaimGoal = (goalId) => () => (
+    claimRewardAndOfferMultiplier(() => claimGoalReward({ goalId }), goalId)
+  );
+
+  const handleRewardMultiplier = async () => {
+    if (!pendingMultiplier) return;
+    setIsWatchingRewardAd(true);
+    setClaimError(null);
+    try {
+      await requestRewardedAd({
+        adStarted: () => window.dispatchEvent(new CustomEvent('dyut-mute-change', { detail: true })),
+        adFinished: () => dispatchMuteState(),
+      });
+      const result = await claimRewardMultiplier({ sourceEventId: pendingMultiplier.sourceEventId, multiplier: 2 });
+      if (result?.applied) {
+        setMultiplierResult({ amount: result.event.delta });
+        setPendingMultiplier(null);
+      }
+    } catch {
+      setClaimError(t('rewardAdError', 'The ad was not completed. Your base reward is safe.'));
+    } finally {
+      setIsWatchingRewardAd(false);
     }
   };
 
@@ -212,7 +252,7 @@ const EconomySummary = ({ compact = false }) => {
             aria-labelledby="daily-reward-dialog-title"
             data-testid="daily-reward-dialog"
             onClick={(event) => event.stopPropagation()}
-            className="relative w-full max-w-sm rounded-2xl border border-gold/40 bg-[#100e0c]/98 p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.8),inset_0_0_28px_rgba(234,179,8,0.06)]"
+            className="relative max-h-[min(88dvh,48rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/40 bg-[#100e0c]/98 p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.8),inset_0_0_28px_rgba(234,179,8,0.06)]"
           >
             <button
               type="button"
@@ -261,16 +301,80 @@ const EconomySummary = ({ compact = false }) => {
               {claimError && <p role="alert" className="mt-2 text-xs font-semibold text-ruby">{claimError}</p>}
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-white/12 bg-white/5 px-4 py-3">
-              <div>
-                <div className="text-sm font-bold text-white/75">{t('watchAdForCoins', 'Watch ad for coins')}</div>
-                <div className="text-[11px] text-white/55">{t('rewardedAdsComingSoon', 'More rewards coming soon')}</div>
+            <div className="mt-4 space-y-2" data-testid="reward-goals">
+              <div className="font-display text-xs font-bold uppercase tracking-[0.24em] text-gold/80">
+                {t('rewardGoals', 'Reward Goals')}
               </div>
-              <button type="button" disabled className="rounded-lg border border-white/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/45">
-                {t('comingSoon', 'Coming Soon')}
-              </button>
+              {goals.map((goal) => {
+                const labels = {
+                  'daily-win': t('dailyWinGoal', 'Win 1 online match'),
+                  'daily-capture': t('dailyCaptureGoal', 'Capture 3 pieces'),
+                  'weekly-win': t('weeklyWinGoal', 'Win 3 online matches'),
+                  'weekly-capture': t('weeklyCaptureGoal', 'Capture 10 pieces'),
+                };
+                return (
+                  <div key={`${goal.id}:${goal.periodKey}`} data-testid={`reward-goal-${goal.id}`} className="rounded-xl border border-white/12 bg-white/5 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-white/90">{labels[goal.id]}</div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-wider text-white/55">
+                          {goal.scope === 'daily' ? t('today', 'Today') : t('thisWeek', 'This week')} · +{goal.reward} coins
+                        </div>
+                      </div>
+                      {goal.claimable ? (
+                        <button type="button" data-testid={`reward-goal-claim-${goal.id}`} onClick={handleClaimGoal(goal.id)} className="shrink-0 rounded-lg border border-emerald/50 bg-emerald/18 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#dfffea] hover:bg-emerald/28">
+                          {t('claim', 'Claim')}
+                        </button>
+                      ) : (
+                        <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${goal.claimed ? 'text-emerald' : 'text-white/55'}`}>
+                          {goal.claimed ? t('claimed', 'Claimed') : `${goal.progress}/${goal.target}`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/60">
+                      <div className="h-full rounded-full bg-emerald transition-all" style={{ width: `${Math.round((goal.progress / goal.target) * 100)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {ADS_ENABLED && !multiplierOfferEnabled && (
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-white/12 bg-white/5 px-4 py-3">
+                <div>
+                  <div className="text-sm font-bold text-white/75">{t('watchAdForCoins', 'Watch ad for coins')}</div>
+                  <div className="text-[11px] text-white/55">{t('rewardedAdsComingSoon', 'More rewards coming soon')}</div>
+                </div>
+                <button type="button" disabled className="rounded-lg border border-white/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/45">
+                  {t('comingSoon', 'Coming Soon')}
+                </button>
+              </div>
+            )}
           </section>
+        </div>
+      )}
+      {pendingMultiplier && (
+        <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+          <section role="dialog" aria-modal="true" aria-labelledby="reward-multiplier-title" data-testid="reward-multiplier-dialog" className="w-full max-w-sm rounded-2xl border border-emerald/45 bg-[#100e0c]/98 p-5 text-center shadow-[0_0_60px_rgba(0,0,0,0.8)]">
+            <h2 id="reward-multiplier-title" className="font-display text-xl font-bold uppercase tracking-wider text-emerald">
+              {t('rewardMultiplierTitle', 'Boost your reward')}
+            </h2>
+            <p className="mt-2 text-sm text-white/75">{t('rewardMultiplierDescription', 'Watch a short ad to double this reward.')}</p>
+            <div className="mt-4 text-3xl font-black text-gold">+{pendingMultiplier.amount} → +{pendingMultiplier.amount * 2}</div>
+            <button type="button" data-testid="reward-multiplier-watch" onClick={handleRewardMultiplier} disabled={isWatchingRewardAd} className="mt-4 w-full rounded-lg border border-emerald/50 bg-emerald/18 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-[#dfffea] hover:bg-emerald/28 disabled:cursor-wait disabled:opacity-65">
+              {isWatchingRewardAd ? t('watchingAd', 'Watching ad…') : t('watchAdDouble', 'Watch ad · 2x reward')}
+            </button>
+            <button type="button" data-testid="reward-multiplier-skip" onClick={() => setPendingMultiplier(null)} className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/65 hover:text-white">
+              {t('keepBaseReward', 'Keep base reward')}
+            </button>
+            {claimError && <p role="alert" className="mt-2 text-xs font-semibold text-ruby">{claimError}</p>}
+          </section>
+        </div>
+      )}
+      {multiplierResult && (
+        <div role="status" data-testid="reward-multiplier-result" className="fixed bottom-5 left-1/2 z-[180] -translate-x-1/2 rounded-full border border-emerald/50 bg-[#07130d]/95 px-4 py-2 text-sm font-bold text-emerald shadow-xl">
+          {t('rewardMultiplierGranted', '+{{amount}} bonus coins', { amount: multiplierResult.amount })}
+          <button type="button" aria-label={t('close', 'Close')} onClick={() => setMultiplierResult(null)} className="ml-2 text-white/60 hover:text-white">×</button>
         </div>
       )}
     </>
@@ -577,7 +681,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
   });
   const [botDifficulty, setBotDifficulty] = useState('hard');
-  const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(true);
+  const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(() => !IS_PORTAL);
   const [isQuickGame, setIsQuickGame] = useState(false);
   const [isTeamMode, setIsTeamMode] = useState(false);
   const [pendingGameId, setPendingGameId] = useState(null);
@@ -897,7 +1001,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       isQuickGame: false,
       isTeamMode: false,
       botDifficulty: 'easy',
-      isVoidRuleEnabled: true
+      isVoidRuleEnabled: false,
+      initialPiecePathIndex: 2,
     });
   };
 
@@ -1045,8 +1150,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
     onStartGame({ 
       playerCount: activeSeatIds.length, activeSeats: activeSeatIds, playerColors, playerAliases, playerUids, playerSkins,
-      isVoidRuleEnabled: overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled, bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty, 
+      isVoidRuleEnabled: IS_PORTAL ? false : (overrideData?.isVoidRuleEnabled ?? isVoidRuleEnabled), bots, botDifficulty: overrideData?.botDifficulty ?? botDifficulty,
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
+      initialPiecePathIndex: overrideData?.initialPiecePathIndex ?? (isOnline ? 2 : null),
       matchType: currentMatchType,
       hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null,
       isPublic: isPublicMatch,
@@ -1066,7 +1172,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     
     const currentMatchType = overrideConfig?.matchType || matchType;
     const currentIsQuickGame = overrideConfig?.isQuickGame ?? isQuickGame;
-    const currentIsVoidRuleEnabled = overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled;
+    const currentIsVoidRuleEnabled = IS_PORTAL ? false : (overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled);
     const currentBotDifficulty = overrideConfig?.botDifficulty || botDifficulty;
 
     let newSeats = {};
@@ -1175,7 +1281,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setIsSearching(true);
     const currentMatchType = overrideConfig?.matchType || matchType;
     const currentIsQuickGame = overrideConfig?.isQuickGame ?? isQuickGame;
-    const currentIsVoidRuleEnabled = overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled;
+    const currentIsVoidRuleEnabled = IS_PORTAL ? false : (overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled);
 
     const availableGameId = await findRandomPublicGame({
       matchType: currentMatchType,
@@ -1271,40 +1377,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       setInviteUrl(defaultUrl);
     }
   }, [activeLobbyId]);
-
-  // Request CrazyGames Banner Ad on Desktop
-  useEffect(() => {
-    if (IS_PORTAL && CRAZYGAMES_ADS_ENABLED) {
-      let isMounted = true;
-      const showBanners = async () => {
-        try {
-          if (window.cgInitPromise) await window.cgInitPromise;
-          if (!isMounted) return;
-          // Only request the banners if the screen is large enough (XL Desktop) to avoid UI overlap
-          if (window.innerWidth >= 1280 && window.CrazyGames?.SDK?.banner) {
-            await window.CrazyGames.SDK.banner.requestBanner({
-              id: 'cg-lobby-banner-left',
-              width: 300,
-              height: 600
-            });
-            await window.CrazyGames.SDK.banner.requestBanner({
-              id: 'cg-lobby-banner-right',
-              width: 300,
-              height: 600
-            });
-          }
-        } catch (e) { console.warn("CrazyGames banner error:", e); }
-      };
-      const timeoutId = setTimeout(showBanners, 500); // Give DOM time to render the containers
-      return () => {
-        isMounted = false;
-        clearTimeout(timeoutId);
-        if (window.CrazyGames?.SDK?.banner) {
-          try { window.CrazyGames.SDK.banner.clearAllBanners(); } catch (e) {}
-        }
-      };
-    }
-  }, []);
 
   const isInitialMenu = !activeLobbyId && !setupMode;
   const isSetupConfig = !activeLobbyId && setupMode && setupStep === 'config';
@@ -1631,10 +1703,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               </div>
 
               <ConfigSectionTitle>{t('gameRules', 'Game Rules')}</ConfigSectionTitle>
-              <div className="lobby-config-grid grid grid-cols-2 gap-3 sm:gap-4 lg:gap-2">
-                <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px] lg:min-h-[64px]">
-                  <RulesIcon className="h-8 w-8" aria-hidden="true" />
-                </ConfigChoiceCard>
+              <div className={`lobby-config-grid grid ${IS_PORTAL ? 'grid-cols-1' : 'grid-cols-2'} gap-3 sm:gap-4 lg:gap-2`}>
+                {!IS_PORTAL && (
+                  <ConfigChoiceCard active={isVoidRuleEnabled} tone="gold" title={t('voidRule', '1+3 Void')} subtitle={t('classicStrategicFormat', 'Classic strategic format')} onClick={() => setIsVoidRuleEnabled(!isVoidRuleEnabled)} className="min-h-[92px] lg:min-h-[64px]">
+                    <RulesIcon className="h-8 w-8" aria-hidden="true" />
+                  </ConfigChoiceCard>
+                )}
                 <ConfigChoiceCard active={isQuickGame} tone="gold" title={t('quick', 'Quick')} subtitle={t('fastPacedShortGames', 'Fast-paced & short games')} onClick={() => setIsQuickGame(!isQuickGame)} className="min-h-[92px] lg:min-h-[64px]">
                   <QuickIcon className="h-8 w-8" aria-hidden="true" />
                 </ConfigChoiceCard>
@@ -1749,21 +1823,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       </div>
     </div>
 
-    {/* Desktop Banner Ad Containers */}
-    {IS_PORTAL && CRAZYGAMES_ADS_ENABLED && (
-      <>
-        {/* Left Banner */}
-        <div className="hidden xl:flex fixed left-4 2xl:left-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
-          <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Advertisement</span>
-          <div id="cg-lobby-banner-left" className="w-[300px] h-[600px] bg-black/20 rounded-xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex items-center justify-center"></div>
-        </div>
-        {/* Right Banner */}
-        <div className="hidden xl:flex fixed right-4 2xl:right-12 top-1/2 -translate-y-1/2 z-10 flex-col items-center gap-2 pointer-events-none">
-          <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Advertisement</span>
-          <div id="cg-lobby-banner-right" className="w-[300px] h-[600px] bg-black/20 rounded-xl overflow-hidden shadow-2xl border border-white/10 pointer-events-auto flex items-center justify-center"></div>
-        </div>
-      </>
-    )}
     </>
   );
 };

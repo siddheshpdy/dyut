@@ -4,7 +4,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestam
 import { getDatabase } from 'firebase/database';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
 
-const IS_PORTAL = import.meta.env.VITE_IS_PORTAL === 'true';
+const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const SAVED_RESUME_GAME_FIELD = 'savedResumeGame';
 
 // TODO: Replace this with your actual Firebase project configuration from the console

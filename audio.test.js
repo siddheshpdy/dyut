@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const loadPortalAudio = async () => {
   vi.resetModules();
-  vi.stubEnv('VITE_IS_PORTAL', 'true');
+  vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'true');
   return import('./audio');
 };
 

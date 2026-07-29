@@ -11,7 +11,7 @@ import { DEFAULT_PIECE_SKIN_ID, normalizePieceSkinId } from './pieceSkins';
 
 // Function to create the initial state based on player count
 const createInitialState = (gameConfig) => {
-  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], playerSkins = {}, isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, economy = null, initialStateOverride = null } = gameConfig;
+  const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], playerSkins = {}, isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, economy = null, initialPiecePathIndex = null, initialStateOverride = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);
 
@@ -24,7 +24,8 @@ const createInitialState = (gameConfig) => {
       pieceSkinId: normalizePieceSkinId(playerSkins[playerId] || DEFAULT_PIECE_SKIN_ID),
       name: playerAliases[playerId] || playerId,
       hasKilled: false,
-      pieces: [-1, -1, -1, -1],
+      captureCount: 0,
+      pieces: Number.isInteger(initialPiecePathIndex) ? [initialPiecePathIndex, -1, -1, -1] : [-1, -1, -1, -1],
       team
     };
   });
@@ -49,6 +50,7 @@ const createInitialState = (gameConfig) => {
     localUid,
     isPublic,
     economy,
+    initialPiecePathIndex,
     lastPing: null,
     turnStartedAt: Date.now(),
     lastActionTime: Date.now(),
@@ -153,6 +155,7 @@ const getMissingOnlineGameMetadata = (remoteGame, localState) => {
     isVoidRuleEnabled: localState.isVoidRuleEnabled,
     isQuickGame: localState.isQuickGame,
     isTeamMode: localState.isTeamMode,
+    initialPiecePathIndex: localState.initialPiecePathIndex,
   };
 
   return Object.fromEntries(
@@ -292,6 +295,7 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
   }
 
   let killed = false;
+  let killedCount = 0;
 
   for (const [otherPlayerId, player] of Object.entries(newPlayers)) {
     if (otherPlayerId === playerId) continue;
@@ -321,11 +325,16 @@ function applyCombat(playerId, pieceIndex, state, currentPlayersState, isSpawnin
       opponentPieceIndices.forEach(idx => newPieces[idx] = -1);
         newPlayers[otherPlayerId] = { ...player, pieces: newPieces };
         killed = true;
+        killedCount += opponentPieceIndices.length;
     }
   }
 
   if (killed) {
-    newPlayers[playerId] = { ...newPlayers[playerId], hasKilled: true };
+    newPlayers[playerId] = {
+      ...newPlayers[playerId],
+      hasKilled: true,
+      captureCount: (newPlayers[playerId].captureCount || 0) + killedCount,
+    };
     
     // In Team Mode, blood debt is shared between teammates
     if (state.isTeamMode) {
@@ -472,7 +481,12 @@ export function gameReducer(state, action) {
       // Update attacker's pieces
       attackerPieces[firstPieceIndex] += moveDistance;
       attackerPieces[secondPieceIndex] += moveDistance;
-      newPlayers[playerId] = { ...newPlayers[playerId], pieces: attackerPieces, hasKilled: true };
+      newPlayers[playerId] = {
+        ...newPlayers[playerId],
+        pieces: attackerPieces,
+        hasKilled: true,
+        captureCount: (newPlayers[playerId].captureCount || 0) + 2,
+      };
       
       // Share blood debt for pair attacks in Team Mode
       if (state.isTeamMode) {
@@ -506,7 +520,12 @@ export function gameReducer(state, action) {
       // Move both attackers to the spawn position
       attackerPieces[pieceIndices[0]] = spawnPosition;
       attackerPieces[pieceIndices[1]] = spawnPosition;
-      newPlayers[playerId] = { ...newPlayers[playerId], pieces: attackerPieces, hasKilled: true };
+      newPlayers[playerId] = {
+        ...newPlayers[playerId],
+        pieces: attackerPieces,
+        hasKilled: true,
+        captureCount: (newPlayers[playerId].captureCount || 0) + 2,
+      };
       
       // Share blood debt for the team
       if (state.isTeamMode) {
@@ -611,6 +630,7 @@ export function GameProvider({ gameConfig, children }) {
   const { t } = useTranslation();
   const economyContext = useOptionalEconomy();
   const economySettlementAttemptsRef = useRef(new Set());
+  const goalProgressAttemptsRef = useRef(new Set());
   const statsUpdateAttemptedRef = useRef(false);
   const getInitialState = () => createInitialState(gameConfig);
 
@@ -889,6 +909,7 @@ const dispatch = useCallback((action) => {
           isVoidRuleEnabled: state.isVoidRuleEnabled,
           isQuickGame: state.isQuickGame,
           isTeamMode: state.isTeamMode,
+          initialPiecePathIndex: state.initialPiecePathIndex,
           economy: state.economy || null,
           status: gameConfig.status || 'playing',
             lastPing: Date.now(),
@@ -940,6 +961,25 @@ const dispatch = useCallback((action) => {
         if (localPlayerIsHuman && hasGameplayWinner && !statsUpdateAttemptedRef.current) {
           statsUpdateAttemptedRef.current = true;
           updateUserStats(state.localUid, localUserWon);
+        }
+
+        if (
+          localPlayerIsHuman
+          && state.isOnline
+          && hasGameplayWinner
+          && state.gameId
+          && economyContext?.recordOnlineGoalProgress
+          && !goalProgressAttemptsRef.current.has(state.gameId)
+        ) {
+          goalProgressAttemptsRef.current.add(state.gameId);
+          economyContext.recordOnlineGoalProgress({
+            matchId: state.gameId,
+            didWin: localUserWon,
+            captures: Number(state.players[myPlayerId]?.captureCount) || 0,
+          }).catch((progressError) => {
+            goalProgressAttemptsRef.current.delete(state.gameId);
+            console.error('Failed to record online goal progress:', progressError);
+          });
         }
 
         if (
