@@ -243,7 +243,7 @@ const EconomySummary = ({ compact = false }) => {
       </button>
       {isRewardsOpen && (
         <div
-          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/88 px-4 backdrop-blur-sm"
           onClick={() => setIsRewardsOpen(false)}
         >
           <section
@@ -252,13 +252,13 @@ const EconomySummary = ({ compact = false }) => {
             aria-labelledby="daily-reward-dialog-title"
             data-testid="daily-reward-dialog"
             onClick={(event) => event.stopPropagation()}
-            className="relative max-h-[min(88dvh,48rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/40 bg-[#100e0c]/98 p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.8),inset_0_0_28px_rgba(234,179,8,0.06)]"
+            className="relative max-h-[min(88dvh,48rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/50 bg-[#0b0c0d] p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)]"
           >
             <button
               type="button"
               onClick={() => setIsRewardsOpen(false)}
               aria-label={t('close', 'Close')}
-              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/65 hover:border-gold/45 hover:text-gold"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-[#191b1d] text-white/85 hover:border-gold/60 hover:text-gold"
             >
               <CloseIcon className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -271,13 +271,13 @@ const EconomySummary = ({ compact = false }) => {
                 <h2 id="daily-reward-dialog-title" className="font-display text-xl font-bold uppercase tracking-wider text-gold">
                   {t('dailyRewardTitle', 'Daily Reward')}
                 </h2>
-                <p className="mt-1 text-xs text-white/75">
+                <p className="mt-1 text-xs text-white/85">
                   {t('dailyRewardDescription', 'Claim {{amount}} Temple Coins once per day.', { amount: DAILY_LOGIN_REWARD_COINS })}
                 </p>
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-emerald/30 bg-emerald/8 p-4 text-center">
+            <div className="mt-5 rounded-xl border border-emerald/45 bg-[#07130d] p-4 text-center">
               <div className="text-2xl font-black text-emerald">+{DAILY_LOGIN_REWARD_COINS}</div>
               {dailyRewardAvailable ? (
                 <button
@@ -302,7 +302,7 @@ const EconomySummary = ({ compact = false }) => {
             </div>
 
             <div className="mt-4 space-y-2" data-testid="reward-goals">
-              <div className="font-display text-xs font-bold uppercase tracking-[0.24em] text-gold/80">
+              <div className="font-display text-xs font-bold uppercase tracking-[0.24em] text-[#f6dda4]">
                 {t('rewardGoals', 'Reward Goals')}
               </div>
               {goals.map((goal) => {
@@ -313,11 +313,11 @@ const EconomySummary = ({ compact = false }) => {
                   'weekly-capture': t('weeklyCaptureGoal', 'Capture 10 pieces'),
                 };
                 return (
-                  <div key={`${goal.id}:${goal.periodKey}`} data-testid={`reward-goal-${goal.id}`} className="rounded-xl border border-white/12 bg-white/5 px-3 py-3">
+                  <div key={`${goal.id}:${goal.periodKey}`} data-testid={`reward-goal-${goal.id}`} className="rounded-xl border border-white/35 bg-[#17191b] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-bold text-white/90">{labels[goal.id]}</div>
-                        <div className="mt-0.5 text-[10px] uppercase tracking-wider text-white/55">
+                        <div className="text-sm font-bold text-white">{labels[goal.id]}</div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-wider text-white/75">
                           {goal.scope === 'daily' ? t('today', 'Today') : t('thisWeek', 'This week')} · +{goal.reward} coins
                         </div>
                       </div>
@@ -326,12 +326,12 @@ const EconomySummary = ({ compact = false }) => {
                           {t('claim', 'Claim')}
                         </button>
                       ) : (
-                        <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${goal.claimed ? 'text-emerald' : 'text-white/55'}`}>
+                        <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${goal.claimed ? 'text-emerald' : 'text-white/75'}`}>
                           {goal.claimed ? t('claimed', 'Claimed') : `${goal.progress}/${goal.target}`}
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/60">
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#050607] ring-1 ring-white/10">
                       <div className="h-full rounded-full bg-emerald transition-all" style={{ width: `${Math.round((goal.progress / goal.target) * 100)}%` }} />
                     </div>
                   </div>
@@ -355,16 +355,16 @@ const EconomySummary = ({ compact = false }) => {
       )}
       {pendingMultiplier && (
         <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-          <section role="dialog" aria-modal="true" aria-labelledby="reward-multiplier-title" data-testid="reward-multiplier-dialog" className="w-full max-w-sm rounded-2xl border border-emerald/45 bg-[#100e0c]/98 p-5 text-center shadow-[0_0_60px_rgba(0,0,0,0.8)]">
+          <section role="dialog" aria-modal="true" aria-labelledby="reward-multiplier-title" data-testid="reward-multiplier-dialog" className="w-full max-w-sm rounded-2xl border border-emerald/55 bg-[#0b0c0d] p-5 text-center shadow-[0_0_60px_rgba(0,0,0,0.9)]">
             <h2 id="reward-multiplier-title" className="font-display text-xl font-bold uppercase tracking-wider text-emerald">
               {t('rewardMultiplierTitle', 'Boost your reward')}
             </h2>
-            <p className="mt-2 text-sm text-white/75">{t('rewardMultiplierDescription', 'Watch a short ad to double this reward.')}</p>
+            <p className="mt-2 text-sm text-white/85">{t('rewardMultiplierDescription', 'Watch a short ad to double this reward.')}</p>
             <div className="mt-4 text-3xl font-black text-gold">+{pendingMultiplier.amount} → +{pendingMultiplier.amount * 2}</div>
             <button type="button" data-testid="reward-multiplier-watch" onClick={handleRewardMultiplier} disabled={isWatchingRewardAd} className="mt-4 w-full rounded-lg border border-emerald/50 bg-emerald/18 px-4 py-2.5 text-sm font-bold uppercase tracking-wider text-[#dfffea] hover:bg-emerald/28 disabled:cursor-wait disabled:opacity-65">
               {isWatchingRewardAd ? t('watchingAd', 'Watching ad…') : t('watchAdDouble', 'Watch ad · 2x reward')}
             </button>
-            <button type="button" data-testid="reward-multiplier-skip" onClick={() => setPendingMultiplier(null)} className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/65 hover:text-white">
+            <button type="button" data-testid="reward-multiplier-skip" onClick={() => setPendingMultiplier(null)} className="mt-2 w-full rounded-lg border border-white/25 bg-[#181a1c] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/80 hover:border-white/45 hover:text-white">
               {t('keepBaseReward', 'Keep base reward')}
             </button>
             {claimError && <p role="alert" className="mt-2 text-xs font-semibold text-ruby">{claimError}</p>}
