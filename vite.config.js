@@ -1,11 +1,14 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const stripUnselectedAdLoader = (isCrazyGamesBuild) => ({
+const stripUnselectedAdLoader = (isCrazyGamesBuild, adsEnabled) => ({
   name: 'strip-unselected-ad-loader',
   transformIndexHtml(html) {
     const loaderId = isCrazyGamesBuild ? 'dyut-google-h5-ads-loader' : 'dyut-crazygames-sdk-loader';
-    return html.replace(new RegExp(`\\s*<script id="${loaderId}">[\\s\\S]*?<\\/script>\\s*`, 'g'), '\n');
+    return html
+      .replaceAll('__DYUT_CRAZYGAMES_BUILD__', String(isCrazyGamesBuild))
+      .replaceAll('__DYUT_CG_ENABLE_ADS__', String(adsEnabled))
+      .replace(new RegExp(`\\s*<script id="${loaderId}">[\\s\\S]*?<\\/script>\\s*`, 'g'), '\n');
   },
 });
 
@@ -15,9 +18,10 @@ export default defineConfig(({ mode }) => {
   const isCrazyGamesBuild = process.env.VITE_CRAZYGAMES_BUILD !== undefined
     ? process.env.VITE_CRAZYGAMES_BUILD === 'true'
     : env.VITE_CRAZYGAMES_BUILD === 'true';
+  const adsEnabled = env.VITE_CG_ENABLE_ADS === 'true';
 
   return {
-    plugins: [react(), stripUnselectedAdLoader(isCrazyGamesBuild)],
+    plugins: [react(), stripUnselectedAdLoader(isCrazyGamesBuild, adsEnabled)],
     base: mode === 'crazygames' ? './' : '/',
     build: {
       rollupOptions: {

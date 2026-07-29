@@ -725,7 +725,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
   const activeSeats = Object.entries(seats).filter(([_, s]) => s.type !== 'closed');
   const playerCount = activeSeats.length;
-  const botCount = activeSeats.filter(([_, s]) => s.type === 'bot').length;
   const activeColors = activeSeats.map(([_, s]) => s.color);
 
   useEffect(() => {
@@ -1192,8 +1191,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       };
     }
     
-    const currentActiveSeats = Object.values(newSeats).filter(s => s.type !== 'closed');
-
     setIsHosting(true);
     const newGameId = Math.random().toString(36).substring(2, 8).toUpperCase();
 

@@ -119,6 +119,12 @@ Run tests:
 npm test
 ```
 
+Run the release lint check:
+
+```bash
+npm run lint
+```
+
 Run local browser UI and functionality tests in the installed Google Chrome:
 
 ```bash
@@ -135,6 +141,19 @@ npm run test:all
 ```
 
 Playwright starts a temporary Vite server on `127.0.0.1:4173` unless `PLAYWRIGHT_BASE_URL` points to an already-running server. The suite covers responsive menu layout, local game startup, Play with Friends navigation, victory controls, long-name ellipsis positioning, manual daily/goal reward claims, public-match fee disclosure, public 2v2 selection and human-only prize-split disclosure, and insufficient-balance behavior. Failure screenshots and traces are written under ignored `artifacts/` and `e2e/test-output/` directories.
+
+Release validation should be run serially:
+
+```bash
+npm run lint
+npm test
+npm run test:ui
+npm run build
+npm run build:crazygames
+git diff --check
+```
+
+In CI, Playwright starts a fresh Vite server instead of reusing an existing process. The Google Search Console verification tag should be added only after a real verification code is available.
 
 ## Environment
 

@@ -4,7 +4,7 @@ import { generateBoardCells, PLAYER_PATHS, isSafeZone } from './boardMapping';
 import { useGame, ACTION_TYPES, canLocalClientAct, getActiveTurnPlayerId, isActiveTurnAutoControlledForLocalClient } from './GameContext';
 import MoveSelector from './MoveSelector';
 import VictoryScreen from './VictoryScreen';
-import { getValidMoves, getPairShieldTarget, canSpawnPiece, getProxyPlayerId } from './gameLogic';
+import { getValidMoves, getPairShieldTarget, canSpawnPiece } from './gameLogic';
 import { usePrevious } from './usePrevious';
 import { getEffectiveMuteState, playSound } from './audio';
 import { getPieceSkin } from './pieceSkins';
@@ -122,7 +122,7 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
 };
 
 // Visual Piece Token
-const Piece = ({ color, skinId, isMovable, isHomeStretch, playerId, pieceIndex }) => {
+const Piece = ({ color, skinId, isMovable, isHomeStretch, playerId, _pieceIndex }) => {
   const skin = getPieceSkin(skinId);
   // Map the state color to our Tailwind classes
   const bgClass = {
@@ -426,11 +426,11 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
     }
 
     if (state.isQuickGame) {
-      const winnerEntry = Object.entries(visualPlayers).find(([id, player]) => player.pieces.some(p => p === 999));
+      const winnerEntry = Object.entries(visualPlayers).find(([, player]) => player.pieces.some(p => p === 999));
       if (winnerEntry) {
         if (state.isTeamMode) {
           const winningTeam = winnerEntry[1].team;
-          const teamPlayers = Object.entries(visualPlayers).filter(([id, p]) => p.team === winningTeam).map(e => e[1].name || e[0]);
+          const teamPlayers = Object.entries(visualPlayers).filter(([, p]) => p.team === winningTeam).map(e => e[1].name || e[0]);
           return { id: `Team ${winningTeam} (${teamPlayers.join(' & ')})`, data: {} };
         }
         return { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] };
@@ -445,7 +445,7 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
         teams[player.team].players.push(id);
         if (!player.pieces.every(p => p === 999)) teams[player.team].allFinished = false;
       }
-      const winningTeam = Object.entries(teams).find(([team, data]) => data.allFinished);
+      const winningTeam = Object.entries(teams).find(([, data]) => data.allFinished);
       if (winningTeam) {
         const teamNames = winningTeam[1].players.map(id => visualPlayers[id].name || id);
         return { id: `Team ${winningTeam[0]} (${teamNames.join(' & ')})`, data: {} };
@@ -453,7 +453,7 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
       return null;
     }
 
-    const winnerEntry = Object.entries(visualPlayers).find(([id, player]) => player.pieces.every(p => p === 999));
+    const winnerEntry = Object.entries(visualPlayers).find(([, player]) => player.pieces.every(p => p === 999));
     return winnerEntry ? { id: winnerEntry[1].name || winnerEntry[0], data: winnerEntry[1] } : null;
   }, [visualPlayers, state.isQuickGame, state.isTeamMode, state.status, state.winnerPlayerId]);
 

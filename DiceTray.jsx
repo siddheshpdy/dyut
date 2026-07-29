@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { flushSync } from 'react-dom';
 import { useGame, ACTION_TYPES, TURN_TIMER_WARNING_MS, AFK_BOT_TAKEOVER_STRIKES, canLocalClientAct, doesLocalClientOwnActiveTurn, getActiveTurnPlayerId, getTurnRemainingMs, getTurnTimeoutMs, isGameOverState, shouldLocalClientAutoControlTurn } from './GameContext';
 import { hasAnyPlayableMove, getAutoMove, canSpawnPiece } from './gameLogic';
 import { getEffectiveMuteState, playSound } from './audio';

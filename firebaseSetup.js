@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, signInWithRedirect, linkWithRedirect, getRedirectResult } from 'firebase/auth';
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, getRedirectResult } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
@@ -7,10 +7,7 @@ import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './cr
 const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const SAVED_RESUME_GAME_FIELD = 'savedResumeGame';
 
-// TODO: Replace this with your actual Firebase project configuration from the console
-// 1. Go to console.firebase.google.com
-// 2. Create a project and add a "Web App"
-// 3. Copy the config object below
+// Firebase configuration is supplied through Vite environment variables.
 
 if (!import.meta.env.VITE_FIREBASE_API_KEY) {
   console.error("Firebase API Key is missing! Ensure your GitHub Secrets are correctly mapped in your GitHub Actions workflow files.");
@@ -206,8 +203,6 @@ export const checkAuthRedirect = () => {
 export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-
-  const currentAnonUid = auth.currentUser?.isAnonymous ? auth.currentUser.uid : null;
 
   try {
     if (auth.currentUser && auth.currentUser.isAnonymous) {
