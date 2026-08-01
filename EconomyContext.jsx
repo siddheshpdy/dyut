@@ -5,6 +5,7 @@ import {
   claimRewardMultiplier as claimRewardMultiplierService,
   getEconomyIdentity,
   loadEconomy,
+  purchasePieceSkin as purchasePieceSkinService,
   recordOnlineGoalProgress as recordOnlineGoalProgressService,
   refundPublicMatchEntry as refundEntry,
   reservePublicMatchEntry as reserveEntry,
@@ -122,6 +123,11 @@ export const EconomyProvider = ({ user, children }) => {
     [economyUser, runMutation],
   );
 
+  const purchasePieceSkin = useCallback(
+    (pieceSkinId) => runMutation(() => purchasePieceSkinService(economyUser, pieceSkinId)),
+    [economyUser, runMutation],
+  );
+
   const settlePublicMatch = useCallback(
     (settlement) => runMutation(() => settleMatch(economyUser, settlement)).then((result) => {
       setLastSettlement({
@@ -142,6 +148,7 @@ export const EconomyProvider = ({ user, children }) => {
   const value = useMemo(() => ({
     balance: economy.coins,
     economy,
+    ownedPieceSkinIds: economy.ownedPieceSkinIds,
     goals: getRewardGoals(economy),
     status,
     error,
@@ -155,6 +162,7 @@ export const EconomyProvider = ({ user, children }) => {
     recordOnlineGoalProgress,
     claimGoalReward,
     claimRewardMultiplier,
+    purchasePieceSkin,
     reservePublicEntry,
     settlePublicMatch,
     refundPublicEntry,
@@ -168,6 +176,7 @@ export const EconomyProvider = ({ user, children }) => {
     lastReward,
     recordOnlineGoalProgress,
     claimRewardMultiplier,
+    purchasePieceSkin,
     lastSettlement,
     refresh,
     refundPublicEntry,

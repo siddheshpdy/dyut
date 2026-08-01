@@ -5,6 +5,7 @@ import {
   claimGoalReward as applyGoalClaim,
   claimRewardMultiplier as applyRewardMultiplier,
   normalizeEconomyState,
+  purchasePieceSkin as applyPieceSkinPurchase,
   recordOnlineGoalProgress as applyGoalProgress,
   refundPublicMatchEntry as applyPublicMatchRefund,
   reservePublicMatchEntry as applyPublicEntry,
@@ -117,6 +118,10 @@ export const claimGoalReward = async (user, reward) => (
 
 export const claimRewardMultiplier = async (user, reward) => (
   mutateEconomy(user, (state) => applyRewardMultiplier(state, reward))
+);
+
+export const purchasePieceSkin = async (user, pieceSkinId) => (
+  mutateEconomy(user, (state) => applyPieceSkinPurchase(state, pieceSkinId))
 );
 
 export const reservePublicMatchEntry = async (user, matchId, now = Date.now()) => (

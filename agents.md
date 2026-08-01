@@ -21,6 +21,11 @@ The game relies heavily on centralized state management due to complex inter-dep
 ## 4. AI Agent Directives & Constraints
 To ensure codebase stability, predictability, and high code quality, all AI agents and coding assistants MUST adhere to the following strict constraints when generating responses, updating code, or designing functionality:
 
+### 4.0 UI and Functionality Preservation Contract
+* **Before changing UI or functionality, read `AI_UI_FUNCTIONALITY_PRESERVATION.md`.** It is the current product contract for screen placement, visibility conditions, responsive behaviour, portal branches, rewards, Collection, online lobby, and gameplay UI.
+* **Do not remove, hide, or relocate a documented element unless the user explicitly requires that change.** A conditionally hidden element is still a required feature.
+* When an approved change modifies that contract, update `AI_UI_FUNCTIONALITY_PRESERVATION.md` in the same change.
+
 ### 4.1. Plan-First Approach
 * **Always formulate a plan first.** Before writing or outputting any code modifications, you must explicitly outline a clear, step-by-step plan of action based on the user's request.
 * Think step-by-step about how the requested changes interact with the complex game state and priority engines before proposing diffs.

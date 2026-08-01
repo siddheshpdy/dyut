@@ -16,7 +16,7 @@ import {
   PUBLIC_MATCH_ENTRY_COINS,
   requiresPublicMatchEntry,
 } from './economy';
-import { PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
+import { isPieceSkinOwned, PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -554,13 +554,13 @@ const PlayerProfile = ({ user }) => {
     };
 
     return (
-      <button type="button" onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
+      <button type="button" aria-label={t('signInCrazyGames', 'Log in to save')} onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
         {isSigningIn ? (
           <svg className="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         ) : (
           <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
         )}
-        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
+        <span className="hidden text-[10px] font-bold uppercase tracking-wider text-white min-[480px]:inline">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
       </button>
     );
   } else if (user?.isAnonymous && !IS_PORTAL) {
@@ -673,11 +673,68 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
+const PieceCollection = ({ equippedSkinId, onEquip }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [purchaseError, setPurchaseError] = useState(null);
+  const { t } = useTranslation();
+  const { balance, ownedPieceSkinIds, purchasePieceSkin, status } = useEconomy();
+  const equippedId = normalizePieceSkinId(equippedSkinId);
+
+  const handleSkinAction = async (skin) => {
+    setPurchaseError(null);
+    if (isPieceSkinOwned(skin.id, ownedPieceSkinIds)) {
+      onEquip(skin.id);
+      return;
+    }
+    try {
+      const result = await purchasePieceSkin(skin.id);
+      if (result.applied || result.state?.ownedPieceSkinIds?.includes(skin.id)) onEquip(skin.id);
+    } catch (error) {
+      setPurchaseError(error?.code === 'insufficient-coins'
+        ? t('notEnoughCoins', 'Not enough Temple Coins.')
+        : t('piecePurchaseFailed', 'Could not purchase this design.'));
+    }
+  };
+
+  return (
+    <>
+      <button type="button" data-testid="collection-button" onClick={() => setIsOpen(true)} aria-label={t('openCollection', 'Open Collection')} className="shrink-0 rounded-full border border-gold/35 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-gold transition-colors hover:bg-gold/15">
+        {t('collection', 'Collection')}
+      </button>
+      {isOpen && (
+        <div className="fixed inset-0 z-[160] flex items-start justify-center overflow-y-auto bg-black/88 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label={t('pieceCollection', 'Piece Collection')}>
+          <section className="relative w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-gold/50 bg-[#0b0c0d] shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)]">
+            <button type="button" onClick={() => setIsOpen(false)} aria-label={t('close', 'Close')} className="absolute right-4 top-4 z-10 rounded-lg bg-[#0b0c0d] px-2 py-1 text-white/70 hover:bg-white/10 sm:right-6 sm:top-6">×</button>
+            <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6">
+            <div className="mb-4 flex items-start gap-3 pr-8">
+              <div><h2 className="font-display text-xl font-bold uppercase tracking-wider text-gold">{t('pieceCollection', 'Piece Collection')}</h2><p className="mt-1 text-xs text-white/75">{t('pieceCollectionDescription', 'Buy designs with Temple Coins, then equip them for your Player 1 seat.')}</p></div>
+            </div>
+            <div className="mb-4 rounded-xl border border-gold/25 bg-black/30 px-3 py-2 text-sm font-bold text-gold">{status === 'loading' ? '…' : `${balance.toLocaleString()} ${t('templeCoins', 'Temple Coins')}`}</div>
+            <p className="mb-3 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/55">
+              {t('collectionScrollHint', 'Scroll to browse every design')} <span aria-hidden="true">↓</span>
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {PIECE_SKINS.map((skin) => {
+                const isEquipped = equippedId === skin.id;
+                const isOwned = isPieceSkinOwned(skin.id, ownedPieceSkinIds);
+                const canAfford = isOwned || balance >= skin.price;
+                return <div key={skin.id} className={`flex items-center gap-3 rounded-xl border bg-black/30 p-3 ${isEquipped ? 'border-gold/80 shadow-[inset_0_0_18px_rgba(234,179,8,0.12)]' : 'border-white/15'}`}><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-gold/45 bg-gold/10 text-2xl text-gold" aria-hidden="true">{skin.symbol}</span><div className="min-w-0 flex-1"><div className="font-bold text-white">{t(skin.nameKey, skin.fallbackName)}</div><div className="text-xs text-white/60">{isEquipped ? t('equipped', 'Equipped') : isOwned ? t('owned', 'Owned') : `${skin.price} ${t('coins', 'coins')}`}</div></div><button type="button" onClick={() => handleSkinAction(skin)} disabled={isEquipped || status === 'loading' || !canAfford} className="rounded-lg border border-gold/35 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-gold transition-colors hover:bg-gold/15 disabled:cursor-not-allowed disabled:opacity-45">{isEquipped ? t('equipped', 'Equipped') : isOwned ? t('equip', 'Equip') : `${t('buy', 'Buy')} ${skin.price}`}</button></div>;
+              })}
+            </div>
+            {purchaseError && <p role="alert" className="mt-3 text-sm font-semibold text-ruby">{purchaseError}</p>}
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+};
+
 const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, autoStartPlayWithFriendsConfig = null, onPlayWithFriendsAutoStartConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
-    Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+    Player1: { type: 'human', color: 'ruby', name: '', uid: null, pieceSkinId: normalizePieceSkinId() },
     Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
   });
   const [botDifficulty, setBotDifficulty] = useState('hard');
@@ -990,7 +1047,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
   const startPortalBotMatch = () => {
     const newSeats = {
-      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
       Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
       Player4: { type: 'bot', color: 'amber', name: '', uid: null }
@@ -1054,7 +1111,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setSeats({
       Player4: { type: 'closed', color: 'amber', name: '', uid: null },
       Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
-      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
     });
     setIsTeamMode(false);
@@ -1086,6 +1143,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const newSeats = { ...seats, [playerId]: { ...seats[playerId], pieceSkinId: normalizedSkinId } };
     setSeats(newSeats);
     pushUpdate('seats', newSeats);
+  };
+
+  const handleCollectionSkinChange = (pieceSkinId) => {
+    handleSeatSkinChange('Player1', pieceSkinId);
   };
 
   const openPrivateSetup = () => promptForSavedResume('online', () => {
@@ -1180,14 +1241,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       newSeats = {
         Player4: { type: 'closed', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
         Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
       };
     } else {
       newSeats = {
         Player4: { type: 'human', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
         Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
       };
     }
@@ -1445,9 +1506,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       )}
       {/* Top Navigation Bar */}
-      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-4' : ''}`}>
-        <div className="flex items-center gap-3">
-          <LanguageSwitcher />
+      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-2 py-4 min-[480px]:px-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-4' : ''}`}>
+        <div className="flex items-center gap-2 min-[480px]:gap-3">
+          <div className="hidden min-[480px]:block"><LanguageSwitcher /></div>
           <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
             <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
           </button>
@@ -1460,16 +1521,18 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
           <button onClick={onShowAbout} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><InfoIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('aboutUs', 'About Us')}</span></button>
         </nav>
         
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-1 min-[480px]:gap-3">
           <EconomySummary compact />
+          <PieceCollection equippedSkinId={seats.Player1.pieceSkinId} onEquip={handleCollectionSkinChange} />
           <PlayerProfile user={user} />
           
           <div className="relative flex items-center lg:hidden">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] p-2 ml-2">
+            <button type="button" aria-label={t('openNavigationMenu', 'Open navigation menu')} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] p-2 ml-2">
               <MenuIcon className="h-6 w-6" aria-hidden="true" />
             </button>
             {isMobileMenuOpen && (
               <div className="absolute right-0 top-12 glass-panel p-4 rounded-xl flex flex-col gap-4 min-w-[150px] shadow-2xl z-50 bg-[var(--color-panel-bg)]">
+                <div className="min-[480px]:hidden"><LanguageSwitcher /></div>
                 <button onClick={() => { setIsMobileMenuOpen(false); onShowTutorial(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><HowToPlayIcon className="h-4 w-4" aria-hidden="true" />{t('howToPlay', 'How to Play')}</button>
                 <button onClick={() => { setIsMobileMenuOpen(false); onShowRules(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><RulesIcon className="h-4 w-4" aria-hidden="true" />{t('rules', 'Rules')}</button>
                 <button onClick={() => { setIsMobileMenuOpen(false); onShowHistory(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><HistoryIcon className="h-4 w-4" aria-hidden="true" />{t('history', 'History')}</button>
@@ -1734,9 +1797,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                 <button onClick={() => {
                   let newSeats = {};
                   if (matchType === '1v1') {
-                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
                   } else {
-                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
                   }
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');

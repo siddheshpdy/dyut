@@ -284,7 +284,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
     ? 'relative z-10 flex w-full min-w-0 max-w-none flex-col items-center gap-2 overflow-hidden rounded-[22px] border border-gold/45 bg-[#080604]/92 p-2 shadow-[0_0_42px_rgba(0,0,0,0.82),inset_0_0_36px_rgba(234,179,8,0.07)] transition-all duration-500 sm:rounded-[28px] sm:p-4'
     : isCompactLandscapeTray
       ? 'relative z-10 flex h-full w-full min-h-0 max-w-none flex-col items-center gap-2 overflow-hidden rounded-2xl border border-gold/50 bg-[#050403]/82 p-3 shadow-[0_0_34px_rgba(0,0,0,0.78),inset_0_0_30px_rgba(234,179,8,0.08)] transition-all duration-500'
-    : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-auto lg:max-h-[min(calc(100dvh-8.75rem),660px)] lg:min-h-0 lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3 lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:max-h-[min(calc(100dvh-9rem),700px)] xl:w-[350px] xl:max-w-[350px] xl:gap-3.5 xl:p-5 xl:pt-4';
+      : 'relative z-10 flex w-full max-w-[98vw] flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-black/55 p-4 shadow-[0_0_38px_rgba(0,0,0,0.72),inset_0_0_34px_rgba(234,179,8,0.06)] transition-all duration-500 sm:max-w-sm sm:rounded-3xl sm:p-6 lg:h-[min(calc(100dvh-8.75rem),660px)] lg:min-h-0 lg:w-[330px] lg:max-w-[330px] lg:justify-start lg:gap-3 lg:overflow-hidden lg:border-gold/55 lg:bg-[#050403]/68 lg:p-4 lg:pt-3.5 lg:shadow-[0_0_44px_rgba(0,0,0,0.78),inset_0_0_40px_rgba(234,179,8,0.08)] xl:h-[min(calc(100dvh-9rem),700px)] xl:w-[350px] xl:max-w-[350px] xl:gap-3.5 xl:p-5 xl:pt-4';
 
   return (
     <>
@@ -441,7 +441,7 @@ const DiceTray = ({ layoutMode = 'desktop' }) => {
           )}
         </div>
 
-        <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full min-w-0' : isCompactLandscapeTray ? 'w-full min-h-0 flex-1' : 'w-full min-h-0 lg:h-[8.75rem] lg:flex-none xl:h-[9.25rem]'}`}>
+          <div className={`${layoutMode === 'mobile' ? 'mt-0.5 w-full min-w-0' : isCompactLandscapeTray ? 'w-full min-h-0 flex-1' : 'w-full min-h-0 lg:min-h-[5.5rem] lg:flex-1'}`}>
           <div className={`relative flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl border border-gold/35 bg-black/45 p-2 sm:min-h-[64px] sm:p-3 lg:h-full lg:min-h-0 lg:w-full lg:rounded-2xl lg:bg-black/38 lg:px-4 lg:py-2 ${layoutMode === 'mobile' ? 'min-h-[4.6rem] w-full rounded-2xl bg-black/34 px-2.5 py-2 items-stretch justify-start' : isCompactLandscapeTray ? 'h-full w-full min-h-0 bg-black/38 px-3 py-2' : ''}`}>
             {layoutMode === 'mobile' ? (
               <div className="mb-1 flex w-full items-center justify-between gap-2">

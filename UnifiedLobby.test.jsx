@@ -20,6 +20,8 @@ const economyMocks = vi.hoisted(() => ({
   claimGoalReward: vi.fn(async () => ({ applied: true })),
   claimRewardMultiplier: vi.fn(async () => ({ applied: true })),
   reservePublicEntry: vi.fn(async () => ({ applied: true })),
+  ownedPieceSkinIds: ['classic'],
+  purchasePieceSkin: vi.fn(async () => ({ applied: true, state: { ownedPieceSkinIds: ['classic', 'lotus'] } })),
 }));
 
 vi.mock('react-i18next', () => ({
@@ -73,6 +75,8 @@ vi.mock('./EconomyContext', () => ({
     claimGoalReward: economyMocks.claimGoalReward,
     claimRewardMultiplier: economyMocks.claimRewardMultiplier,
     reservePublicEntry: economyMocks.reservePublicEntry,
+    ownedPieceSkinIds: economyMocks.ownedPieceSkinIds,
+    purchasePieceSkin: economyMocks.purchasePieceSkin,
   }),
 }));
 
@@ -95,6 +99,8 @@ beforeEach(() => {
   economyMocks.claimGoalReward.mockReset().mockResolvedValue({ applied: true });
   economyMocks.claimRewardMultiplier.mockReset().mockResolvedValue({ applied: true });
   economyMocks.reservePublicEntry.mockReset().mockResolvedValue({ applied: true });
+  economyMocks.ownedPieceSkinIds = ['classic'];
+  economyMocks.purchasePieceSkin.mockReset().mockResolvedValue({ applied: true, state: { ownedPieceSkinIds: ['classic', 'lotus'] } });
   delete window.CrazyGames;
   delete window.cgInitPromise;
   localStorage.clear();

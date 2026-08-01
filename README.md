@@ -15,7 +15,7 @@ The repository is already beyond prototype stage. It currently includes:
 - Single-player bot support with heuristic AI, Max Value-aware bot decisions, queued-roll fallback, and team-mode effective-player ownership
 - Firebase authentication, player profiles, and online multiplayer sync
 - Temple Coin economy with a manually claimed 500-coin UTC daily reward, visible daily/weekly online-play goals with explicit claims, and an optional ad-based reward multiplier. Public Online Match uses a 200-coin entry while ads are disabled (500 when `VITE_CG_ENABLE_ADS=true`), a 10% match fee, and idempotent prize settlement. 1v1/FFA award the remaining pool to one winner, while public 2v2 divides 90% of the paid human-entry pool equally among winning human teammates. Bots neither pay an entry nor receive a prize share. Offline play, Play with Friends, and CrazyGames Instant Multiplayer remain free
-- Four selectable piece designs carried in match snapshots independently from seat color; players may choose the same design while unique seat colors preserve player identity
+- A Collection beside Rewards keeps the Classic design free and lets players permanently purchase Lotus (750 coins), Chakra (1,200), Royal (2,000), Conch (3,000), Peacock (4,500), Eclipse (6,500), Temple (9,000), and Celestial (12,000) with earned Temple Coins. Every paid design costs more than a single 500-coin daily reward. Equipped designs are carried in match snapshots independently from seat color, so players may choose the same design while unique seat colors preserve player identity
 - Public/private lobby flows, host migration, true per-turn countdowns on desktop and mobile, 60-second local turns, 30-second online turns, timer refresh on dice roll, AFK handling with visible strike warnings, host-owned auto-roll handoff for bot/AFK-controlled turns (including recovery of missing bot ownership metadata from legacy cached clients, so bot-filled seats do not wait for the turn timeout), bot takeover for disconnected/AFK online players, automatic online match finish with a forfeit winner when fewer than two human seats remain, player reclaim on return before permanent takeover, and signed-in account-backed resume for resumable private online matches across devices
 - Mobile and desktop play both support rolling directly from the dice panel, with the dice area muted for inactive turns and gold-highlighted when the local human player can roll
 - Tutorial, rules, history, and about screens
@@ -53,7 +53,7 @@ Key files:
 - [UnifiedLobby.jsx](./UnifiedLobby.jsx): local/online match setup, seat claiming, lobby syncing, and profile controls
 - [aiLogic.js](./aiLogic.js): bot heuristics and move scoring
 - [firebaseSetup.js](./firebaseSetup.js): Firebase initialization, auth helpers, and profile/stat updates
-- [economy.js](./economy.js): integer-only wallet, daily/weekly goal progress, claim, multiplier, entry, pool, fee, payout, draw-refund, and idempotency rules
+- [economy.js](./economy.js): integer-only wallet, cosmetic purchases, daily/weekly goal progress, claim, multiplier, entry, pool, fee, payout, draw-refund, and idempotency rules
 - [economyService.js](./economyService.js): standalone, anonymous/local, and CrazyGames economy persistence adapters
 - [EconomyContext.jsx](./EconomyContext.jsx): wallet loading, manual daily/goal reward claims, optional ad multipliers, and app-wide balance/settlement state
 - [pieceSkins.js](./pieceSkins.js): safe piece-design catalog, default fallback, and stable design identifiers
