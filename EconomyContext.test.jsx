@@ -25,6 +25,7 @@ const EconomyProbe = () => {
     dailyRewardAvailable,
     isClaimingDailyReward,
     claimDailyReward,
+    status,
   } = useEconomy();
 
   return (
@@ -32,6 +33,7 @@ const EconomyProbe = () => {
       <output data-testid="probe-balance">{balance}</output>
       <output data-testid="probe-available">{String(dailyRewardAvailable)}</output>
       <output data-testid="probe-claiming">{String(isClaimingDailyReward)}</output>
+      <output data-testid="probe-status">{status}</output>
       <button type="button" onClick={claimDailyReward}>Claim</button>
     </>
   );
@@ -70,5 +72,29 @@ describe('EconomyProvider daily reward', () => {
     expect(screen.getByTestId('probe-available')).toHaveTextContent('false');
     expect(screen.getByTestId('probe-claiming')).toHaveTextContent('false');
     expect(serviceMocks.claimDailyReward).toHaveBeenCalledOnce();
+  });
+
+  it('does not load a guest economy while auth is still resolving', async () => {
+    const { rerender } = render(
+      <EconomyProvider user={null} authReady={false}>
+        <EconomyProbe />
+      </EconomyProvider>,
+    );
+
+    expect(screen.getByTestId('probe-status')).toHaveTextContent('loading');
+    expect(screen.getByTestId('probe-balance')).toHaveTextContent('0');
+    expect(serviceMocks.loadEconomy).not.toHaveBeenCalled();
+
+    rerender(
+      <EconomyProvider user={{ uid: 'gmail-user', isAnonymous: false }} authReady>
+        <EconomyProbe />
+      </EconomyProvider>,
+    );
+
+    await waitFor(() => expect(serviceMocks.loadEconomy).toHaveBeenCalledWith({
+      uid: 'test-user',
+      isAnonymous: false,
+    }));
+    await waitFor(() => expect(screen.getByTestId('probe-status')).toHaveTextContent('ready'));
   });
 });

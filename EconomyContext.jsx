@@ -15,7 +15,7 @@ import { getRewardGoals, getUtcDayKey, normalizeEconomyState } from './economy.j
 
 const EconomyContext = createContext(null);
 
-export const EconomyProvider = ({ user, children }) => {
+export const EconomyProvider = ({ user, children, authReady = true }) => {
   const [economy, setEconomy] = useState(() => normalizeEconomyState());
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
@@ -38,6 +38,17 @@ export const EconomyProvider = ({ user, children }) => {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!authReady) {
+      setStatus('loading');
+      setError(null);
+      setDailyReward(null);
+      setLastReward(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setStatus('loading');
     setError(null);
     setDailyReward(null);
@@ -60,7 +71,7 @@ export const EconomyProvider = ({ user, children }) => {
     return () => {
       cancelled = true;
     };
-  }, [economyIdentity, economyUser]);
+  }, [authReady, economyIdentity, economyUser]);
 
   const runMutation = useCallback(async (operation) => {
     setError(null);

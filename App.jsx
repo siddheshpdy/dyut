@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Board from './Board';
 import DiceTray from './DiceTray';
-import UnifiedLobby from './UnifiedLobby';
+import UnifiedLobby, { EconomySummary } from './UnifiedLobby';
 import RulesScreen from './RulesScreen';
 import TutorialScreen from './TutorialScreen';
 import HistoryScreen from './HistoryScreen';
@@ -25,11 +25,13 @@ const ONLINE_GAME_ID_KEY = 'dyut_last_online_id';
 const FIRST_GAME_HELP_KEY = 'dyut_has_seen_in_game_how_to_play';
 const CRAZYGAMES_STATS_KEY = 'dyut_stats';
 const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
-const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+// Medium/tablet viewports use the mobile holder and queue layout so no player
+// base or queue content is clipped. The full desktop tray remains desktop-only.
+const DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
 const SHORT_MOBILE_HEIGHT_MEDIA_QUERY = '(max-height: 740px)';
 const COMPACT_LANDSCAPE_MEDIA_QUERY = '(orientation: landscape) and (min-width: 760px) and (max-height: 740px)';
-const MOBILE_HEADER_RESERVED_SPACE = 'clamp(4.5rem, 10.5vh, 5.35rem)';
-const MOBILE_HEADER_RESERVED_SPACE_SHORT = '4.15rem';
+const MOBILE_HEADER_RESERVED_SPACE = 'clamp(3.8rem, 8.5vh, 4.3rem)';
+const MOBILE_HEADER_RESERVED_SPACE_SHORT = '3.65rem';
 const MOBILE_TRAY_RESERVED_SPACE = 'clamp(13.5rem, 24.5vh, 15rem)';
 const MOBILE_TRAY_RESERVED_SPACE_SHORT = '12.2rem';
 const getQaPreviewScreen = () => {
@@ -153,9 +155,10 @@ const useIsCompactLandscape = () => {
   return isCompactLandscape;
 };
 
-const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute }) => {
+const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, onReturnToMenu, isMuted, toggleMute, user }) => {
   const { t } = useTranslation();
   const { state, leaveGame } = useGame();
+  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
   const ExitIcon = DYUT_ICONS.exit;
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
   const HowToPlayIcon = DYUT_ICONS.howToPlay;
@@ -163,6 +166,9 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
   const HistoryIcon = DYUT_ICONS.history;
   const AboutIcon = DYUT_ICONS.inviteFriend;
   const ScoreIcon = DYUT_ICONS.score;
+  const ProfileIcon = DYUT_ICONS.profileFallback;
+  const MenuIcon = DYUT_ICONS.menu;
+  const CloseIcon = DYUT_ICONS.close;
   const activeScore = state.players?.[state.currentPlayer]?.pieces?.filter(pos => pos === 999).length || 0;
   
   const handleMenuClick = () => {
@@ -177,59 +183,43 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
 
   return (
     <>
-    <div className="absolute left-2.5 right-2.5 top-2.5 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-xl border border-gold/30 bg-black/55 px-3 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.65)] backdrop-blur-md lg:hidden">
-      <div>
-        <div className="dyut-title text-[1.7rem] font-bold leading-none tracking-[0.18em] text-gold text-glow-gold">DYUT</div>
-        <div className="font-display text-[8px] font-bold uppercase tracking-[0.18em] text-gold/80">{t('gameOfLegends', 'The Game of Legends')}</div>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <button onClick={toggleMute} className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-gold" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-          <SoundIcon className={`h-4.5 w-4.5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
+      <header className="absolute inset-x-0 top-0 z-[80] flex h-[3.75rem] items-center border-b border-gold/35 bg-[#0b0c0c]/95 px-4 shadow-[0_5px_20px_rgba(0,0,0,0.3)] backdrop-blur-md sm:px-5 min-[1200px]:h-[4.25rem] min-[1200px]:px-8">
+        <button type="button" onClick={() => setIsGameMenuOpen((open) => !open)} aria-expanded={isGameMenuOpen} aria-controls="game-navigation-pane" aria-label={isGameMenuOpen ? t('closeMenu', 'Close menu') : t('openMenu', 'Open menu')} className="flex h-9 w-9 shrink-0 items-center justify-center text-gold transition-colors hover:text-[#ffe17b] min-[1200px]:h-10 min-[1200px]:w-10">
+          {isGameMenuOpen ? <CloseIcon className="h-5 w-5" aria-hidden="true" /> : <MenuIcon className="h-7 w-7" strokeWidth={2.2} aria-hidden="true" />}
         </button>
-        <button onClick={onShowRules} className="h-9 rounded-full border border-gold/30 bg-black/35 px-3.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white/75 transition-colors hover:text-gold">
-          {t('rules', 'Rules')}
-        </button>
-        <button onClick={handleMenuClick} className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/30 bg-black/35 text-white/75 transition-colors hover:text-ruby" title={t('exitGame', 'Exit Game')}>
-          <ExitIcon className="h-4.5 w-4.5" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
 
-    <div className="absolute left-4 right-4 top-4 z-50 hidden grid-cols-[minmax(0,0.95fr)_auto_minmax(0,0.82fr)] items-center gap-3 rounded-[22px] border border-gold/45 bg-[#050403]/75 px-4 py-1 shadow-[0_0_34px_rgba(0,0,0,0.76),inset_0_0_36px_rgba(234,179,8,0.07)] backdrop-blur-md lg:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-4 xl:px-9 xl:py-1.5">
-      <nav className="flex min-w-0 flex-nowrap items-center gap-3 justify-self-start text-white/80 xl:gap-x-7">
-        <button onClick={onShowTutorial} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HowToPlayIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('howToPlay', 'How to Play')}</span></button>
-        <button onClick={onShowRules} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><RulesIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('rules', 'Rules')}</span></button>
-        <button onClick={onShowHistory} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><HistoryIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('history', 'History')}</span></button>
-        <button onClick={onShowAbout} className="group flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-gold xl:gap-3"><AboutIcon className="h-4.5 w-4.5 shrink-0 text-gold transition-transform group-hover:-translate-y-0.5 xl:h-6 xl:w-6" aria-hidden="true" /><span className="font-display text-[0.92rem] xl:text-lg">{t('aboutUs', 'About Us')}</span></button>
-      </nav>
-
-      <div className="flex flex-col items-center justify-self-center">
-        <div className="flex items-center gap-2 xl:gap-4">
-          <span className="h-px w-8 bg-gradient-to-r from-transparent via-gold/70 to-gold xl:w-16"></span>
-          <h1 className="dyut-title text-[2.6rem] font-bold leading-none tracking-[0.14em] text-gold text-glow-gold xl:text-6xl">DYUT</h1>
-          <span className="h-px w-8 bg-gradient-to-l from-transparent via-gold/70 to-gold xl:w-16"></span>
+        <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center">
+          <h1 className="dyut-title font-display text-[1.2rem] font-bold leading-none tracking-[0.12em] text-gold text-glow-gold max-[399px]:text-[1.05rem] sm:text-[1.9rem] sm:tracking-[0.17em] min-[1200px]:text-[2.25rem]">DYUT</h1>
         </div>
-        <span className="-mt-1 font-display text-[9px] font-bold uppercase tracking-[0.2em] text-gold xl:text-xs xl:tracking-[0.28em]">{t('gameOfLegends', 'The Game of Legends')}</span>
-      </div>
 
-      <div className="flex items-center justify-end gap-2.5 justify-self-end xl:gap-5">
-        <div className="flex overflow-hidden rounded-xl border border-gold/35 bg-black/45 shadow-[inset_0_0_18px_rgba(0,0,0,0.55)]">
-          <div className="flex items-center gap-2 px-2.5 py-1 xl:gap-3 xl:px-5 xl:py-2">
-            <ScoreIcon className="h-5.5 w-5.5 text-gold xl:h-7 xl:w-7" aria-hidden="true" />
-            <div className="text-center">
-              <div className="font-display text-lg leading-none text-white/90 xl:text-2xl">{activeScore}</div>
-              <div className="mt-1 text-[8px] font-bold uppercase tracking-widest text-white/70 xl:text-[10px]">{t('score', 'Score')}</div>
-            </div>
+        <div className="ml-auto flex items-center gap-2 sm:gap-3 min-[1200px]:gap-7 min-[1500px]:gap-10">
+          <div className="hidden items-center gap-2 text-white/90 min-[700px]:flex min-[1200px]:min-w-[7.25rem] min-[1200px]:justify-center" title={t('score', 'Score')}>
+            <ScoreIcon className="h-5 w-5 text-gold min-[1200px]:h-6 min-[1200px]:w-6" strokeWidth={1.8} aria-hidden="true" />
+            <span className="font-display text-sm leading-none min-[1200px]:text-base">{activeScore} <span className="hidden min-[1200px]:inline">{t('score', 'Score')}</span></span>
           </div>
+          <EconomySummary compact gameHeader />
+          <button onClick={toggleMute} className="flex h-9 w-9 items-center justify-center text-gold transition-colors hover:text-[#ffe17b] min-[1200px]:h-10 min-[1200px]:w-10" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+            <SoundIcon className={`h-5 w-5 min-[1200px]:h-6 min-[1200px]:w-6 ${isMuted ? 'text-ruby' : ''}`} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <button type="button" className="hidden h-10 w-10 items-center justify-center rounded-full border border-gold/65 bg-[radial-gradient(circle_at_50%_35%,rgba(234,179,8,0.3),rgba(0,0,0,0.2))] text-gold shadow-[inset_0_0_12px_rgba(234,179,8,0.12)] min-[700px]:flex min-[1200px]:h-12 min-[1200px]:w-12" title={user?.displayName || t('playerProfile', 'Player profile')} aria-label={t('playerProfile', 'Player profile')}>
+            <ProfileIcon className="h-5 w-5 min-[1200px]:h-6 min-[1200px]:w-6" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <button onClick={handleMenuClick} className="flex h-9 w-9 items-center justify-center text-gold transition-colors hover:text-ruby min-[1200px]:h-10 min-[1200px]:w-10" title={t('exitGame', 'Exit Game')}>
+            <ExitIcon className="h-5 w-5 min-[1200px]:h-6 min-[1200px]:w-6" strokeWidth={1.8} aria-hidden="true" />
+          </button>
         </div>
-        <button onClick={toggleMute} className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-gold xl:h-14 xl:w-14" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
-          <SoundIcon className={`h-5.5 w-5.5 xl:h-7 xl:w-7 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
-        </button>
-        <button onClick={handleMenuClick} className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/45 text-white/75 shadow-[inset_0_0_18px_rgba(0,0,0,0.5)] transition-colors hover:text-ruby xl:h-14 xl:w-14" title={t('exitGame', 'Exit Game')}>
-          <ExitIcon className="h-5.5 w-5.5 xl:h-7 xl:w-7" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
+      </header>
+
+      {isGameMenuOpen && <button type="button" aria-label={t('closeMenu', 'Close menu')} onClick={() => setIsGameMenuOpen(false)} className="fixed inset-0 z-[60] bg-black/55 backdrop-blur-[1px]" />}
+      <aside id="game-navigation-pane" aria-label={t('gameNavigation', 'Game navigation')} className={`lobby-navigation-pane fixed bottom-0 left-0 top-0 z-[70] flex w-[min(18rem,86vw)] flex-col border-r border-gold/35 bg-[#11100e]/[0.98] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] shadow-[12px_0_40px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-transform duration-300 ${isGameMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="mb-4 border-b border-gold/25 pb-3 font-display text-xs font-bold uppercase tracking-[0.22em] text-gold/75">{t('gameMenu', 'Game Menu')}</div>
+        <nav className="flex flex-col" aria-label={t('gameInformation', 'Game information')}>
+          <button type="button" onClick={() => { setIsGameMenuOpen(false); onShowTutorial(); }} className="lobby-navigation-item"><HowToPlayIcon className="h-6 w-6" aria-hidden="true" />{t('howToPlay', 'How to Play')}</button>
+          <button type="button" onClick={() => { setIsGameMenuOpen(false); onShowRules(); }} className="lobby-navigation-item"><RulesIcon className="h-6 w-6" aria-hidden="true" />{t('rules', 'Rules')}</button>
+          <button type="button" onClick={() => { setIsGameMenuOpen(false); onShowHistory(); }} className="lobby-navigation-item"><HistoryIcon className="h-6 w-6" aria-hidden="true" />{t('history', 'History')}</button>
+          <button type="button" onClick={() => { setIsGameMenuOpen(false); onShowAbout(); }} className="lobby-navigation-item"><AboutIcon className="h-6 w-6" aria-hidden="true" />{t('aboutUs', 'About Us')}</button>
+        </nav>
+      </aside>
     </>
   );
 };
@@ -354,6 +344,7 @@ function App() {
   const [view, setView] = useState(() => qaScenarioConfig ? 'game' : 'menu'); // 'menu', 'rules', 'setup', 'game'
   const [gameConfig, setGameConfig] = useState(() => qaScenarioConfig); // { playerCount, playerColors, isVoidRuleEnabled }
   const [user, setUser] = useState(null);
+  const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [joinGameId, setJoinGameId] = useState(null);
   const [hasCachedGame, setHasCachedGame] = useState(() => hasOfflineResumeCache());
   const [deviceOnlineGameId, setDeviceOnlineGameId] = useState(() => localStorage.getItem(ONLINE_GAME_ID_KEY));
@@ -373,6 +364,7 @@ function App() {
   const compactLandscapeBoardSize = `min(calc(100dvh - ${mobileHeaderReservedSpace} - env(safe-area-inset-bottom) - 1rem), 58vw)`;
   const viewRef = useRef(view);
   const joinGameIdRef = useRef(joinGameId);
+  const authIdentityRef = useRef(null);
   const portalAutoStartQueuedRef = useRef(false);
   const portalInstantMultiplayerQueuedRef = useRef(false);
 
@@ -488,6 +480,14 @@ function App() {
       const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
         if (!isMounted) return;
 
+        const authIdentity = currentUser
+          ? `${currentUser.uid}:${currentUser.isAnonymous ? 'anonymous' : 'account'}`
+          : 'signed-out';
+        if (authIdentityRef.current !== authIdentity) {
+          setIsAuthResolved(false);
+          authIdentityRef.current = authIdentity;
+        }
+
         if (currentUser) {
           if (!currentUser.isAnonymous) {
             await initializeUserProfile(currentUser);
@@ -506,6 +506,7 @@ function App() {
           }
           setUser(null);
         }
+        setIsAuthResolved(true);
       });
       return unsubscribe;
     };
@@ -821,14 +822,17 @@ function App() {
               onReturnToMenu={handleReturnToMenu}
               isMuted={isMuted}
               toggleMute={toggleMute}
+              user={user}
             />
             {isDesktop ? (
-              <div className="relative z-10 flex h-[100dvh] w-full flex-row items-start justify-center gap-8 overflow-hidden px-8 pb-4 pt-[7.4rem] xl:gap-10 xl:px-10 xl:pt-[7.75rem]">
-                <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="desktop" />
+              <div className="relative z-10 flex h-[100dvh] w-full overflow-hidden pt-[4.25rem]">
+                <div className="flex min-w-0 flex-1 items-center justify-center overflow-hidden px-4 py-3 xl:px-8 xl:py-4">
+                  <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="desktop" />
+                </div>
                 <DiceTray layoutMode="desktop" />
               </div>
             ) : shouldUseCompactLandscapeLayout ? (
-              <div className={`relative z-10 flex h-[100dvh] w-full overflow-hidden px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
+              <div className={`relative z-10 flex h-[100dvh] w-full overflow-hidden px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isShortMobileHeight ? 'pt-[3.65rem]' : 'pt-[clamp(3.8rem,8.5vh,4.3rem)]'}`}>
                 <div className="flex min-h-0 w-full items-center justify-center gap-3 sm:gap-4">
                   <div className="shrink-0" style={{ width: compactLandscapeBoardSize, height: compactLandscapeBoardSize }}>
                     <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="mobile" hideActiveBaseOnMobile={false} />
@@ -839,7 +843,7 @@ function App() {
                 </div>
               </div>
             ) : (
-              <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[4.15rem]' : 'pt-[clamp(4.5rem,10.5vh,5.35rem)]'}`}>
+              <div className={`relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3 ${isShortMobileHeight ? 'pt-[3.65rem]' : 'pt-[clamp(3.8rem,8.5vh,4.3rem)]'}`}>
                 <div className={`flex min-h-0 flex-1 items-center overflow-hidden ${isShortMobileHeight ? 'justify-start pt-0.5 pb-1' : 'justify-center pt-2 pb-2 [@media(min-height:780px)]:items-end [@media(min-height:780px)]:pb-3 [@media(min-height:900px)]:pb-4'}`}>
                   <div style={{ width: mobileBoardSize, height: mobileBoardSize }}>
                     <Board onGoToMenu={handleWipeAndGoToMenu} onNewGame={handleStartSameGame} layoutMode="mobile" />
@@ -881,7 +885,7 @@ function App() {
   };
 
   return (
-    <EconomyProvider user={user}>
+    <EconomyProvider user={user} authReady={isAuthResolved}>
       <main className={`h-[100dvh] w-full bg-[var(--color-charcoal)] flex items-center justify-center relative overflow-hidden outline-none font-sans ${view === 'menu' || view === 'game' ? 'p-0' : 'p-3 sm:p-4'}`}>
         {view !== 'menu' && view !== 'game' && (
           <button onClick={toggleMute} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-10 h-10 glass-panel rounded-full flex items-center justify-center text-white/70 hover:text-gold transition-colors z-[100]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>

@@ -86,6 +86,7 @@ vi.mock('./GameContext', () => ({
 }));
 
 vi.mock('./UnifiedLobby', () => ({
+  EconomySummary: () => <button type="button">treasury</button>,
   default: ({ onStartGame }) => (
     <button type="button" onClick={() => onStartGame(sampleConfig)}>
       start-sample-game

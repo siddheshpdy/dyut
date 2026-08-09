@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DiceTray from './DiceTray';
 import { isGameOverState, shouldLocalClientAutoControlTurn, useGame } from './GameContext';
@@ -28,7 +28,8 @@ vi.mock('./useAIBot', () => ({ useAIBot: vi.fn() }));
 vi.mock('./gameLogic', () => ({
     hasAnyPlayableMove: vi.fn(() => true),
     getAutoMove: vi.fn(() => null),
-    getProxyPlayerId: vi.fn((id) => id)
+    getProxyPlayerId: vi.fn((id) => id),
+    canSpawnPiece: vi.fn(() => false)
 }));
 
 describe('DiceTray Component', () => {
@@ -46,7 +47,7 @@ describe('DiceTray Component', () => {
             state: {
                 currentPlayer: 'Player1',
                 players: { Player1: { name: 'Alice', color: 'ruby' } },
-                turnQueue: [],
+                turnQueue: [{ d1: 4, d2: 4, sum: 8 }],
                 hasRolledThisTurn: false,
                 rollingPhaseComplete: false
             },
@@ -59,6 +60,18 @@ describe('DiceTray Component', () => {
         const rollBtn = screen.getByRole('button', { name: 'rollDice' });
         expect(rollBtn).toHaveAttribute('id', 'dice-roll-btn');
         expect(rollBtn).not.toBeDisabled();
+        const desktopDiceFaces = rollBtn.querySelectorAll('[data-die-face="ornate-desktop"]');
+        expect(desktopDiceFaces).toHaveLength(2);
+        desktopDiceFaces.forEach((face) => {
+            expect(face).toHaveClass('aspect-square', 'h-[clamp(4.5rem,17dvh,8.75rem)]', 'flex-none');
+        });
+        expect(screen.getByText('4 + 4').parentElement).toHaveClass(
+            'h-[clamp(2.5rem,7dvh,3.25rem)]',
+            'min-w-[clamp(4.5rem,6vw,5.5rem)]',
+            'text-[clamp(0.8rem,1.8dvh,1rem)]'
+        );
+        expect(document.querySelector('[data-dice-tray-section="controls"]')).toHaveClass('h-[70%]', 'min-h-[14rem]');
+        expect(document.querySelector('[data-dice-tray-section="queue"]')).toHaveClass('h-[30%]', 'min-h-[5.25rem]');
     });
 
     it('keeps a long active player name within the desktop tray', () => {
@@ -76,7 +89,7 @@ describe('DiceTray Component', () => {
         render(<DiceTray />);
 
         const activeName = screen.getByText('SiddheshPatilLongPlayerName');
-        expect(activeName).toHaveClass('w-full', 'max-w-full', 'truncate');
+        expect(activeName).toHaveClass('max-w-[65%]', 'truncate');
     });
 
     it('uses a tappable dice panel instead of a roll button on mobile', () => {
@@ -97,6 +110,48 @@ describe('DiceTray Component', () => {
         const mobileRollSurface = screen.getByRole('button', { name: 'tapDiceToRoll' });
         expect(mobileRollSurface).toBeInTheDocument();
         expect(mobileRollSurface).toHaveAttribute('id', 'dice-roll-btn');
+        expect(mobileRollSurface).toHaveAttribute('data-mobile-dice-panel', 'true');
+        expect(screen.getByText('currentDice')).toBeInTheDocument();
+        expect(screen.getByText('tapDiceToRoll')).toHaveAttribute('data-mobile-roll-instruction', 'true');
+        expect(mobileRollSurface.querySelector('[data-mobile-turn-progress="true"]')).toBeInTheDocument();
+        expect(mobileRollSurface.querySelector('[data-die-face="ornate-compact"]')).toHaveClass('aspect-square', 'flex-none');
+    });
+
+    it('portals the Void Roll dialog above gameplay and keeps it viewport constrained', () => {
+        vi.useFakeTimers();
+        const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: { Player1: { name: 'Alice', color: 'ruby' } },
+                turnQueue: [],
+                hasRolledThisTurn: false,
+                rollingPhaseComplete: false,
+                isVoidRuleEnabled: true,
+                scriptedRolls: [{ d1: 1, d2: 3 }],
+                scriptedRollIndex: 0,
+                bots: []
+            },
+            dispatch: mockDispatch
+        });
+
+        render(<DiceTray />);
+        fireEvent.click(screen.getByRole('button', { name: 'rollDice' }));
+
+        act(() => {
+            vi.advanceTimersByTime(1200);
+        });
+
+        const dialog = screen.getByRole('dialog', { name: 'voidRollTitle' });
+        const overlay = dialog.closest('[data-void-roll-overlay="true"]');
+        expect(overlay).toHaveClass('fixed', 'inset-0', 'z-[300]', 'overflow-y-auto');
+        expect(overlay.parentElement).toBe(document.body);
+        expect(dialog).toHaveClass('max-h-[calc(100dvh-1.5rem)]', 'overflow-y-auto');
+
+        fireEvent.click(screen.getByRole('button', { name: 'acceptFate' }));
+        expect(screen.queryByRole('dialog', { name: 'voidRollTitle' })).not.toBeInTheDocument();
+        expect(mockDispatch).toHaveBeenCalledWith({ type: 'END_TURN' });
+        randomSpy.mockRestore();
     });
 
     it('stacks the active player above the dice in compact landscape mode', () => {
@@ -111,11 +166,12 @@ describe('DiceTray Component', () => {
             dispatch: mockDispatch
         });
 
-        render(<DiceTray layoutMode="compact" />);
+    render(<DiceTray layoutMode="compact" />);
 
-        expect(screen.getByText('Alice')).toHaveClass('w-full', 'text-center');
-        expect(screen.getByRole('button', { name: 'rollDice' })).toHaveClass('w-full', 'rounded-xl');
-    });
+    expect(screen.getByText('Alice')).toHaveClass('w-full', 'text-center');
+    expect(screen.getByRole('button', { name: 'rollDice' })).toHaveClass('w-full', 'flex-1', 'min-h-0');
+    expect(document.querySelector('[data-dice-tray-section="queue"]')).toHaveClass('w-full', 'min-h-0', 'flex-1');
+  });
 
     it('shows AFK strike warning progress for the active online player', () => {
         useGame.mockReturnValue({

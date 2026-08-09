@@ -54,20 +54,21 @@ There are two deployment modes:
 
 ## Persistent lobby header
 
-The lobby header is fixed at the top of every `UnifiedLobby` state: main menu, configuration, local seats, and online lobby. Do not remove it while navigating between those states.
+The lobby header is fixed at the top of every `UnifiedLobby` state: main menu, configuration, local seats, and online lobby. Its left side contains only the non-critical navigation toggle, leaving space for CrazyGames platform overlays and device safe areas. Do not remove it while navigating between those states.
 
 | Placement | Element | Visibility / behaviour |
 | --- | --- | --- |
-| Left | Language selector | Visible at widths **>= 480px**. At narrower widths it moves into the navigation dropdown; language selection must remain available. |
-| Left, beside language | Mute/unmute icon | Always visible. It reflects effective audio state and must remain usable in both build modes. |
-| Centre on desktop | How to Play, Rules, History, About Us | Visible at **>= 1024px**. Each opens the matching full information screen. |
-| Right | Temple Coin balance | Always visible after economy loading; use a loading indicator while the economy is loading. It opens no dialog. |
-| Right, next to balance | Rewards icon | Always visible. It opens Daily Reward and Reward Goals; the availability dot indicates a claimable daily reward. |
-| Right | Collection button | Always visible. It opens Piece Collection; it must not be folded into a non-obvious control or removed because seat cards also have design selectors. |
-| Right | Player account | Standalone: placeholder while user data is unavailable, then profile/sign-in. Portal: CrazyGames sign-in/profile. At **<480px** the sign-in text collapses to its labelled icon to prevent overflow. |
-| Far right below desktop breakpoint | Navigation menu icon | Visible below **1024px**. Opens How to Play, Rules, History and About Us; at **<480px** it also contains the language selector. |
+| Top, centred safe area | DYUT title and tagline | Always visible. It replaces the former duplicate central lobby title. |
+| Top utility group | Treasury control (Temple Coin balance + Rewards) | Always visible after economy loading. It combines the balance and Rewards trigger; the availability dot indicates a claimable daily reward and opens Daily Reward/Goals. Do not split it back into separate header controls. |
+| Top utility group | Collection | Always visible. It opens Piece Collection; it must not be folded into a non-obvious control or removed because seat cards also have design selectors. |
+| Top utility group | Player account and W/P | Standalone: placeholder while user data is unavailable, then profile/sign-in. Portal: CrazyGames sign-in/profile. A signed-in profile shows username and wins/played (`W / P`). |
+| Top utility group | Mute/unmute icon | Always visible. It reflects effective audio state and must remain usable in both build modes. |
+| Top-left, non-critical | Menu toggle | Opens the grouped navigation drawer. It must remain an actual toggle and never cover the top-right game utilities. |
+| Desktop home (`>=1280px`) | Persistent left navigation pane | Always shows How to Play, Rules, History, About Us, and Language. It reserves horizontal space for home actions. |
+| Below desktop or outside home | Slide-out navigation drawer | The same five controls are available from the menu toggle. Closing the drawer or choosing an information screen closes it. |
+| Top utility group outside home | Language selector | Also visible from 480px upward so language remains directly available in configuration and lobby states. |
 
-The header has deliberately compact spacing at `<480px`. Do not add a new permanent header item at that width without rechecking all mobile viewports.
+At widths below 700px the top header uses compact right-aligned utilities beside the menu toggle; it must not overflow or use the top-left corner for critical controls. Do not add a new permanent header item at that width without rechecking all mobile viewports.
 
 ## Economy, rewards and Collection
 
@@ -75,13 +76,15 @@ These are live features, not decorative lobby elements.
 
 ### Rewards
 
-The **Rewards icon** opens a full-screen dialog. The dialog must retain:
+The **Treasury control** opens a full-screen Rewards dialog. The dialog must retain:
 
 - Daily reward amount and claim button/status. Claiming is allowed once per UTC day.
 - Reward Goals list: daily win, daily capture, weekly win, and weekly capture; each shows progress and claim state/action.
 - Claim error feedback.
 - Optional reward-multiplier offer/result only when ads are enabled. A failed ad must not remove the base reward.
 - Close control and scrollable content on short screens.
+
+Both the Rewards dialog and multiplier dialog are rendered above the lobby or in-game header and navigation pane. Their top title, close control, and initial content must be visible at every supported viewport; they must not be clipped by a parent header or stacking context.
 
 Visibility conditions:
 
@@ -91,7 +94,7 @@ Visibility conditions:
 
 ### Piece Collection
 
-The **Collection** trigger opens a full-viewport modal with a fixed shell and an independently scrollable list. It must retain:
+The **Collection** trigger opens a full-viewport modal with a fixed shell and an independently scrollable list. It is rendered above the header/navigation pane and must retain:
 
 - Title, purpose text, current Temple Coin balance and a visible “scroll to browse every design” cue.
 - A persistent Close button that remains visible after the list is scrolled.
@@ -110,7 +113,15 @@ Layout requirements:
 
 ## Main menu and recovery actions
 
-The central lobby panel is shown only when there is no active lobby and no setup mode.
+The home action area is shown only when there is no active lobby and no setup mode. Its temple backdrop, ornamental card treatment, and responsive arrangement are presentation-only: they must never remove an action, alter its handler, or hide recovery feedback.
+
+| Viewport range | Required home action arrangement |
+| --- | --- |
+| Narrow phones (`<700px`) | One vertical stack: primary offline/local action, online action, then friends action. The home action area may scroll internally if required, while the fixed header and bottom utility strip remain reachable. |
+| Compact landscape / tablet (`700px`–`1099px`) | Two columns: the gold primary action spans the first row; online and friends share the second row. |
+| Desktop (`>=1100px`) | Three equal action cards in one row. |
+
+The responsive arrangement above is intentional. Do not turn it into a single desktop-only panel or use it as a reason to remove the header utilities or grouped navigation controls.
 
 | Mode | Main actions | Conditions |
 | --- | --- | --- |
@@ -180,9 +191,19 @@ When opened from an active game, these screens appear inside `GameInfoOverlay`, 
 
 ### In-game header
 
-Desktop (`>=1024px`) header: fixed ornate top bar with left navigation (How to Play, Rules, History, About Us), centred DYUT title/tagline, and right score, mute, exit controls.
+Gameplay uses one edge-to-edge fixed header: 68px at desktop widths (`>=1200px`) and 60px below desktop. It has a flat dark background and a single gold bottom rule; do not restore the inset rounded header card.
 
-Mobile/compact header: fixed top bar with DYUT title/tagline, mute, Rules, and exit. The other information actions remain available through the desktop header only; do not add mobile overflow by copying the whole desktop row.
+| Placement | Element | Visibility / behaviour |
+| --- | --- | --- |
+| Top-left, non-critical | Menu toggle | Always visible. Opens the in-game navigation drawer containing How to Play, Rules, History, and About Us. Choosing an action closes the drawer. Do not restore these as four permanent desktop links. |
+| Top, centred safe area | DYUT title | Always visible without an in-game tagline. It is visually centred in the viewport, independent of the utility widths. |
+| Top utility group | Treasury control | Always visible after economy loading. In-game it appears as a gold coin and balance pill, but still opens the combined Rewards/Goals Treasury dialog; do not turn it into a non-interactive balance. |
+| Top utility group | Score | Star, value, and `Score` label are visible from 700px upward. It may collapse below 700px to protect essential actions from overflow. |
+| Top utility group | Mute/unmute | Always visible and reflects effective audio state. |
+| Top utility group | Profile | Circular profile affordance is visible from 700px upward. |
+| Top utility group | Exit | Always visible and retains the existing confirmation and leave/save behaviour. |
+
+The menu, Treasury, score, mute, and exit are functionality-preserving relocations. Do not remove them or split Treasury back into separate balance and reward controls during future gameplay redesigns.
 
 Exit always asks for confirmation. Leaving a public online match warns that the player will be bot-replaced and cannot rejoin; other games warn that progress is saved.
 
@@ -190,10 +211,11 @@ Exit always asks for confirmation. Leaving a public online match warns that the 
 
 The board is a 19×19 logical grid. It must show track cells, global pieces, all applicable player bases, player names/status and active-turn highlighting.
 
-- Desktop: board sits left/centre and DiceTray sits beside it.
+- Full desktop (`>=1200px`, including short landscape windows): board is centred in the area left of a fixed right gameplay sidebar. The sidebar begins directly below the 68px header, extends to the viewport bottom, and uses a single gold left divider rather than a rounded outer card.
 - Portrait/mobile: board occupies the flexible upper region; DiceTray is anchored below it.
-- Compact landscape (`760px+` wide and `<=740px` high, below desktop): board and compact DiceTray sit side-by-side.
+- Compact landscape/tablet (`760px+` wide and `<=740px` high, below full desktop): board and the mobile-style DiceTray sit side-by-side. It retains the mobile active-piece holder and explicit queue with count so neither becomes hidden.
 - Mobile bases normally omit the active base to preserve space; compact landscape intentionally passes `hideActiveBaseOnMobile={false}` so all bases stay visible.
+- Player names/status stay outside and above their base cards. Desktop base cards reserve one horizontal row for all four starting pieces; do not switch them back to a 2×2 holder or place the name inside the card. Base-card clipping must never hide locked pieces. Player-base crowns are intentionally omitted because they can overlap the board at short heights. Every token, including home-stretch and locked pieces, remains circular at all supported viewport sizes and browser zoom levels.
 - Piece skin selected in lobby must be carried through `playerSkins` into game state and rendered on board pieces.
 - Selecting a legal piece opens `MoveSelector`; illegal/auto-controlled pieces must not become clickable.
 - Victory opens `VictoryScreen` above the board and blocks gameplay.
@@ -204,10 +226,13 @@ DiceTray must always retain active-player identity, dice, turn timer, roll contr
 
 - Dice faces are `[1, 3, 4, 6]`; do not substitute standard six-sided dice.
 - Roll is enabled only for an eligible human-controlled local turn. Bot/AFK-controlled turns auto-roll where appropriate.
-- Mobile shows active player, YOU badge when applicable, selectable base pieces for valid spawning, tappable dice, and a horizontally scrollable queue with count.
-- Desktop/compact show dice and a vertical/wrapped queue; long queues show the More affordance instead of overflowing.
+- Mobile shows active player, YOU badge when applicable, selectable base pieces for valid spawning, one tappable Current Dice panel, and a horizontally scrollable queue with count. The roll instruction is inside the dice panel; do not add a separate Tap Dice to Roll action bar. The panel shows the decreasing turn-time outline/indicator and two compact square ornate dice cards.
+- Full desktop shows `Active · Player Name` at the top of the sidebar, followed by a gold line/crown divider. The player name uses the seat colour and remains outside the dice control.
+- The desktop roll control is one large rounded timer frame containing an inner gold-bordered panel, a `Current Dice` heading, two separate ornate square dice cards, and `Tap Dice to Roll` at the bottom. The dice cards and numerals scale from viewport height, using a smaller minimum on short/zoomed desktop screens so the action label never collides with Queue. The whole frame remains the accessible roll button; do not reintroduce a separate gold action bar on desktop.
+- The desktop queue is a separate lower section with gold divider lines, a centred Queue heading, and one horizontal row of compact responsive roll chips. The desktop tray reserves 70% of its content height for active-player/dice controls and 30% (minimum 5.25rem) for Queue, with scrolling only as an extreme-height fallback. The first roll is gold; later rolls are dark. Long queues scroll horizontally instead of becoming a boxed vertical/wrapped panel.
+- Compact landscape/tablet uses the mobile queue treatment, including its visible Queue label/count and horizontally scrollable entries. The tray receives 15rem of landscape height so the unchanged queue remains fully visible beneath the ornate dice area.
 - Online AFK warning/progress is shown only when the active player has strikes; it changes appearance once bot takeover is active.
-- Void-rule animation is a blocking overlay only while a Void event is resolving.
+- Void-rule animation is a blocking body-level portal overlay only while a Void event is resolving. It stays above the in-game header at z-300, uses a viewport-capped internally scrollable card, and scales its GIF/spacing so the complete dialog remains reachable on short screens.
 - No-valid-moves overlay appears only when the turn is genuinely stuck and is skipping.
 
 ### Movement and first-game help
@@ -233,9 +258,22 @@ Victory is a full-screen portal overlay. It retains winner/champion information,
 
 ## Responsive and QA contract
 
-Use DPR 1 and check the current official CrazyGames viewports in `CrazyGamesQA.md`: 1920×1080, 1536×864, 1366×768, 1280×720, 1216×684, 1080×607, 1077×606, 907×510, 821×462 and 800×450. Also run the repository’s portrait regressions: 768×1024, 430×932, 390×844 and 360×800.
+### Mandatory redesign viewport gate
 
-For every changed UI flow, verify:
+Before designing or implementing any layout change, an AI agent **must keep every viewport in the following matrix in mind**. The redesign must preserve all required controls and functionality at every size; passing a single desktop screenshot is not sufficient. Design at `devicePixelRatio: 1`.
+
+| CrazyGames context | Required dimensions |
+| --- | --- |
+| Desktop, non-fullscreen iframe | 907×510, 1216×684, 1077×606, 821×462 |
+| Desktop, fullscreen | 1366×768, 1920×1080, 1536×864, 1280×720 |
+| Mobile | 800×450 |
+| Tablet | 1080×607 |
+
+These are the current CrazyGames-required visual test sizes. Treat 821×462, 800×450, and 907×510 as critical compact-landscape breakpoints: header actions, board, DiceTray, queue, dialogs, and lobby actions must fit without overlap, clipping, or inaccessible content.
+
+In addition to the CrazyGames sizes, retain the repository’s portrait regression coverage: 768×1024, 430×932, 390×844 and 360×800. If a redesign introduces a breakpoint, it must not displace the documented header items; relocate items only through the explicit responsive behaviour recorded above.
+
+For every changed UI flow, verify the complete matrix above and confirm:
 
 - No document/body horizontal or vertical overflow outside intentionally scrollable panels.
 - Header controls are visible or deliberately relocated as documented.
@@ -262,7 +300,7 @@ Before editing:
 
 1. Read this document and `LogicAndRules.md` if gameplay is affected.
 2. Name the exact user requirement and the exact listed item(s) it authorizes changing.
-3. Identify standalone, portal, online and responsive branches affected.
+3. Identify standalone, portal, online and responsive branches affected, then design against the full CrazyGames viewport matrix before writing CSS or moving controls.
 
 Before handoff:
 

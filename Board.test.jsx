@@ -101,6 +101,12 @@ describe('Board Component', () => {
 
         expect(lotusPieces).toHaveLength(8);
         expect(new Set(lotusPieces.map((piece) => piece.dataset.seatColor))).toEqual(new Set(['ruby', 'sapphire']));
+        const basePieceSlots = [...container.querySelectorAll('[data-base-piece-slot="true"]')];
+        expect(basePieceSlots).toHaveLength(8);
+        basePieceSlots.forEach((slot) => {
+            expect(slot).toHaveClass('aspect-square', 'min-w-0');
+            expect(slot.firstElementChild).toHaveClass('h-[80%]', 'w-[80%]', 'rounded-full');
+        });
     });
 
     it('shows the remaining human as winner when an online match ends by takeover', () => {

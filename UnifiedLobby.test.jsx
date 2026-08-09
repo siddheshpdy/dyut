@@ -217,6 +217,50 @@ describe('UnifiedLobby CrazyGames menu', () => {
 });
 
 describe('UnifiedLobby standalone menu', () => {
+  it('groups information controls in the navigation menu without removing their actions', async () => {
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+    const onShowRules = vi.fn();
+    const onShowTutorial = vi.fn();
+    const onShowHistory = vi.fn();
+    const onShowAbout = vi.fn();
+
+    const { container } = render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={onShowRules}
+        onShowTutorial={onShowTutorial}
+        onShowHistory={onShowHistory}
+        onShowAbout={onShowAbout}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector('header')).toHaveClass('grid', 'grid-cols-[auto_minmax(0,1fr)_auto]');
+    const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /openMenu/i }));
+    openMenu();
+    expect(screen.getByRole('navigation', { name: /gameInformation/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /howToPlay/i }));
+    expect(onShowTutorial).toHaveBeenCalledOnce();
+    openMenu();
+    fireEvent.click(screen.getByRole('button', { name: /^rules$/i }));
+    expect(onShowRules).toHaveBeenCalledOnce();
+    openMenu();
+    fireEvent.click(screen.getByRole('button', { name: /^history$/i }));
+    expect(onShowHistory).toHaveBeenCalledOnce();
+    openMenu();
+    fireEvent.click(screen.getByRole('button', { name: /aboutUs/i }));
+    expect(onShowAbout).toHaveBeenCalledOnce();
+    expect(screen.getByRole('combobox', { name: 'Select Language' })).toBeInTheDocument();
+  });
+
   it('opens the rewards dialog from an icon and claims the available daily reward', async () => {
     economyMocks.dailyRewardAvailable = true;
     vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');

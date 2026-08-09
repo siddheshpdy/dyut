@@ -24,6 +24,7 @@ To ensure codebase stability, predictability, and high code quality, all AI agen
 ### 4.0 UI and Functionality Preservation Contract
 * **Before changing UI or functionality, read `AI_UI_FUNCTIONALITY_PRESERVATION.md`.** It is the current product contract for screen placement, visibility conditions, responsive behaviour, portal branches, rewards, Collection, online lobby, and gameplay UI.
 * **Do not remove, hide, or relocate a documented element unless the user explicitly requires that change.** A conditionally hidden element is still a required feature.
+* **For every redesign or layout change, design and verify against the complete CrazyGames viewport matrix in `AI_UI_FUNCTIONALITY_PRESERVATION.md` at devicePixelRatio 1.** Do not approve a redesign based only on a desktop viewport.
 * When an approved change modifies that contract, update `AI_UI_FUNCTIONALITY_PRESERVATION.md` in the same change.
 
 ### 4.1. Plan-First Approach
