@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -16,7 +17,7 @@ import {
   PUBLIC_MATCH_ENTRY_COINS,
   requiresPublicMatchEntry,
 } from './economy';
-import { PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
+import { isPieceSkinOwned, PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -40,15 +41,12 @@ const getPublicEconomyMetadata = (matchType) => ({
   winnerEligibility: 'paid_humans',
 });
 
-const OrnateDivider = () => (
-  <div className="flex shrink-0 items-center justify-center gap-3 text-gold/60">
-    <span className="h-px w-16 bg-gradient-to-r from-transparent via-gold/70 to-gold/20"></span>
-    <span className="h-2 w-2 rotate-45 border border-gold/70"></span>
-    <span className="h-px w-16 bg-gradient-to-l from-transparent via-gold/70 to-gold/20"></span>
-  </div>
-);
+const renderDocumentPortal = (content) => {
+  const target = globalThis.document?.body;
+  return target ? createPortal(content, target) : content;
+};
 
-const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = false }) => {
+const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = false, featured = false }) => {
   const toneStyles = {
     gold: {
       text: 'text-gold',
@@ -78,15 +76,15 @@ const LobbyModeCard = ({ tone, icon, title, description, onClick, disabled = fal
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`group relative flex min-h-[clamp(4.8rem,13dvh,6.6rem)] w-full items-center gap-[clamp(0.6rem,1.25vw,0.9rem)] overflow-hidden rounded-[clamp(0.9rem,1.5vw,1.125rem)] border bg-black/45 p-[clamp(0.5rem,1.2vw,0.85rem)] text-left transition-all duration-300 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
+      className={`lobby-mode-card ${featured ? 'lobby-mode-card--featured' : ''} group relative flex min-h-[clamp(5.25rem,13dvh,7.75rem)] w-full items-center gap-[clamp(0.75rem,1.4vw,1.1rem)] overflow-hidden rounded-[clamp(1rem,1.5vw,1.25rem)] border bg-black/45 p-[clamp(0.7rem,1.5vw,1.1rem)] text-left transition-all duration-300 ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-black/65'} ${toneStyles.border} ${toneStyles.glow}`}
     >
       <div className={`absolute inset-0 rounded-[18px] bg-gradient-to-r ${toneStyles.wash} opacity-80 transition-opacity group-hover:opacity-100`}></div>
       <div className="absolute inset-y-[12%] right-[8%] hidden w-[22%] rounded bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.13),transparent_62%)] opacity-35 sm:block"></div>
-      <div className={`relative z-10 flex h-[clamp(2.75rem,6vw,4rem)] w-[clamp(2.75rem,6vw,4rem)] shrink-0 items-center justify-center rounded-full border text-[clamp(1.25rem,2.8vw,2rem)] [&_svg]:h-[clamp(1.5rem,2.6vw,2rem)] [&_svg]:w-[clamp(1.5rem,2.6vw,2rem)] ${toneStyles.icon}`}>
+      <div className={`relative z-10 flex h-[clamp(3rem,6vw,4.5rem)] w-[clamp(3rem,6vw,4.5rem)] shrink-0 items-center justify-center rounded-full border text-[clamp(1.25rem,2.8vw,2rem)] [&_svg]:h-[clamp(1.5rem,2.6vw,2.25rem)] [&_svg]:w-[clamp(1.5rem,2.6vw,2.25rem)] ${toneStyles.icon}`}>
         {icon}
       </div>
       <div className="relative z-10 min-w-0 flex-1">
-        <div className={`font-display text-[clamp(1rem,2.5vw,1.55rem)] font-bold uppercase leading-[1.05] tracking-[0.08em] ${toneStyles.text}`}>{title}</div>
+        <div className={`font-display text-[clamp(1.05rem,2.5vw,1.7rem)] font-bold uppercase leading-[1.05] tracking-[0.08em] ${toneStyles.text}`}>{title}</div>
         <p className="mt-[clamp(0.1rem,0.35dvh,0.25rem)] text-[clamp(0.72rem,1.35vw,0.9rem)] leading-snug text-white/70">{description}</p>
       </div>
       <div className={`relative z-10 pr-[clamp(0.1rem,0.45vw,0.35rem)] font-display text-[clamp(1.5rem,3vw,2rem)] transition-transform group-hover:translate-x-1 ${toneStyles.text}`}>{'>'}</div>
@@ -152,7 +150,7 @@ const ConfigChoiceCard = ({ active, tone = 'gold', icon, title, subtitle, childr
   );
 };
 
-const EconomySummary = ({ compact = false }) => {
+export const EconomySummary = ({ compact = false, gameHeader = false }) => {
   const {
     balance,
     status,
@@ -217,23 +215,26 @@ const EconomySummary = ({ compact = false }) => {
 
   return (
     <>
-      <div
-        data-testid="coin-balance"
-        className={`flex items-center gap-1.5 rounded-full border border-gold/40 bg-black/65 font-bold text-gold shadow-[0_0_18px_rgba(234,179,8,0.16)] ${compact ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs sm:text-sm'}`}
-        title={t('templeCoins', 'Temple Coins')}
-      >
-        <span aria-hidden="true" className="text-amber">◆</span>
-        <span>{status === 'loading' ? '…' : balance.toLocaleString()}</span>
-      </div>
       <button
         type="button"
         data-testid="daily-reward-button"
         onClick={() => setIsRewardsOpen(true)}
-        aria-label={t('rewards', 'Rewards')}
-        title={t('rewards', 'Rewards')}
-        className={`relative flex items-center justify-center rounded-full border transition-colors ${compact ? 'h-7 w-7' : 'h-8 w-8'} ${dailyRewardAvailable ? 'border-emerald/60 bg-emerald/15 text-emerald shadow-[0_0_18px_rgba(52,211,153,0.22)] hover:bg-emerald/25' : 'border-white/15 bg-black/55 text-white/65 hover:border-gold/45 hover:text-gold'}`}
+        aria-label={t('treasuryAndRewards', 'Treasury and Rewards')}
+        title={t('treasuryAndRewards', 'Treasury and Rewards')}
+        className={`relative flex shrink-0 items-center rounded-full border font-bold transition-colors ${gameHeader ? 'h-8 gap-1 border-gold/55 bg-black/45 px-2 text-xs text-white/90 shadow-[inset_0_0_16px_rgba(234,179,8,0.05)] hover:border-gold/85 sm:h-10 sm:gap-2 sm:px-3.5 sm:text-base min-[1200px]:h-11 min-[1200px]:min-w-[7.25rem] min-[1200px]:justify-center min-[1200px]:px-4' : `${compact ? 'h-8 gap-1.5 px-2 text-[10px]' : 'h-9 gap-1.5 px-2.5 text-xs sm:text-sm'} ${dailyRewardAvailable ? 'border-emerald/60 bg-emerald/15 text-emerald shadow-[0_0_18px_rgba(52,211,153,0.22)] hover:bg-emerald/25' : 'border-gold/40 bg-black/65 text-gold shadow-[0_0_18px_rgba(234,179,8,0.16)] hover:border-gold/70 hover:bg-gold/10'}`}`}
       >
-        <RewardsIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden="true" />
+        {gameHeader ? (
+          <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#ffe28b] bg-[radial-gradient(circle_at_35%_30%,#fff2a6_0%,#e9ad2e_35%,#9b5d05_100%)] text-[9px] text-[#6c3b00] shadow-[0_0_10px_rgba(234,179,8,0.28),inset_0_1px_1px_rgba(255,255,255,0.65)] max-[399px]:hidden sm:h-7 sm:w-7" aria-hidden="true">
+            <span className="h-2.5 w-2.5 rounded-full border border-[#8a5209]/75"></span>
+          </span>
+        ) : (
+          <RewardsIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden="true" />
+        )}
+        <span data-testid="coin-balance" className="flex items-center gap-1 whitespace-nowrap" title={t('templeCoins', 'Temple Coins')}>
+          {!gameHeader && <span aria-hidden="true" className="text-amber">◆</span>}
+          <span>{status === 'loading' ? '…' : balance.toLocaleString()}</span>
+        </span>
+        {!gameHeader && <span className="hidden min-[700px]:inline">{t('treasury', 'Treasury')}</span>}
         {dailyRewardAvailable && (
           <span
             data-testid="daily-reward-available"
@@ -241,9 +242,9 @@ const EconomySummary = ({ compact = false }) => {
           />
         )}
       </button>
-      {isRewardsOpen && (
+      {isRewardsOpen && renderDocumentPortal(
         <div
-          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/88 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/88 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm"
           onClick={() => setIsRewardsOpen(false)}
         >
           <section
@@ -252,7 +253,7 @@ const EconomySummary = ({ compact = false }) => {
             aria-labelledby="daily-reward-dialog-title"
             data-testid="daily-reward-dialog"
             onClick={(event) => event.stopPropagation()}
-            className="relative max-h-[min(88dvh,48rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/50 bg-[#0b0c0d] p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)]"
+            className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/50 bg-[#0b0c0d] p-5 text-left shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)]"
           >
             <button
               type="button"
@@ -353,8 +354,8 @@ const EconomySummary = ({ compact = false }) => {
           </section>
         </div>
       )}
-      {pendingMultiplier && (
-        <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+      {pendingMultiplier && renderDocumentPortal(
+        <div className="fixed inset-0 z-[310] flex items-center justify-center bg-black/75 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm">
           <section role="dialog" aria-modal="true" aria-labelledby="reward-multiplier-title" data-testid="reward-multiplier-dialog" className="w-full max-w-sm rounded-2xl border border-emerald/55 bg-[#0b0c0d] p-5 text-center shadow-[0_0_60px_rgba(0,0,0,0.9)]">
             <h2 id="reward-multiplier-title" className="font-display text-xl font-bold uppercase tracking-wider text-emerald">
               {t('rewardMultiplierTitle', 'Boost your reward')}
@@ -371,8 +372,8 @@ const EconomySummary = ({ compact = false }) => {
           </section>
         </div>
       )}
-      {multiplierResult && (
-        <div role="status" data-testid="reward-multiplier-result" className="fixed bottom-5 left-1/2 z-[180] -translate-x-1/2 rounded-full border border-emerald/50 bg-[#07130d]/95 px-4 py-2 text-sm font-bold text-emerald shadow-xl">
+      {multiplierResult && renderDocumentPortal(
+        <div role="status" data-testid="reward-multiplier-result" className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-[320] -translate-x-1/2 rounded-full border border-emerald/50 bg-[#07130d]/95 px-4 py-2 text-sm font-bold text-emerald shadow-xl">
           {t('rewardMultiplierGranted', '+{{amount}} bonus coins', { amount: multiplierResult.amount })}
           <button type="button" aria-label={t('close', 'Close')} onClick={() => setMultiplierResult(null)} className="ml-2 text-white/60 hover:text-white">×</button>
         </div>
@@ -554,13 +555,13 @@ const PlayerProfile = ({ user }) => {
     };
 
     return (
-      <button type="button" onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
+      <button type="button" aria-label={t('signInCrazyGames', 'Log in to save')} onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
         {isSigningIn ? (
           <svg className="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         ) : (
           <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
         )}
-        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
+        <span className="hidden text-[10px] font-bold uppercase tracking-wider text-white min-[480px]:inline">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
       </button>
     );
   } else if (user?.isAnonymous && !IS_PORTAL) {
@@ -622,8 +623,8 @@ const PlayerProfile = ({ user }) => {
   };
 
   return (
-    <div className="h-9 sm:h-10 flex items-center justify-between gap-2 sm:gap-4 bg-black/20 border border-white/5 pl-3 pr-2 sm:pl-4 sm:pr-3 py-1.5 sm:py-2 rounded-full z-20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] animate-fade-in">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex h-9 min-w-0 max-w-[clamp(9.5rem,25vw,18rem)] items-center justify-between gap-2 rounded-full border border-white/5 bg-black/20 py-1.5 pl-3 pr-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] animate-fade-in sm:h-10 sm:gap-4 sm:pl-4 sm:pr-3 sm:py-2">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {photoURL ? (
           <img src={photoURL} alt="Profile" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-white/20 shadow-md object-cover" />
         ) : (
@@ -631,7 +632,7 @@ const PlayerProfile = ({ user }) => {
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
-        <div className="flex flex-col">
+        <div className="min-w-0 flex flex-col">
           {isEditing ? (
             <input 
               type="text" 
@@ -673,11 +674,69 @@ const PlayerProfile = ({ user }) => {
   );
 };
 
+const PieceCollection = ({ equippedSkinId, onEquip }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [purchaseError, setPurchaseError] = useState(null);
+  const { t } = useTranslation();
+  const { balance, ownedPieceSkinIds, purchasePieceSkin, status } = useEconomy();
+  const equippedId = normalizePieceSkinId(equippedSkinId);
+
+  const handleSkinAction = async (skin) => {
+    setPurchaseError(null);
+    if (isPieceSkinOwned(skin.id, ownedPieceSkinIds)) {
+      onEquip(skin.id);
+      return;
+    }
+    try {
+      const result = await purchasePieceSkin(skin.id);
+      if (result.applied || result.state?.ownedPieceSkinIds?.includes(skin.id)) onEquip(skin.id);
+    } catch (error) {
+      setPurchaseError(error?.code === 'insufficient-coins'
+        ? t('notEnoughCoins', 'Not enough Temple Coins.')
+        : t('piecePurchaseFailed', 'Could not purchase this design.'));
+    }
+  };
+
+  return (
+    <>
+      <button type="button" data-testid="collection-button" onClick={() => setIsOpen(true)} aria-label={t('openCollection', 'Open Collection')} className="shrink-0 rounded-full border border-gold/35 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-gold transition-colors hover:bg-gold/15">
+        {t('collection', 'Collection')}
+      </button>
+      {isOpen && renderDocumentPortal(
+        <div className="fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-black/88 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t('pieceCollection', 'Piece Collection')}>
+          <section className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-hidden rounded-2xl border border-gold/50 bg-[#0b0c0d] shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)]">
+            <button type="button" onClick={() => setIsOpen(false)} aria-label={t('close', 'Close')} className="absolute right-4 top-4 z-10 rounded-lg bg-[#0b0c0d] px-2 py-1 text-white/70 hover:bg-white/10 sm:right-6 sm:top-6">×</button>
+            <div className="max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain p-4 sm:p-6">
+            <div className="mb-4 flex items-start gap-3 pr-8">
+              <div><h2 className="font-display text-xl font-bold uppercase tracking-wider text-gold">{t('pieceCollection', 'Piece Collection')}</h2><p className="mt-1 text-xs text-white/75">{t('pieceCollectionDescription', 'Buy designs with Temple Coins, then equip them for your Player 1 seat.')}</p></div>
+            </div>
+            <div className="mb-4 rounded-xl border border-gold/25 bg-black/30 px-3 py-2 text-sm font-bold text-gold">{status === 'loading' ? '…' : `${balance.toLocaleString()} ${t('templeCoins', 'Temple Coins')}`}</div>
+            <p className="mb-3 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/55">
+              {t('collectionScrollHint', 'Scroll to browse every design')} <span aria-hidden="true">↓</span>
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {PIECE_SKINS.map((skin) => {
+                const isEquipped = equippedId === skin.id;
+                const isOwned = isPieceSkinOwned(skin.id, ownedPieceSkinIds);
+                const canAfford = isOwned || balance >= skin.price;
+                return <div key={skin.id} className={`flex items-center gap-3 rounded-xl border bg-black/30 p-3 ${isEquipped ? 'border-gold/80 shadow-[inset_0_0_18px_rgba(234,179,8,0.12)]' : 'border-white/15'}`}><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-gold/45 bg-gold/10 text-2xl text-gold" aria-hidden="true">{skin.symbol}</span><div className="min-w-0 flex-1"><div className="font-bold text-white">{t(skin.nameKey, skin.fallbackName)}</div><div className="text-xs text-white/60">{isEquipped ? t('equipped', 'Equipped') : isOwned ? t('owned', 'Owned') : `${skin.price} ${t('coins', 'coins')}`}</div></div><button type="button" onClick={() => handleSkinAction(skin)} disabled={isEquipped || status === 'loading' || !canAfford} className="rounded-lg border border-gold/35 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-gold transition-colors hover:bg-gold/15 disabled:cursor-not-allowed disabled:opacity-45">{isEquipped ? t('equipped', 'Equipped') : isOwned ? t('equip', 'Equip') : `${t('buy', 'Buy')} ${skin.price}`}</button></div>;
+              })}
+            </div>
+            {purchaseError && <p role="alert" className="mt-3 text-sm font-semibold text-ruby">{purchaseError}</p>}
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+};
+
 const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, autoStartPlayWithFriendsConfig = null, onPlayWithFriendsAutoStartConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
+  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
     Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
-    Player1: { type: 'human', color: 'ruby', name: '', uid: null },
+    Player1: { type: 'human', color: 'ruby', name: '', uid: null, pieceSkinId: normalizePieceSkinId() },
     Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
   });
   const [botDifficulty, setBotDifficulty] = useState('hard');
@@ -698,7 +757,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const [timeLeft, setTimeLeft] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('waiting');
   const [hostLastPing, setHostLastPing] = useState(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(() => getEffectiveMuteState());
   const [portalUser, setPortalUser] = useState(null);
   const [inviteUrl, setInviteUrl] = useState('');
@@ -990,7 +1048,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
 
   const startPortalBotMatch = () => {
     const newSeats = {
-      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null },
       Player3: { type: 'bot', color: 'emerald', name: '', uid: null },
       Player4: { type: 'bot', color: 'amber', name: '', uid: null }
@@ -1054,7 +1112,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setSeats({
       Player4: { type: 'closed', color: 'amber', name: '', uid: null },
       Player3: { type: 'closed', color: 'emerald', name: '', uid: null },
-      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+      Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
       Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
     });
     setIsTeamMode(false);
@@ -1086,6 +1144,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const newSeats = { ...seats, [playerId]: { ...seats[playerId], pieceSkinId: normalizedSkinId } };
     setSeats(newSeats);
     pushUpdate('seats', newSeats);
+  };
+
+  const handleCollectionSkinChange = (pieceSkinId) => {
+    handleSeatSkinChange('Player1', pieceSkinId);
   };
 
   const openPrivateSetup = () => promptForSavedResume('online', () => {
@@ -1180,14 +1242,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       newSeats = {
         Player4: { type: 'closed', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
         Player2: { type: 'closed', color: 'sapphire', name: '', uid: null }
       };
     } else {
       newSeats = {
         Player4: { type: 'human', color: 'amber', name: '', uid: null },
         Player3: { type: 'human', color: 'emerald', name: '', uid: null },
-        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null },
+        Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId },
         Player2: { type: 'human', color: 'sapphire', name: '', uid: null }
       };
     }
@@ -1384,7 +1446,6 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const isLobbyStage = isInitialMenu || isSetupConfig || isSeatSetup || !!activeLobbyId;
   const showLobbyBranding = isInitialMenu || isSetupConfig;
   const SoundIcon = isMuted ? DYUT_ICONS.soundMuted : DYUT_ICONS.soundOn;
-  const MenuIcon = DYUT_ICONS.menu;
   const HowToPlayIcon = DYUT_ICONS.howToPlay;
   const RulesIcon = DYUT_ICONS.rules;
   const HistoryIcon = DYUT_ICONS.history;
@@ -1396,6 +1457,8 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   const PrivateModeIcon = DYUT_ICONS.privateMatch;
   const PublicLobbyIcon = DYUT_ICONS.inviteFriend;
   const ReconnectIcon = DYUT_ICONS.shareMatch;
+  const MenuIcon = DYUT_ICONS.menu;
+  const CloseIcon = DYUT_ICONS.close;
   const QuickIcon = DYUT_ICONS.quickMode;
   const EasyIcon = DYUT_ICONS.easyDifficulty;
   const HardIcon = DYUT_ICONS.hardDifficulty;
@@ -1437,50 +1500,65 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       )}
       {isLobbyStage && (
-        <div className="fixed inset-0 z-0 overflow-hidden bg-[#0f0d0b]">
+        <div className={`fixed inset-0 z-0 overflow-hidden bg-[#0f0d0b] ${isInitialMenu ? 'lobby-home-scene' : ''}`}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(183,87,24,0.28),transparent_38%),linear-gradient(90deg,rgba(4,3,2,0.9),rgba(18,14,11,0.5)_28%,rgba(18,14,11,0.5)_72%,rgba(4,3,2,0.9))]"></div>
+          {isInitialMenu && <div className="lobby-temple-backdrop" aria-hidden="true"></div>}
           <div className="absolute inset-x-0 bottom-0 h-1/3 bg-[radial-gradient(ellipse_at_center,rgba(126,32,18,0.42),transparent_58%)]"></div>
           <div className="absolute inset-x-0 bottom-0 hidden h-40 bg-[linear-gradient(0deg,rgba(108,28,14,0.34),transparent)] lg:block"></div>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,transparent_0,rgba(0,0,0,0.05)_38%,rgba(0,0,0,0.58)_100%)]"></div>
         </div>
       )}
-      {/* Top Navigation Bar */}
-      <header className={`fixed top-0 left-0 z-50 flex w-full items-center justify-between gap-3 bg-transparent px-4 py-4 md:px-8 lg:grid lg:grid-cols-[auto_1fr_auto] ${isLobbyStage ? 'lg:py-4' : ''}`}>
-        <div className="flex items-center gap-3">
-          <LanguageSwitcher />
-          <button onClick={toggleMute} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] transition-colors p-1" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
+      {/* The top-left holds only the non-critical navigation toggle, leaving space for CrazyGames UI. */}
+      <header className={`fixed inset-x-0 top-0 z-50 grid min-h-[4.6rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center border-b border-gold/25 bg-[#0a0a0a]/86 px-[max(0.75rem,env(safe-area-inset-left))] pb-2 pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_6px_28px_rgba(0,0,0,0.38)] backdrop-blur-md min-[1200px]:flex min-[1200px]:items-start min-[1200px]:justify-between ${isLobbyStage ? 'lg:pb-3' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setIsNavigationOpen((open) => !open)}
+          aria-expanded={isNavigationOpen}
+          aria-controls="lobby-navigation-pane"
+          aria-label={isNavigationOpen ? t('closeMenu', 'Close menu') : t('openMenu', 'Open menu')}
+          className={`lobby-menu-toggle col-start-1 row-start-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gold/35 bg-black/45 text-gold shadow-[0_4px_18px_rgba(0,0,0,0.45)] transition-colors hover:border-gold/70 hover:bg-gold/10 min-[1200px]:col-auto min-[1200px]:row-auto ${isInitialMenu ? 'xl:hidden' : ''}`}
+        >
+          {isNavigationOpen ? <CloseIcon className="h-5 w-5" aria-hidden="true" /> : <MenuIcon className="h-6 w-6" aria-hidden="true" />}
+        </button>
+
+        <div className="pointer-events-none relative col-start-2 row-start-1 flex min-w-0 items-center justify-center overflow-hidden min-[1200px]:absolute min-[1200px]:inset-x-0 min-[1200px]:top-[max(0.75rem,env(safe-area-inset-top))] min-[1200px]:flex-col">
+          <span className="dyut-title max-w-full truncate text-[clamp(1.15rem,4vw,1.8rem)] font-bold leading-none tracking-[0.16em] text-gold text-glow-gold">DYUT</span>
+          <span className="hidden font-display text-[7px] font-bold uppercase tracking-[0.2em] text-gold/75 min-[1200px]:block">{t('gameOfLegends', 'The Game of Legends')}</span>
+        </div>
+
+        <div className="col-start-3 row-start-1 ml-2 flex min-w-0 max-w-full items-center justify-end gap-1 min-[480px]:gap-2 lg:gap-3 min-[1200px]:ml-auto">
+          {!isInitialMenu && <div className="hidden min-[480px]:block"><LanguageSwitcher /></div>}
+          <EconomySummary compact />
+          <PieceCollection equippedSkinId={seats.Player1.pieceSkinId} onEquip={handleCollectionSkinChange} />
+          <PlayerProfile user={user} />
+          <button type="button" onClick={toggleMute} className="shrink-0 p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)]" title={isMuted ? t('unmute', 'Unmute') : t('mute', 'Mute')}>
             <SoundIcon className={`h-5 w-5 ${isMuted ? 'text-ruby' : ''}`} aria-hidden="true" />
           </button>
         </div>
-
-        <nav className="hidden min-w-0 items-center justify-center gap-4 lg:flex xl:gap-7">
-          <button onClick={onShowTutorial} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><HowToPlayIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('howToPlay', 'How to Play')}</span></button>
-          <button onClick={onShowRules} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><RulesIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('rules', 'Rules')}</span></button>
-          <button onClick={onShowHistory} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><HistoryIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('history', 'History')}</span></button>
-          <button onClick={onShowAbout} className="flex items-center gap-2 whitespace-nowrap text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide"><InfoIcon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('aboutUs', 'About Us')}</span></button>
-        </nav>
-        
-        <div className="flex items-center justify-end gap-3">
-          <EconomySummary compact />
-          <PlayerProfile user={user} />
-          
-          <div className="relative flex items-center lg:hidden">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] p-2 ml-2">
-              <MenuIcon className="h-6 w-6" aria-hidden="true" />
-            </button>
-            {isMobileMenuOpen && (
-              <div className="absolute right-0 top-12 glass-panel p-4 rounded-xl flex flex-col gap-4 min-w-[150px] shadow-2xl z-50 bg-[var(--color-panel-bg)]">
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowTutorial(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><HowToPlayIcon className="h-4 w-4" aria-hidden="true" />{t('howToPlay', 'How to Play')}</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowRules(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><RulesIcon className="h-4 w-4" aria-hidden="true" />{t('rules', 'Rules')}</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowHistory(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><HistoryIcon className="h-4 w-4" aria-hidden="true" />{t('history', 'History')}</button>
-                <button onClick={() => { setIsMobileMenuOpen(false); onShowAbout(); }} className="text-[var(--color-text-muted)] hover:text-[var(--color-gold)] font-sans text-sm font-semibold tracking-wide text-left flex items-center gap-2"><InfoIcon className="h-4 w-4" aria-hidden="true" />{t('aboutUs', 'About Us')}</button>
-              </div>
-            )}
-          </div>
-        </div>
       </header>
 
-      <div className={`${isLobbyStage ? `lobby-viewport relative z-10 mx-auto flex h-[100dvh] w-full max-w-6xl flex-col items-center px-4 sm:px-6 ${isSetupConfig ? 'lobby-config-viewport justify-start overflow-hidden pb-3 pt-[clamp(4rem,9dvh,5rem)] sm:pb-4' : isInitialMenu ? 'justify-start overflow-hidden pb-6 pt-[clamp(5rem,10dvh,6rem)] sm:pb-8 lg:pb-10 lg:pt-[clamp(5rem,9dvh,6rem)] xl:pb-12' : 'lobby-seat-viewport justify-center overflow-hidden pb-3 pt-[clamp(3.75rem,8dvh,4.75rem)] sm:pb-4'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
+      {isLobbyStage && (
+        <>
+          {isNavigationOpen && <button type="button" aria-label={t('closeMenu', 'Close menu')} onClick={() => setIsNavigationOpen(false)} className="fixed inset-0 z-[55] bg-black/55 backdrop-blur-[1px] xl:hidden" />}
+          <aside id="lobby-navigation-pane" aria-label={t('gameNavigation', 'Game navigation')} className={`lobby-navigation-pane fixed bottom-0 left-0 top-0 z-[60] flex w-[min(18rem,86vw)] flex-col border-r border-gold/35 bg-[#11100e]/[0.98] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(5.4rem,calc(env(safe-area-inset-top)+4.5rem))] shadow-[12px_0_40px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-transform duration-300 ${isNavigationOpen ? 'translate-x-0' : '-translate-x-full'} ${isInitialMenu ? 'xl:translate-x-0' : ''}`}>
+            <div className="mb-5 border-b border-gold/25 pb-4 font-display text-xs font-bold uppercase tracking-[0.22em] text-gold/75">
+              {t('exploreDyut', 'Explore Dyut')}
+            </div>
+            <nav className="flex flex-col" aria-label={t('gameInformation', 'Game information')}>
+              <button type="button" onClick={() => { setIsNavigationOpen(false); onShowTutorial(); }} className="lobby-navigation-item"><HowToPlayIcon className="h-6 w-6" aria-hidden="true" />{t('howToPlay', 'How to Play')}</button>
+              <button type="button" onClick={() => { setIsNavigationOpen(false); onShowRules(); }} className="lobby-navigation-item"><RulesIcon className="h-6 w-6" aria-hidden="true" />{t('rules', 'Rules')}</button>
+              <button type="button" onClick={() => { setIsNavigationOpen(false); onShowHistory(); }} className="lobby-navigation-item"><HistoryIcon className="h-6 w-6" aria-hidden="true" />{t('history', 'History')}</button>
+              <button type="button" onClick={() => { setIsNavigationOpen(false); onShowAbout(); }} className="lobby-navigation-item"><InfoIcon className="h-6 w-6" aria-hidden="true" />{t('aboutUs', 'About Us')}</button>
+            </nav>
+            <div className="mt-auto border-t border-gold/25 pt-4">
+              <div className="mb-2 font-display text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">{t('language', 'Language')}</div>
+              <LanguageSwitcher />
+            </div>
+          </aside>
+        </>
+      )}
+
+      <div className={`${isLobbyStage ? `lobby-viewport ${isInitialMenu ? 'lobby-has-desktop-pane' : ''} relative z-10 mx-auto flex h-[100dvh] w-full max-w-7xl flex-col items-center px-4 sm:px-6 ${isSetupConfig ? 'lobby-config-viewport justify-start overflow-hidden pb-3 pt-[clamp(4.8rem,9dvh,5.75rem)] sm:pb-4' : isInitialMenu ? 'lobby-home-viewport justify-start overflow-y-auto overscroll-contain pb-6 pt-[clamp(5.5rem,10dvh,6.5rem)] sm:pb-8 lg:pb-10 lg:pt-[clamp(5.5rem,9dvh,6.5rem)] xl:pb-12' : 'lobby-seat-viewport justify-center overflow-hidden pb-3 pt-[clamp(4.6rem,8dvh,5.5rem)] sm:pb-4'}` : 'glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-md flex flex-col items-center relative z-10 mt-32 sm:mt-24 lg:mt-16 mx-auto'}`}>
         {activeLobbyId && (
         <div className="lobby-invite-summary mb-4 flex w-full max-w-[min(92vw,560px)] flex-col items-center rounded-xl border border-white/10 bg-black/40 p-3 animate-fade-in sm:mb-5 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
@@ -1515,26 +1593,25 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         </div>
       )}
       
-      {showLobbyBranding && <h1 className={`dyut-title shrink-0 font-bold tracking-widest text-glow-gold text-[var(--color-gold)] ${isSetupConfig ? 'mb-0.5 text-[clamp(1.85rem,3.45vw,3rem)] leading-none sm:mb-1.5' : 'mb-1 text-[clamp(2.1rem,4vw,3.45rem)] leading-none sm:mb-2'}`}>DYUT</h1>}
-      {showLobbyBranding && <OrnateDivider />}
-      
-      <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-[clamp(0.75rem,2dvh,1rem)] w-full shrink-0 max-w-[min(92vw,760px)]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
+        <div className={`${isLobbyStage ? `${isSetupConfig ? 'mt-1.5 w-full max-w-[880px] sm:mt-2 lg:max-w-[min(60vw,780px)] xl:max-w-[820px]' : isInitialMenu ? 'mt-[clamp(0.5rem,2dvh,1rem)] w-full shrink-0 max-w-[min(92vw,1120px)]' : 'mt-3 w-full max-w-[880px] sm:mt-4 lg:max-w-[min(62vw,780px)] xl:max-w-[820px]'}` : 'w-full'}`}>
         {/* --- STATE 1: MAIN MENU --- */}
         {!activeLobbyId && !setupMode && (
-          <div className={`${isInitialMenu ? 'relative w-full animate-fade-in rounded-[clamp(1.1rem,2vw,1.5rem)] border border-gold/45 bg-[#100e0c]/90 p-[clamp(0.5rem,1.2vw,0.85rem)] shadow-[0_0_55px_rgba(0,0,0,0.68),inset_0_0_45px_rgba(234,179,8,0.07)]' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
+          <div className={`${isInitialMenu ? 'lobby-home-menu relative w-full animate-fade-in' : 'w-full flex flex-col gap-3 animate-fade-in'}`}>
             {isInitialMenu && (
               <>
-                <span className="pointer-events-none absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l border-t border-gold/70"></span>
-                <span className="pointer-events-none absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r border-t border-gold/70"></span>
-                <span className="pointer-events-none absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b border-l border-gold/70"></span>
-                <span className="pointer-events-none absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b border-r border-gold/70"></span>
+                <div className="lobby-home-hero" aria-hidden="true">
+                  <span></span>
+                  <div className="lobby-home-hero-mark"></div>
+                  <span></span>
+                </div>
               </>
             )}
             {IS_PORTAL ? (
               <>
-                <div className="flex w-full flex-col gap-[clamp(0.35rem,1dvh,0.6rem)]">
+                <div className="lobby-mode-grid grid w-full grid-cols-1 gap-[clamp(0.55rem,1.25vw,1rem)] min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">
                   <LobbyModeCard
                     tone="gold"
+                    featured
                     icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                     title={t('playNow', 'PLAY NOW')}
                     description={t('playNowSubtitle', 'Start an instant offline battle against temple-trained rivals.')}
@@ -1560,9 +1637,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             ) : (
               <>
                 {isInitialMenu ? (
-                  <div className="flex w-full flex-col gap-[clamp(0.35rem,1dvh,0.6rem)]">
+                  <div className="lobby-mode-grid grid w-full grid-cols-1 gap-[clamp(0.55rem,1.25vw,1rem)] min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">
                     <LobbyModeCard
                       tone="gold"
+                      featured
                       icon={<LocalModeIcon className="h-7 w-7 sm:h-10 sm:w-10" aria-hidden="true" />}
                       title={t('localPlay', 'LOCAL PLAY')}
                       description={t('localPlaySubtitle', 'Play with friends on the same device.')}
@@ -1605,9 +1683,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
             )}
 
             {(hasCachedGame || resumeOnlineGameId) && (
-              <div className={`${isInitialMenu ? 'mx-auto mt-2 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
+              <div className={`${isInitialMenu ? 'lobby-home-resume mx-auto mt-3 flex w-full max-w-md gap-2' : 'flex gap-2 w-full mt-2'}`}>
                 {hasCachedGame && (
-                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/35 bg-white/10 text-gold' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-xl border py-2 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
+                  <button onClick={onResumeGame} className={`${isInitialMenu ? 'border-gold/50 bg-black/45 text-gold shadow-[0_0_22px_rgba(234,179,8,0.12)]' : 'border-white/10 bg-white/5 text-white'} flex flex-1 items-center justify-center gap-2 rounded-full border py-2.5 font-sans text-xs font-semibold transition-colors hover:bg-white/15`}>
                     <ResumeIcon className="h-4 w-4 text-gold" aria-hidden="true" />
                     {t('resumeOffline', 'Resume Offline')}
                   </button>
@@ -1734,9 +1812,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                 <button onClick={() => {
                   let newSeats = {};
                   if (matchType === '1v1') {
-                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'closed', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId }, Player2: { type: 'closed', color: 'sapphire', name: '', uid: null } };
                   } else {
-                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
+                    newSeats = { Player4: { type: 'human', color: 'amber', name: '', uid: null }, Player3: { type: 'human', color: 'emerald', name: '', uid: null }, Player1: { type: 'human', color: 'ruby', name: localPlayerName, uid: null, pieceSkinId: seats.Player1.pieceSkinId }, Player2: { type: 'human', color: 'sapphire', name: '', uid: null } };
                   }
                   setSeats(newSeats);
                   setIsTeamMode(matchType === '2v2');

@@ -1,9 +1,19 @@
+import { getPieceSkin, normalizeOwnedPieceSkinIds, PIECE_SKINS } from './pieceSkins.js';
+
 const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 
 export const PUBLIC_MATCH_ENTRY_COINS = CRAZYGAMES_ADS_ENABLED ? 500 : 200;
 export const DAILY_LOGIN_REWARD_COINS = 500;
+// Kept for the legacy progression module, which awards completion coins for
+// offline match summaries separately from the event-based economy.
+export const MATCH_COMPLETION_COINS = 25;
+export const MATCH_WIN_COINS = 75;
 export const MATCH_FEE_BPS = 1000;
 export const MAX_ECONOMY_EVENTS = 200;
+
+export const calculateMatchCoins = ({ isWin = false } = {}) => (
+  MATCH_COMPLETION_COINS + (isWin ? MATCH_WIN_COINS : 0)
+);
 
 export const GOAL_DEFINITIONS = Object.freeze([
   { id: 'daily-win', scope: 'daily', metric: 'wins', target: 1, reward: 100 },
@@ -21,6 +31,7 @@ export const ECONOMY_EVENT_TYPES = Object.freeze({
   GOAL_PROGRESS: 'goal_progress',
   GOAL_REWARD: 'goal_reward',
   REWARDED_MULTIPLIER: 'rewarded_multiplier',
+  COSMETIC_PURCHASE: 'cosmetic_purchase',
 });
 
 const toSafeInteger = (value, fallback = 0) => {
@@ -48,6 +59,7 @@ export const requiresPublicMatchEntry = ({ isOnline = false, isPublic = false } 
 
 export const normalizeEconomyState = (value = {}) => ({
   coins: toSafeInteger(value?.coins),
+  ownedPieceSkinIds: normalizeOwnedPieceSkinIds(value?.ownedPieceSkinIds),
   lastDailyRewardDay: typeof value?.lastDailyRewardDay === 'string'
     ? value.lastDailyRewardDay
     : null,
@@ -295,6 +307,41 @@ export const applyDailyLoginReward = (stateValue, now = Date.now()) => {
     state: {
       ...result.state,
       lastDailyRewardDay: dayKey,
+    },
+  };
+};
+
+export const purchasePieceSkin = (stateValue, pieceSkinId, now = Date.now()) => {
+  const skin = PIECE_SKINS.find((candidate) => candidate.id === pieceSkinId);
+  if (!skin) {
+    const error = new Error('Unknown piece design');
+    error.code = 'unknown-piece-skin';
+    throw error;
+  }
+
+  const state = normalizeEconomyState(stateValue);
+  const eventId = `cosmetic-purchase:${skin.id}`;
+  if (state.ownedPieceSkinIds.includes(skin.id)) {
+    return { state, event: state.events[eventId] || null, applied: false, eventId };
+  }
+  if (skin.acquisition !== 'coins') {
+    const error = new Error('Piece design is not for sale');
+    error.code = 'piece-skin-not-for-sale';
+    throw error;
+  }
+
+  const result = applyEvent(state, eventId, {
+    type: ECONOMY_EVENT_TYPES.COSMETIC_PURCHASE,
+    delta: -skin.price,
+    pieceSkinId: skin.id,
+    createdAt: now instanceof Date ? now.getTime() : now,
+  });
+  return {
+    ...result,
+    eventId,
+    state: {
+      ...result.state,
+      ownedPieceSkinIds: normalizeOwnedPieceSkinIds([...result.state.ownedPieceSkinIds, skin.id]),
     },
   };
 };

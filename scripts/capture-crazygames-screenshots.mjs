@@ -50,6 +50,7 @@ const chromeProfileDirectory = path.join(tmpdir(), `dyut-screenshot-profile-${pr
 const viteEntry = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const stripAnsi = (value) => value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '');
 
 const findChrome = () => {
   const candidates = [
@@ -89,8 +90,8 @@ const startVite = async () => {
   processHandle.stdout.on('data', receiveOutput);
   processHandle.stderr.on('data', receiveOutput);
 
-  await waitFor(() => /http:\/\/127\.0\.0\.1:\d+\//.test(output), 'Vite to start');
-  const url = output.match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
+  await waitFor(() => /http:\/\/127\.0\.0\.1:\d+\//.test(stripAnsi(output)), 'Vite to start');
+  const url = stripAnsi(output).match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
   if (!url) throw new Error(`Vite did not report a local URL:\n${output}`);
   return { processHandle, url };
 };

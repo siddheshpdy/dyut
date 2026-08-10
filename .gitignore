@@ -5,6 +5,7 @@
 /coverage/
 /artifacts/
 /e2e/test-output/
+/test-results/
 /.angular/
 .angular/
 

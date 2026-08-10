@@ -12,10 +12,6 @@ const SAVED_RESUME_GAME_FIELD = 'savedResumeGame';
 // 2. Create a project and add a "Web App"
 // 3. Copy the config object below
 
-if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-  console.error("Firebase API Key is missing! Ensure your GitHub Secrets are correctly mapped in your GitHub Actions workflow files.");
-}
-
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -27,15 +23,23 @@ const firebaseConfig = {
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const isFirebaseConfigured = Boolean(firebaseConfig.apiKey);
+
+if (!isFirebaseConfigured && import.meta.env.PROD) {
+  console.warn('Firebase API Key is missing; account and online services are disabled for this build.');
+}
+
+// Initialize Firebase only when a key is available. Local gameplay and tests do
+// not require Firebase, and getAuth() throws when initialized with an empty key.
+const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 // Export initialized services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const rtdb = getDatabase(app);
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+export const rtdb = app ? getDatabase(app) : null;
 
 export const signInUserAnonymously = async () => {
+  if (!auth) return;
   try {
     await signInAnonymously(auth);
   } catch (error) {
@@ -44,7 +48,7 @@ export const signInUserAnonymously = async () => {
 };
 
 export const initializeUserProfile = async (user) => {
-  if (!user) return;
+  if (!user || !db) return;
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
 
@@ -108,7 +112,7 @@ export const updateUserStats = async (uid, isWin) => {
     return; // Bypass Firestore completely on Portals
   }
 
-  if (!uid) return;
+  if (!uid || !db) return;
   const userRef = doc(db, 'users', uid);
   try {
     await updateDoc(userRef, {
@@ -121,6 +125,7 @@ export const updateUserStats = async (uid, isWin) => {
 };
 
 export const updateUserName = async (newName) => {
+  if (!auth || !db) return;
   const user = auth.currentUser;
   if (!user) return;
   try {
@@ -134,7 +139,7 @@ export const updateUserName = async (newName) => {
 };
 
 export const mergeUserStats = async (oldUid, newUser) => {
-  if (!oldUid || !newUser || oldUid === newUser.uid) return;
+  if (!db || !oldUid || !newUser || oldUid === newUser.uid) return;
   
   try {
     const oldRef = doc(db, 'users', oldUid);
@@ -174,6 +179,7 @@ export const mergeUserStats = async (oldUid, newUser) => {
 let redirectCheckPromise = null;
 
 export const checkAuthRedirect = () => {
+  if (!auth) return Promise.resolve(null);
   if (!redirectCheckPromise) {
     redirectCheckPromise = (async () => {
       try {
@@ -204,6 +210,7 @@ export const checkAuthRedirect = () => {
 };
 
 export const signInWithGoogle = async () => {
+  if (!auth) return;
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -240,6 +247,7 @@ export const signInWithGoogle = async () => {
 };
 
 export const logoutUser = async () => {
+  if (!auth) return;
   try {
     await signOut(auth);
     await signInAnonymously(auth); // Fallback to a new anonymous session instantly
@@ -248,8 +256,8 @@ export const logoutUser = async () => {
   }
 };
 
-export const loadAccountResumeGame = async (user = auth.currentUser) => {
-  if (IS_PORTAL || !user || user.isAnonymous) return null;
+export const loadAccountResumeGame = async (user = auth?.currentUser) => {
+  if (!db || IS_PORTAL || !user || user.isAnonymous) return null;
 
   try {
     const userRef = doc(db, 'users', user.uid);
@@ -261,8 +269,8 @@ export const loadAccountResumeGame = async (user = auth.currentUser) => {
   }
 };
 
-export const saveAccountResumeGame = async (resumeGame, user = auth.currentUser) => {
-  if (IS_PORTAL || !user || user.isAnonymous || !resumeGame) return;
+export const saveAccountResumeGame = async (resumeGame, user = auth?.currentUser) => {
+  if (!db || IS_PORTAL || !user || user.isAnonymous || !resumeGame) return;
 
   try {
     const userRef = doc(db, 'users', user.uid);
@@ -274,8 +282,8 @@ export const saveAccountResumeGame = async (resumeGame, user = auth.currentUser)
   }
 };
 
-export const clearAccountResumeGame = async (user = auth.currentUser) => {
-  if (IS_PORTAL || !user || user.isAnonymous) return;
+export const clearAccountResumeGame = async (user = auth?.currentUser) => {
+  if (!db || IS_PORTAL || !user || user.isAnonymous) return;
 
   try {
     const userRef = doc(db, 'users', user.uid);

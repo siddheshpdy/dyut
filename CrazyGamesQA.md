@@ -15,8 +15,12 @@ Use this checklist before uploading a new CrazyGames build or enabling a new por
 Test gameplay, menu, lobby, tutorial overlay, resume dialog, victory screen, and compact landscape layout at:
 
 - `1920 x 1080`
+- `1536 x 864`
 - `1366 x 768`
+- `1280 x 720`
+- `1216 x 684`
 - `1080 x 607`
+- `1077 x 606`
 - `907 x 510`
 - `821 x 462`
 - `800 x 450`

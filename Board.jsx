@@ -122,7 +122,7 @@ const Square = ({ cell, occupants, isCapturing, finishedPieces }) => {
 };
 
 // Visual Piece Token
-const Piece = ({ color, skinId, isMovable, isHomeStretch, playerId, pieceIndex }) => {
+const Piece = ({ color, skinId, isMovable, isHomeStretch, isBasePiece = false }) => {
   const skin = getPieceSkin(skinId);
   // Map the state color to our Tailwind classes
   const bgClass = {
@@ -147,26 +147,19 @@ const Piece = ({ color, skinId, isMovable, isHomeStretch, playerId, pieceIndex }
     ringClass = 'ring-2 sm:ring-4 ring-cyan-400 ring-offset-1 sm:ring-offset-2 ring-offset-black/50';
   }
 
-  const shapeClass = isHomeStretch
-    ? 'w-[70%] sm:w-[75%] h-[80%] sm:h-[85%] rounded-t-full rounded-b-[10px] shadow-[inset_-2px_-4px_8px_rgba(0,0,0,0.5),0_5px_8px_rgba(0,0,0,0.6)]'
-    : 'w-[70%] sm:w-[80%] aspect-square rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]';
-
-  const homeStretchDirectionClass = isHomeStretch ? ({
-    Player1: 'rotate-0',
-    Player2: '-rotate-90',
-    Player3: 'rotate-180',
-    Player4: 'rotate-90',
-  }[playerId] || '') : '';
+  const shapeClass = isBasePiece
+    ? 'h-[80%] w-[80%] shrink-0 rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)]'
+    : 'aspect-square w-[70%] shrink-0 rounded-full shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.4)] sm:w-[80%]';
 
   return (
     <div
-      className={`flex items-center justify-center border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass} ${homeStretchDirectionClass}`}
+      className={`flex min-h-0 items-center justify-center overflow-hidden border-[1.5px] border-white/60 ${shapeClass} ${bgClass} ${ringClass}`}
       data-piece-skin={skin.id}
       data-seat-color={color}
     >
       <span
         aria-hidden="true"
-        className={`pointer-events-none select-none font-serif text-[clamp(5px,1.1vw,14px)] font-black leading-none text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] ${isHomeStretch ? '-translate-y-[15%]' : ''}`}
+        className="pointer-events-none select-none font-serif text-[clamp(4px,min(1.1vw,1.6dvh),14px)] font-black leading-none text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]"
       >
         {skin.symbol}
       </span>
@@ -201,36 +194,41 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
     emerald: 'bg-emerald',
     amber: 'bg-amber',
   }[player.color];
+  const baseTextColorClass = {
+    yellow: 'text-yellow-300',
+    black: 'text-white/80',
+    green: 'text-green-400',
+    blue: 'text-blue-400',
+    red: 'text-red-400',
+    purple: 'text-purple-400',
+    ruby: 'text-ruby',
+    sapphire: 'text-sapphire',
+    emerald: 'text-emerald',
+    amber: 'text-amber',
+  }[player.color] || 'text-gold';
 
   const baseWrapperClass = layoutMode === 'mobile'
     ? 'relative flex min-h-0 flex-col items-center justify-center p-0'
     : 'relative flex min-h-0 flex-col items-center justify-center p-0 sm:p-2 lg:p-0.5';
 
   const baseCardClass = layoutMode === 'mobile'
-    ? `relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-hidden rounded-lg border px-1.5 py-1.5 transition-all duration-500 ${isActive ? 'border-gold/85 bg-black/60 shadow-[0_0_20px_rgba(234,179,8,0.32),inset_0_0_18px_rgba(234,179,8,0.08)]' : 'border-gold/24 bg-black/46 shadow-[inset_0_0_16px_rgba(0,0,0,0.68)]'}`
-    : `relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:justify-start lg:px-3 lg:pb-2.5 lg:pt-5 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/28 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`;
+    ? `relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-visible rounded-lg border px-1.5 py-1.5 transition-all duration-500 ${isActive ? 'border-gold/85 bg-black/60 shadow-[0_0_20px_rgba(234,179,8,0.32),inset_0_0_18px_rgba(234,179,8,0.08)]' : 'border-gold/24 bg-black/46 shadow-[inset_0_0_16px_rgba(0,0,0,0.68)]'}`
+    : `relative flex h-[66%] max-h-[8.25rem] min-h-0 w-[82%] max-w-[10.3rem] flex-none flex-col items-center justify-center overflow-visible rounded-xl border px-2 py-2 transition-all duration-500 sm:rounded-2xl lg:px-3 lg:py-3 ${isActive ? 'border-gold/90 bg-black/62 shadow-[0_0_34px_rgba(234,179,8,0.5),inset_0_0_30px_rgba(234,179,8,0.08)]' : 'border-gold/70 bg-black/46 shadow-[inset_0_0_24px_rgba(0,0,0,0.68)]'}`;
 
   const pieceGridClass = layoutMode === 'mobile'
     ? `grid w-full max-w-[52px] grid-cols-4 gap-0.5 rounded-md p-0.5 transition-all duration-500 ${isActive ? 'border border-gold/72 bg-black/64 shadow-[0_0_11px_rgba(234,179,8,0.22),inset_0_2px_8px_rgba(0,0,0,0.64)]' : 'border border-gold/24 bg-black/50 shadow-[inset_0_2px_8px_rgba(0,0,0,0.64)]'}`
-    : `grid aspect-square w-[70%] max-w-[80px] grid-cols-2 grid-rows-2 gap-1 rounded-xl p-1 transition-all duration-500 sm:w-[80%] sm:max-w-[100px] sm:gap-2 sm:p-2 lg:w-full lg:max-w-[86px] lg:gap-1 lg:p-1.5 ${isActive ? 'border border-gold/85 bg-black/68 shadow-[0_0_22px_rgba(234,179,8,0.34),inset_0_4px_14px_rgba(0,0,0,0.64)]' : 'border border-gold/30 bg-black/54 shadow-[inset_0_4px_14px_rgba(0,0,0,0.64)]'}`;
+    : `grid w-full max-w-[8.25rem] grid-cols-4 gap-1.5 rounded-xl p-1.5 transition-all duration-500 sm:gap-2 sm:p-2 ${isActive ? 'border border-gold/85 bg-black/68 shadow-[0_0_22px_rgba(234,179,8,0.34),inset_0_4px_14px_rgba(0,0,0,0.64)]' : 'border border-gold/30 bg-black/54 shadow-[inset_0_4px_14px_rgba(0,0,0,0.64)]'}`;
 
   return (
     <div
       style={{ gridRow, gridColumn: gridCol }}
       className={baseWrapperClass}
     >
-      {isActive && (
-        <div className="absolute -top-7 left-1/2 hidden -translate-x-1/2 text-gold drop-shadow-[0_0_12px_rgba(234,179,8,0.95)] lg:block">
-          <svg className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M5 18h14l1-10-5 4-3-7-3 7-5-4 1 10zm-1 2h16v2H4v-2z" />
-          </svg>
-        </div>
-      )}
       <div className="mb-0.5 flex w-full min-w-0 shrink-0 items-center justify-center gap-1 px-0.5 sm:mb-1 sm:gap-2 sm:px-1">
         <div className={`h-2 w-2 shrink-0 rounded-full border border-white/40 jewel-shadow sm:h-4 sm:w-4 ${baseColorClass}`}></div>
         <span
           title={player.name || playerId}
-          className={`min-w-0 flex-1 truncate text-center font-display text-[8px] font-bold leading-none tracking-[0.1em] transition-all duration-300 sm:text-xs sm:tracking-widest md:text-sm ${layoutMode === 'mobile' ? 'lg:text-sm' : 'lg:text-base'} ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}`}
+          className={`min-w-0 flex-1 truncate text-center font-display text-[8px] font-bold leading-none tracking-[0.1em] transition-all duration-300 sm:text-xs sm:tracking-widest md:text-sm ${layoutMode === 'mobile' ? `lg:text-sm ${isActive ? 'text-gold text-glow-gold' : 'player-gold-text'}` : `lg:text-base ${baseTextColorClass} ${isActive ? 'text-glow-gold' : ''}`}`}
         >
           {player.name || playerId}
         </span>
@@ -257,11 +255,16 @@ const PlayerBase = ({ playerId, player, gridRow, gridCol, onSpawnClick, isAnimat
           </svg>
         </div>
       </div>
-      {/* Base Container - A 2x2 grid for the locked pieces */}
+      {/* Base container: all four locked pieces stay in one circular-token row. */}
       <div className={pieceGridClass}>
         {lockedIndices.map((pieceIndex) => (
-          <div key={pieceIndex} className={`flex items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`} onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}>
-            <Piece color={player.color} skinId={player.pieceSkinId} isMovable={canSpawn} playerId={playerId} pieceIndex={pieceIndex} />
+          <div
+            key={pieceIndex}
+            className={`flex aspect-square min-w-0 items-center justify-center transition-transform ${canSpawn ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
+            data-base-piece-slot="true"
+            onClick={() => { if (canSpawn) onSpawnClick(playerId, pieceIndex); }}
+          >
+            <Piece color={player.color} skinId={player.pieceSkinId} isMovable={canSpawn} isBasePiece playerId={playerId} pieceIndex={pieceIndex} />
           </div>
         ))}
       </div>
@@ -765,7 +768,7 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
 
   const boardShellClass = layoutMode === 'mobile'
     ? 'mx-auto h-full w-full px-1 sm:px-2'
-    : 'mx-auto aspect-square w-full max-w-[96vw] sm:p-2 lg:h-[74vh] lg:max-h-[780px] lg:w-auto lg:max-w-none xl:h-[76vh] xl:max-h-[820px]';
+    : 'mx-auto aspect-square h-[min(90dvh,calc(100dvh-5.75rem),53rem)] w-auto max-w-full';
 
   return (
     <div className={boardShellClass}>

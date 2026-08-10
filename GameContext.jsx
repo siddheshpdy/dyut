@@ -10,7 +10,7 @@ import { requiresPublicMatchEntry } from './economy';
 import { DEFAULT_PIECE_SKIN_ID, normalizePieceSkinId } from './pieceSkins';
 
 // Function to create the initial state based on player count
-const createInitialState = (gameConfig) => {
+export const createInitialState = (gameConfig) => {
   const { playerCount, playerColors = ['yellow', 'black', 'green', 'blue'], playerSkins = {}, isVoidRuleEnabled = true, bots = [], botDifficulty = 'hard', isQuickGame = false, isTeamMode = false, activeSeats = null, playerAliases = {}, playerUids = {}, isOnline = false, gameId = null, hostUid = null, localUid = null, isPublic = false, economy = null, initialPiecePathIndex = null, initialStateOverride = null } = gameConfig;
 
   const seatsToUse = activeSeats || Array.from({ length: playerCount }).map((_, i) => `Player${i + 1}`);

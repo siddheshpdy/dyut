@@ -5,6 +5,7 @@ import {
   claimRewardMultiplier as claimRewardMultiplierService,
   getEconomyIdentity,
   loadEconomy,
+  purchasePieceSkin as purchasePieceSkinService,
   recordOnlineGoalProgress as recordOnlineGoalProgressService,
   refundPublicMatchEntry as refundEntry,
   reservePublicMatchEntry as reserveEntry,
@@ -14,7 +15,7 @@ import { getRewardGoals, getUtcDayKey, normalizeEconomyState } from './economy.j
 
 const EconomyContext = createContext(null);
 
-export const EconomyProvider = ({ user, children }) => {
+export const EconomyProvider = ({ user, children, authReady = true }) => {
   const [economy, setEconomy] = useState(() => normalizeEconomyState());
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState(null);
@@ -37,6 +38,17 @@ export const EconomyProvider = ({ user, children }) => {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!authReady) {
+      setStatus('loading');
+      setError(null);
+      setDailyReward(null);
+      setLastReward(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setStatus('loading');
     setError(null);
     setDailyReward(null);
@@ -59,7 +71,7 @@ export const EconomyProvider = ({ user, children }) => {
     return () => {
       cancelled = true;
     };
-  }, [economyIdentity, economyUser]);
+  }, [authReady, economyIdentity, economyUser]);
 
   const runMutation = useCallback(async (operation) => {
     setError(null);
@@ -122,6 +134,11 @@ export const EconomyProvider = ({ user, children }) => {
     [economyUser, runMutation],
   );
 
+  const purchasePieceSkin = useCallback(
+    (pieceSkinId) => runMutation(() => purchasePieceSkinService(economyUser, pieceSkinId)),
+    [economyUser, runMutation],
+  );
+
   const settlePublicMatch = useCallback(
     (settlement) => runMutation(() => settleMatch(economyUser, settlement)).then((result) => {
       setLastSettlement({
@@ -142,6 +159,7 @@ export const EconomyProvider = ({ user, children }) => {
   const value = useMemo(() => ({
     balance: economy.coins,
     economy,
+    ownedPieceSkinIds: economy.ownedPieceSkinIds,
     goals: getRewardGoals(economy),
     status,
     error,
@@ -155,6 +173,7 @@ export const EconomyProvider = ({ user, children }) => {
     recordOnlineGoalProgress,
     claimGoalReward,
     claimRewardMultiplier,
+    purchasePieceSkin,
     reservePublicEntry,
     settlePublicMatch,
     refundPublicEntry,
@@ -168,6 +187,7 @@ export const EconomyProvider = ({ user, children }) => {
     lastReward,
     recordOnlineGoalProgress,
     claimRewardMultiplier,
+    purchasePieceSkin,
     lastSettlement,
     refresh,
     refundPublicEntry,

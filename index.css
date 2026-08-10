@@ -118,9 +118,35 @@ textarea {
   }
 
   /* 3D Depth effect for jewel pieces */
-  .jewel-shadow {
+.jewel-shadow {
     box-shadow: inset -3px -6px 8px rgba(0,0,0,0.5), inset 3px 6px 8px rgba(255,255,255,0.4), 0 6px 12px rgba(0,0,0,0.8);
   }
+}
+
+.piece-skin-classic {
+  background-image: linear-gradient(145deg, rgba(255,255,255,0.16), transparent 46%);
+}
+
+.piece-skin-faceted {
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.34) 0 22%, transparent 23% 56%, rgba(0,0,0,0.24) 57% 100%);
+}
+
+.piece-skin-halo {
+  box-shadow: inset -2px -2px 6px rgba(0,0,0,0.5), 0 0 0 2px rgba(255,248,220,0.28), 0 0 12px rgba(255,228,154,0.5);
+}
+
+.piece-skin-etched {
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 4px);
+}
+
+.piece-skin-sunfire {
+  background-image: radial-gradient(circle at 30% 24%, rgba(255,255,255,0.42), transparent 24%), linear-gradient(145deg, rgba(255,213,83,0.26), transparent 56%);
+  box-shadow: inset -2px -2px 6px rgba(0,0,0,0.5), 0 0 14px rgba(251,191,36,0.62);
+}
+
+.piece-skin-royal {
+  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.18) 0 1px, transparent 1px 5px), linear-gradient(145deg, rgba(216,180,254,0.28), transparent 58%);
+  box-shadow: inset -2px -2px 6px rgba(0,0,0,0.5), 0 0 0 2px rgba(216,180,254,0.34), 0 0 13px rgba(168,85,247,0.54);
 }
 
 /* Board View Updates for floating tiles */
@@ -172,6 +198,138 @@ textarea {
 
 .lobby-seat-grid {
   width: min(100%, 280px);
+}
+
+/* Home lobby: the art is code-native so it scales cleanly across every portal viewport. */
+.lobby-home-scene {
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(173, 102, 25, 0.12), transparent 35%),
+    radial-gradient(ellipse at 50% 105%, rgba(130, 66, 16, 0.18), transparent 45%),
+    #0b0b0b;
+}
+
+.lobby-temple-backdrop {
+  position: absolute;
+  top: clamp(5rem, 13dvh, 8rem);
+  left: 50%;
+  width: min(78vw, 52rem);
+  height: clamp(9rem, 27dvh, 17rem);
+  transform: translateX(-50%);
+  opacity: 0.5;
+  background:
+    linear-gradient(90deg, transparent 0 10%, rgba(202, 143, 40, 0.18) 10.2% 10.6%, transparent 10.8% 21%, rgba(202, 143, 40, 0.14) 21.2% 21.6%, transparent 21.8% 78.2%, rgba(202, 143, 40, 0.14) 78.4% 78.8%, transparent 79% 89.2%, rgba(202, 143, 40, 0.18) 89.4% 89.8%, transparent 90%),
+    linear-gradient(135deg, transparent 0 44%, rgba(202, 143, 40, 0.16) 44.2% 44.7%, transparent 45% 55%, rgba(202, 143, 40, 0.16) 55.3% 55.8%, transparent 56%),
+    repeating-linear-gradient(0deg, transparent 0 1.65rem, rgba(202, 143, 40, 0.12) 1.68rem 1.75rem),
+    radial-gradient(ellipse at 50% 100%, rgba(223, 161, 41, 0.15), transparent 60%);
+  clip-path: polygon(0 100%, 0 89%, 11% 89%, 11% 73%, 22% 73%, 22% 51%, 34% 51%, 34% 24%, 50% 0, 66% 24%, 66% 51%, 78% 51%, 78% 73%, 89% 73%, 89% 89%, 100% 89%, 100% 100%);
+  filter: drop-shadow(0 0 26px rgba(174, 105, 20, 0.14));
+}
+
+.lobby-home-hero {
+  display: flex;
+  height: clamp(2.4rem, 8dvh, 5.5rem);
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  color: rgba(234, 179, 8, 0.72);
+}
+
+.lobby-home-hero > span {
+  height: 1px;
+  width: clamp(2.25rem, 10vw, 7rem);
+  background: linear-gradient(90deg, transparent, currentColor);
+}
+
+.lobby-home-hero > span:last-child {
+  background: linear-gradient(90deg, currentColor, transparent);
+}
+
+.lobby-home-hero-mark {
+  height: 0.7rem;
+  width: 0.7rem;
+  transform: rotate(45deg);
+  border: 1px solid currentColor;
+  box-shadow: 0 0 13px rgba(234, 179, 8, 0.35);
+}
+
+.lobby-mode-card::before,
+.lobby-mode-card::after {
+  position: absolute;
+  z-index: 1;
+  height: 1rem;
+  width: 1rem;
+  content: '';
+  opacity: 0.72;
+}
+
+.lobby-mode-card::before {
+  top: 0.32rem;
+  left: 0.32rem;
+  border-top: 1px solid currentColor;
+  border-left: 1px solid currentColor;
+}
+
+.lobby-mode-card::after {
+  right: 0.32rem;
+  bottom: 0.32rem;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+}
+
+.lobby-mode-card--featured {
+  box-shadow: 0 0 34px rgba(234, 179, 8, 0.2), inset 0 0 38px rgba(234, 179, 8, 0.08);
+}
+
+.lobby-navigation-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  min-height: 4.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.82);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.lobby-navigation-item svg {
+  flex: 0 0 auto;
+  color: #eab308;
+}
+
+.lobby-navigation-item:hover {
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.11), transparent);
+  color: #fef3c7;
+}
+
+@media (min-width: 1280px) {
+  .lobby-has-desktop-pane {
+    max-width: none;
+    padding-left: calc(18rem + 1.5rem) !important;
+  }
+
+  .lobby-fair-play {
+    left: calc(18rem + 1.5rem) !important;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1099px) {
+  .lobby-mode-card--featured {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 1100px) {
+  .lobby-mode-card {
+    min-height: clamp(8.5rem, 20dvh, 11rem);
+  }
+
+  .lobby-home-hero {
+    height: clamp(5rem, 15dvh, 8rem);
+  }
 }
 
 .secondary-screen-shell {
@@ -259,6 +417,30 @@ textarea {
 }
 
 @media (max-height: 540px) and (orientation: landscape) {
+  .lobby-menu-toggle {
+    height: 2.1rem;
+    width: 2.1rem;
+  }
+
+  .lobby-navigation-pane {
+    padding-top: max(3.75rem, calc(env(safe-area-inset-top) + 3.2rem));
+  }
+
+  .lobby-navigation-pane .mb-5 {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .lobby-navigation-item {
+    min-height: 2.75rem;
+    font-size: 0.75rem;
+  }
+
+  .lobby-navigation-item svg {
+    height: 1.1rem;
+    width: 1.1rem;
+  }
+
   .lobby-viewport {
     padding-top: 3.75rem !important;
     padding-bottom: 0.5rem !important;

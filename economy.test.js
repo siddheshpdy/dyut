@@ -11,6 +11,7 @@ import {
   claimRewardMultiplier,
   recordOnlineGoalProgress,
   requiresPublicMatchEntry,
+  purchasePieceSkin,
   reservePublicMatchEntry,
   settlePublicMatch,
 } from './economy';
@@ -53,6 +54,17 @@ describe('Temple Coin economy', () => {
     expect(() => reservePublicMatchEntry({ coins: PUBLIC_MATCH_ENTRY_COINS - 1 }, 'MATCH1')).toThrowError(
       expect.objectContaining({ code: 'insufficient-coins' }),
     );
+  });
+
+  it('purchases a piece design once and records ownership', () => {
+    const first = purchasePieceSkin({ coins: 750 }, 'lotus', 1);
+    const repeated = purchasePieceSkin(first.state, 'lotus', 2);
+
+    expect(first.applied).toBe(true);
+    expect(first.state.coins).toBe(0);
+    expect(first.state.ownedPieceSkinIds).toEqual(['classic', 'lotus']);
+    expect(repeated.applied).toBe(false);
+    expect(repeated.state.coins).toBe(0);
   });
 
   it('calculates the 10% fee and 90% winner prize', () => {
