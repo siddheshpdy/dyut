@@ -1,4 +1,5 @@
-import { calculateMatchCoins, normalizeOwnedPieceSkinIds } from './economy';
+import { calculateMatchCoins } from './economy';
+import { normalizeOwnedPieceSkinIds } from './pieceSkins.js';
 
 export const MATCH_COMPLETION_XP = 25;
 export const MATCH_WIN_XP = 75;

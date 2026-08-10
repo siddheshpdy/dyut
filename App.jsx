@@ -460,6 +460,11 @@ function App() {
     let cgAuthListener = null;
 
     const initializeAuth = async () => {
+      if (!auth) {
+        setIsAuthResolved(true);
+        return null;
+      }
+
       // First, check for a redirect result. This needs to be awaited to prevent
       // the onIdTokenChanged listener from firing with a stale anonymous user first.
       const redirectedUser = await checkAuthRedirect();

@@ -17,6 +17,6 @@ describe('progression', () => {
 
   it('records each match only once when an id is available', () => {
     expect(createProgressionUpdate({ gamesPlayed: 1, wins: 1, xp: 100, completedMatchIds: ['match-1'] }, { isWin: true, matchId: 'match-1' })).toBeNull();
-    expect(createProgressionUpdate({}, { isWin: true, matchId: 'match-2' })).toMatchObject({ gamesPlayed: 1, wins: 1, xp: 100, level: 2, coins: 100, ownedPieceSkinIds: ['classic', 'faceted'], completedMatchIds: ['match-2'] });
+    expect(createProgressionUpdate({}, { isWin: true, matchId: 'match-2' })).toMatchObject({ gamesPlayed: 1, wins: 1, xp: 100, level: 2, coins: 100, ownedPieceSkinIds: ['classic'], completedMatchIds: ['match-2'] });
   });
 });

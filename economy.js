@@ -4,8 +4,16 @@ const CRAZYGAMES_ADS_ENABLED = import.meta.env.VITE_CG_ENABLE_ADS === 'true';
 
 export const PUBLIC_MATCH_ENTRY_COINS = CRAZYGAMES_ADS_ENABLED ? 500 : 200;
 export const DAILY_LOGIN_REWARD_COINS = 500;
+// Kept for the legacy progression module, which awards completion coins for
+// offline match summaries separately from the event-based economy.
+export const MATCH_COMPLETION_COINS = 25;
+export const MATCH_WIN_COINS = 75;
 export const MATCH_FEE_BPS = 1000;
 export const MAX_ECONOMY_EVENTS = 200;
+
+export const calculateMatchCoins = ({ isWin = false } = {}) => (
+  MATCH_COMPLETION_COINS + (isWin ? MATCH_WIN_COINS : 0)
+);
 
 export const GOAL_DEFINITIONS = Object.freeze([
   { id: 'daily-win', scope: 'daily', metric: 'wins', target: 1, reward: 100 },
