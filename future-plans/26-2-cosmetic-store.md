@@ -1,5 +1,12 @@
 # Phase 26.2: Cosmetic Store Plan
 
+## Current status (2026-08-12)
+
+**Partial:** the Piece Collection client MVP is implemented with nine designs,
+earned-coin purchases, ownership, equip state, persistence adapters, and
+match-snapshot propagation. Board themes, dice trails, server-owned catalogues,
+secure inventory writes, real-money purchases, and receipt fulfillment remain.
+
 ## Objective
 
 Add a store where players can unlock and equip cosmetic piece skins, board themes, and dice effects without changing gameplay rules.

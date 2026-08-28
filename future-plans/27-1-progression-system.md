@@ -1,5 +1,11 @@
 # Phase 27.1: Progression System Plan
 
+## Current status (2026-08-12)
+
+**Partial:** deterministic XP/level calculation helpers and tests exist, and
+match completion has progression data support. Authoritative idempotent
+integration, Victory/Profile level UI, and milestone inventory rewards remain.
+
 ## Objective
 
 Add XP, levels, and milestone rewards so players have long-term goals beyond individual wins.

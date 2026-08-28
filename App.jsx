@@ -183,16 +183,16 @@ const GameOverlay = ({ onShowRules, onShowTutorial, onShowHistory, onShowAbout, 
 
   return (
     <>
-      <header className="absolute inset-x-0 top-0 z-[80] flex h-[3.75rem] items-center border-b border-gold/35 bg-[#0b0c0c]/95 px-4 shadow-[0_5px_20px_rgba(0,0,0,0.3)] backdrop-blur-md sm:px-5 min-[1200px]:h-[4.25rem] min-[1200px]:px-8">
+      <header className="absolute inset-x-0 top-0 z-[80] grid h-[3.75rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center border-b border-gold/35 bg-[#0b0c0c]/95 px-2 shadow-[0_5px_20px_rgba(0,0,0,0.3)] backdrop-blur-md sm:px-5 min-[700px]:flex min-[1200px]:h-[4.25rem] min-[1200px]:px-8">
         <button type="button" onClick={() => setIsGameMenuOpen((open) => !open)} aria-expanded={isGameMenuOpen} aria-controls="game-navigation-pane" aria-label={isGameMenuOpen ? t('closeMenu', 'Close menu') : t('openMenu', 'Open menu')} className="flex h-9 w-9 shrink-0 items-center justify-center text-gold transition-colors hover:text-[#ffe17b] min-[1200px]:h-10 min-[1200px]:w-10">
           {isGameMenuOpen ? <CloseIcon className="h-5 w-5" aria-hidden="true" /> : <MenuIcon className="h-7 w-7" strokeWidth={2.2} aria-hidden="true" />}
         </button>
 
-        <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center">
+        <div className="pointer-events-none flex min-w-0 items-center justify-center min-[700px]:absolute min-[700px]:inset-x-0">
           <h1 className="dyut-title font-display text-[1.2rem] font-bold leading-none tracking-[0.12em] text-gold text-glow-gold max-[399px]:text-[1.05rem] sm:text-[1.9rem] sm:tracking-[0.17em] min-[1200px]:text-[2.25rem]">DYUT</h1>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3 min-[1200px]:gap-7 min-[1500px]:gap-10">
+        <div className="ml-auto flex min-w-0 items-center justify-end gap-1 max-[399px]:gap-0 sm:gap-3 min-[700px]:gap-2 min-[1200px]:gap-7 min-[1500px]:gap-10">
           <div className="hidden items-center gap-2 text-white/90 min-[700px]:flex min-[1200px]:min-w-[7.25rem] min-[1200px]:justify-center" title={t('score', 'Score')}>
             <ScoreIcon className="h-5 w-5 text-gold min-[1200px]:h-6 min-[1200px]:w-6" strokeWidth={1.8} aria-hidden="true" />
             <span className="font-display text-sm leading-none min-[1200px]:text-base">{activeScore} <span className="hidden min-[1200px]:inline">{t('score', 'Score')}</span></span>
@@ -361,7 +361,7 @@ function App() {
   const mobileTrayReservedSpace = isShortMobileHeight ? MOBILE_TRAY_RESERVED_SPACE_SHORT : MOBILE_TRAY_RESERVED_SPACE;
   const mobileBoardSize = `min(calc(96vw - 0.75rem), calc(100dvh - ${mobileHeaderReservedSpace} - ${mobileTrayReservedSpace} - env(safe-area-inset-bottom) - ${isShortMobileHeight ? '0.65rem' : '1.25rem'}))`;
   const shouldUseCompactLandscapeLayout = !isDesktop && isCompactLandscape;
-  const compactLandscapeBoardSize = `min(calc(100dvh - ${mobileHeaderReservedSpace} - env(safe-area-inset-bottom) - 1rem), 58vw)`;
+  const compactLandscapeBoardSize = `min(calc(100dvh - ${mobileHeaderReservedSpace} - env(safe-area-inset-bottom) - 1.5rem), 58vw)`;
   const viewRef = useRef(view);
   const joinGameIdRef = useRef(joinGameId);
   const authIdentityRef = useRef(null);
@@ -507,7 +507,21 @@ function App() {
         } else {
           // If there's no user and we didn't just come from a redirect, sign in anonymously.
           if (!redirectedUser) {
-            signInUserAnonymously();
+            // Do not mark auth as ready until the anonymous token exists. Online
+            // callable functions require that token; otherwise a fast click on
+            // CREATE LOBBY can reach the server as unauthenticated.
+            await signInUserAnonymously();
+            if (!isMounted) return;
+            if (auth.currentUser) {
+              setUser({
+                uid: auth.currentUser.uid,
+                isAnonymous: auth.currentUser.isAnonymous,
+                displayName: auth.currentUser.displayName,
+                photoURL: auth.currentUser.photoURL,
+              });
+              setIsAuthResolved(true);
+              return;
+            }
           }
           setUser(null);
         }
@@ -877,6 +891,7 @@ function App() {
           resumeOnlineGameId={resumeOnlineGameId}
           joinGameId={joinGameId} 
           user={user} 
+          authReady={isAuthResolved}
           autoStartPortalIntro={IS_PORTAL && !qaPreviewScreen && portalAutoStartPending}
           onPortalAutoStartConsumed={() => setPortalAutoStartPending(false)}
           autoStartInstantMultiplayer={IS_PORTAL && !qaPreviewScreen && portalInstantMultiplayerPending}

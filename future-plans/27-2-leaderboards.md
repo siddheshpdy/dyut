@@ -1,5 +1,13 @@
 # Phase 27.2: Global & Regional Leaderboards Plan
 
+## Current status (2026-08-12)
+
+**Partial:** the lobby profile opens a website leaderboard with mode tabs,
+loading/error/retry states, and the portal has a separate CrazyGames score
+adapter. Firestore rules/public-safe materialized documents, trusted ranking
+writes, global/weekly/regional lists, opt-out handling, and portal credential
+configuration remain.
+
 ## Objective
 
 Add global and regional leaderboard views for wins, XP, and possibly weekly performance.

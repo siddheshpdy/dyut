@@ -117,6 +117,72 @@ describe('DiceTray Component', () => {
         expect(mobileRollSurface.querySelector('[data-die-face="ornate-compact"]')).toHaveClass('aspect-square', 'flex-none');
     });
 
+    it('keeps the server roll animation active until the committed response arrives', async () => {
+        vi.useFakeTimers();
+        let resolveRoll;
+        const serverDispatch = vi.fn(() => new Promise((resolve) => {
+            resolveRoll = resolve;
+        }));
+        const state = {
+            currentPlayer: 'Player1',
+            players: { Player1: { name: 'Alice', color: 'ruby' } },
+            turnQueue: [],
+            hasRolledThisTurn: false,
+            rollingPhaseComplete: false,
+            isOnline: true,
+            version: 0,
+            lastRoll: null,
+        };
+        useGame.mockReturnValue({ state, dispatch: serverDispatch, serverAuthorityEnabled: true });
+
+        render(<DiceTray />);
+        fireEvent.click(screen.getByRole('button', { name: 'rollDice' }));
+
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+
+        expect(serverDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'ROLL_DICE' }));
+        document.querySelector('#dice-roll-btn').querySelectorAll('[data-die-face="ornate-desktop"]').forEach((face) => {
+            expect(face).toHaveClass('animate-shake');
+        });
+
+        await act(async () => {
+            resolveRoll({
+                state: {
+                    ...state,
+                    version: 1,
+                    lastRoll: { d1: 3, d2: 6, sum: 9 },
+                    turnQueue: [{ d1: 3, d2: 6, sum: 9 }],
+                    hasRolledThisTurn: true,
+                    rollingPhaseComplete: true,
+                },
+            });
+            await Promise.resolve();
+        });
+
+        document.querySelector('#dice-roll-btn').querySelectorAll('[data-die-face="ornate-desktop"]').forEach((face) => {
+            expect(face).not.toHaveClass('animate-shake');
+        });
+    });
+
+    it('renders the active player piece design in the mobile tray', () => {
+        useGame.mockReturnValue({
+            state: {
+                currentPlayer: 'Player1',
+                players: { Player1: { name: 'Alice', color: 'ruby', pieceSkinId: 'lotus', pieces: [-1, -1, -1, -1] } },
+                turnQueue: [],
+                hasRolledThisTurn: false,
+                rollingPhaseComplete: false
+            },
+            dispatch: mockDispatch
+        });
+
+        const { container } = render(<DiceTray layoutMode="mobile" />);
+
+        expect(container.querySelectorAll('[data-piece-skin="lotus"]')).toHaveLength(4);
+    });
+
     it('portals the Void Roll dialog above gameplay and keeps it viewport constrained', () => {
         vi.useFakeTimers();
         const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
@@ -139,7 +205,7 @@ describe('DiceTray Component', () => {
         fireEvent.click(screen.getByRole('button', { name: 'rollDice' }));
 
         act(() => {
-            vi.advanceTimersByTime(1200);
+            vi.advanceTimersByTime(400);
         });
 
         const dialog = screen.getByRole('dialog', { name: 'voidRollTitle' });

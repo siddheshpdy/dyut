@@ -8,6 +8,18 @@ import { clearCrazyGamesOfflineResume, saveCrazyGamesOfflineResume } from './cra
 import { useOptionalEconomy } from './EconomyContext';
 import { requiresPublicMatchEntry } from './economy';
 import { DEFAULT_PIECE_SKIN_ID, normalizePieceSkinId } from './pieceSkins';
+import { getMatchStatMode } from './playerStats.js';
+import {
+  heartbeatGame as heartbeatGameServer,
+  finalizeGame as finalizeGameServer,
+  initializeGame as initializeGameServer,
+  isServerAuthorityEnabled,
+  leaveGame as leaveGameServer,
+  recoverGameHost as recoverGameHostServer,
+  recordMatchCompletion,
+  rollGameDice,
+  submitGameAction,
+} from './serverAuthorityClient.js';
 
 // Function to create the initial state based on player count
 export const createInitialState = (gameConfig) => {
@@ -58,6 +70,7 @@ export const createInitialState = (gameConfig) => {
     isAfkTurn: false,
     scriptedRolls: [],
     scriptedRollIndex: 0,
+    version: 0,
   };
   return initialStateOverride ? { ...initialState, ...initialStateOverride } : initialState;
 };
@@ -358,6 +371,16 @@ export function gameReducer(state, action) {
   switch (action.type) {
     case ACTION_TYPES.SYNC_FROM_CLOUD:
       if (!state.isOnline) return state;
+      // A callable response and the RTDB listener can arrive in either order.
+      // Never allow an older snapshot to put the queue, pieces, active player,
+      // or timer back into a previous version.
+      if (
+        Number.isInteger(action.payload?.version)
+        && Number.isInteger(state.version)
+        && action.payload.version < state.version
+      ) {
+        return state;
+      }
       // RTDB omits empty arrays and objects, so we must supply defaults for them to prevent state bleed
       return { 
         ...state, 
@@ -562,7 +585,7 @@ export function gameReducer(state, action) {
       const playerKeys = Object.keys(state.players).sort();
       const currentIndex = playerKeys.indexOf(state.currentPlayer);
       const nextPlayer = playerKeys[(currentIndex + 1) % playerKeys.length];
-      return { ...state, currentPlayer: nextPlayer, turnQueue: [], hasRolledThisTurn: false, rollingPhaseComplete: false };
+      return { ...state, currentPlayer: nextPlayer, turnQueue: [], lastRoll: null, hasRolledThisTurn: false, rollingPhaseComplete: false };
     }
 
     case ACTION_TYPES.CLEAR_QUEUE:
@@ -592,6 +615,9 @@ export const GameContext = createContext();
 const LOCAL_STORAGE_KEY = 'dyut_game_state';
 const LOCAL_PLAYER_COUNT_KEY = 'dyut_player_count';
 const BOT_ROLL_FALLBACK_DELAY_MS = 3000;
+// 2nd-gen callable cold starts can exceed the normal turn/UI timing. Keep the
+// lobby alive long enough for the authoritative game document to be created.
+const ONLINE_GAME_INITIALIZATION_TIMEOUT_MS = 30000;
 const PASA_DICE_FACES = [1, 3, 4, 6];
 
 export const initGameState = (initialState) => {
@@ -632,6 +658,10 @@ export function GameProvider({ gameConfig, children }) {
   const economySettlementAttemptsRef = useRef(new Set());
   const goalProgressAttemptsRef = useRef(new Set());
   const statsUpdateAttemptedRef = useRef(false);
+  const serverActionPendingRef = useRef(new Set());
+  const legacyGameRedirectRef = useRef(false);
+  const gameInitializationAttemptsRef = useRef(new Set());
+  const missingGameTimerRef = useRef(null);
   const getInitialState = () => createInitialState(gameConfig);
 
   const enhancedReducer = (state, action) => {
@@ -653,12 +683,17 @@ export function GameProvider({ gameConfig, children }) {
   const dispatchRef = useRef();
 
 const dispatch = useCallback((action) => {
-    if (dispatchRef.current) dispatchRef.current(action);
+    if (dispatchRef.current) return dispatchRef.current(action);
+    return undefined;
   }, []);
 
   const leaveGame = () => {
     const currentState = latestStateRef.current;
     if (currentState && currentState.isOnline && currentState.gameId) {
+      if (isServerAuthorityEnabled()) {
+        leaveGameServer(currentState.gameId).catch((error) => console.error('Server-authoritative leave failed:', error));
+        return;
+      }
       const myPlayerId = Object.keys(currentState.playerUids || {}).find(key => currentState.playerUids[key] === currentState.localUid);
       if (myPlayerId && !currentState.bots?.includes(myPlayerId)) {
         const newBots = [...new Set([...(currentState.bots || []), myPlayerId])];
@@ -735,16 +770,20 @@ const dispatch = useCallback((action) => {
 
   // Host: Send Heartbeat during gameplay
   useEffect(() => {
-    if (!state.isOnline || !state.gameId || state.localUid !== state.hostUid) return;
+    if (!state.isOnline || !state.gameId || !state.lastPing || state.localUid !== state.hostUid) return;
 
     const pushPing = () => {
-      update(ref(rtdb, 'games/' + state.gameId), { lastPing: Date.now() }).catch(() => {});
+      if (isServerAuthorityEnabled()) {
+        heartbeatGameServer(state.gameId).catch(() => {});
+      } else {
+        update(ref(rtdb, 'games/' + state.gameId), { lastPing: Date.now() }).catch(() => {});
+      }
     };
 
     pushPing();
     const pingInterval = setInterval(pushPing, 10000);
     return () => clearInterval(pingInterval);
-  }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
+  }, [state.isOnline, state.gameId, state.lastPing, state.localUid, state.hostUid]);
 
   // Turn Timer: host-enforced online AFK handling, or local offline auto-skip
   useEffect(() => {
@@ -788,7 +827,11 @@ const dispatch = useCallback((action) => {
           const remainingHumans = getActiveHumanPlayerIds(state, newBots);
           
           Object.assign(updates, buildPublicPresenceLossUpdates(state, remainingHumans));
-          update(ref(rtdb, 'games/' + state.gameId), updates).catch(console.error);
+          if (isServerAuthorityEnabled()) {
+            recoverGameHostServer(state.gameId).catch(console.error);
+          } else {
+            update(ref(rtdb, 'games/' + state.gameId), updates).catch(console.error);
+          }
         }
       }
     }, 5000);
@@ -840,6 +883,60 @@ const dispatch = useCallback((action) => {
       actionToDispatch._updateActivity = true;
     }
 
+    // Transitional server-authority bridge. The browser still owns offline games and
+    // the existing fallback path; online gameplay can opt into callable validation
+    // without changing the reducer or the current UI contract.
+    if (
+      currentState.isOnline
+      && currentState.gameId
+      && isServerAuthorityEnabled()
+      && protectedActions.includes(action.type)
+    ) {
+      // The local game shell mounts before the host has created the
+      // authoritative RTDB document. Do not send reducer actions against a
+      // document that is still being initialized.
+      if (!currentState.lastPing) return;
+      const expectedVersion = Number.isInteger(currentState.version) ? currentState.version : 0;
+      const pendingKey = `${expectedVersion}:${action.type}`;
+      if (serverActionPendingRef.current.has(pendingKey)) return;
+      serverActionPendingRef.current.add(pendingKey);
+      const actionId = action.actionId || (
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      );
+      const payload = { ...(action.payload || {}) };
+      if (!payload.playerId) payload.playerId = getActiveTurnPlayerId(currentState);
+      const request = { gameId: currentState.gameId, actionId, expectedVersion, playerId: payload.playerId };
+      const command = action.type === ACTION_TYPES.ROLL_DICE
+        ? rollGameDice(request)
+        : submitGameAction({ ...request, action: { type: action.type, payload } });
+      const commandResult = command
+        .then((response) => {
+          const remoteState = response?.state;
+          if (!remoteState || !Number.isInteger(remoteState.version)) return response;
+
+          // Apply the committed state immediately. The RTDB listener will also
+          // deliver it, while the reducer's version guard makes that duplicate
+          // harmless and prevents an older listener event from reverting it.
+          if (remoteState.version >= (latestStateRef.current.version ?? 0)) {
+            latestStateRef.current = { ...latestStateRef.current, ...remoteState };
+            baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: remoteState });
+          }
+          return response;
+        })
+        .catch((error) => {
+          console.error('Server-authoritative game action failed:', error);
+          return { error };
+        })
+        .finally(() => {
+          // A newer RTDB snapshot will advance the version and allow the next command.
+          if ((latestStateRef.current.version ?? 0) > expectedVersion) serverActionPendingRef.current.delete(pendingKey);
+          else setTimeout(() => serverActionPendingRef.current.delete(pendingKey), 1500);
+        });
+      return commandResult;
+    }
+
     baseDispatch(actionToDispatch);
 
     // Instantly calculate and cache the next state so consecutive rapid dispatches (like bots) stack properly!
@@ -871,14 +968,39 @@ const dispatch = useCallback((action) => {
       const gameRef = ref(rtdb, 'games/' + state.gameId);
       const unsubscribe = onValue(gameRef, (snapshot) => {
         if (snapshot.exists()) {
+          if (missingGameTimerRef.current) {
+            clearTimeout(missingGameTimerRef.current);
+            missingGameTimerRef.current = null;
+          }
           const data = snapshot.val();
+
+          // Authority-enabled clients cannot safely continue a game created by
+          // the former direct-write client. Those records do not have the
+          // server marker/version required by callable commands, and RTDB
+          // rules intentionally reject direct gameplay writes. Clear only the
+          // stale resume pointer and return the player to the lobby so a new
+          // server-owned match can be created.
+          if (isServerAuthorityEnabled() && data.serverAuthority !== true) {
+            if (!legacyGameRedirectRef.current) {
+              legacyGameRedirectRef.current = true;
+              console.error('This online match was created before server authority was enabled.');
+              localStorage.removeItem('dyut_last_online_id');
+              clearAccountResumeGame().catch(() => {});
+              alert(t(
+                'legacyOnlineMatchUnavailable',
+                'This online match is from an older server version. Please start a new match.',
+              ));
+              window.location.href = window.location.pathname;
+            }
+            return;
+          }
 
           // A browser that had an older bundle cached can create a game record without
           // host/seat metadata. Backfill only missing fields so the current host can
           // immediately control bot-filled seats without modifying active gameplay.
           if (state.localUid === state.hostUid) {
             const missingMetadata = getMissingOnlineGameMetadata(data, state);
-            if (Object.keys(missingMetadata).length > 0) {
+            if (!isServerAuthorityEnabled() && Object.keys(missingMetadata).length > 0) {
               update(gameRef, missingMetadata).catch(console.error);
             }
           }
@@ -896,32 +1018,84 @@ const dispatch = useCallback((action) => {
           baseDispatch({ type: ACTION_TYPES.SYNC_FROM_CLOUD, payload: data });
         } else if (state.localUid === state.hostUid) {
           // Host initializes the game document
-          set(gameRef, {
-            currentPlayer: state.currentPlayer,
-            turnQueue: state.turnQueue,
-            players: state.players,
-            hasRolledThisTurn: state.hasRolledThisTurn,
-            rollingPhaseComplete: state.rollingPhaseComplete,
-          isPublic: gameConfig.isPublic || false,
-          hostUid: state.hostUid,
-          playerUids: state.playerUids,
-          botDifficulty: state.botDifficulty,
-          isVoidRuleEnabled: state.isVoidRuleEnabled,
-          isQuickGame: state.isQuickGame,
-          isTeamMode: state.isTeamMode,
-          initialPiecePathIndex: state.initialPiecePathIndex,
-          economy: state.economy || null,
-          status: gameConfig.status || 'playing',
-            lastPing: Date.now(),
-            turnStartedAt: state.turnStartedAt,
-            lastActionTime: Date.now(),
-            afkStrikes: {},
-            isAfkTurn: false,
-            bots: state.bots || []
-          }).catch(console.error);
+          if (isServerAuthorityEnabled()) {
+            const initializationKey = state.gameId;
+            if (!gameInitializationAttemptsRef.current.has(initializationKey)) {
+              gameInitializationAttemptsRef.current.add(initializationKey);
+              initializeGameServer(state.gameId, state.initialPiecePathIndex).catch((error) => {
+                console.error('Server-authoritative game initialization failed:', error);
+              });
+            }
+          } else {
+            set(gameRef, {
+              currentPlayer: state.currentPlayer,
+              turnQueue: state.turnQueue,
+              players: state.players,
+              hasRolledThisTurn: state.hasRolledThisTurn,
+              rollingPhaseComplete: state.rollingPhaseComplete,
+              isPublic: gameConfig.isPublic || false,
+              hostUid: state.hostUid,
+              playerUids: state.playerUids,
+              botDifficulty: state.botDifficulty,
+              isVoidRuleEnabled: state.isVoidRuleEnabled,
+              isQuickGame: state.isQuickGame,
+              isTeamMode: state.isTeamMode,
+              initialPiecePathIndex: state.initialPiecePathIndex,
+              economy: state.economy || null,
+              status: gameConfig.status || 'playing',
+              lastPing: Date.now(),
+              turnStartedAt: state.turnStartedAt,
+              lastActionTime: Date.now(),
+              afkStrikes: {},
+              isAfkTurn: false,
+              bots: state.bots || [],
+              version: 0
+            }).catch(console.error);
+          }
+
+          // A lobby can be marked as started even when the host's game
+          // initialization response was interrupted. Do not leave the client
+          // polling a non-existent game and repeatedly sending 404/403 calls.
+          if (!missingGameTimerRef.current) {
+            missingGameTimerRef.current = setTimeout(() => {
+              if (legacyGameRedirectRef.current) return;
+              legacyGameRedirectRef.current = true;
+              console.error('The online lobby started without a game record.');
+              localStorage.removeItem('dyut_last_online_id');
+              clearAccountResumeGame().catch(() => {});
+              alert(t(
+                'onlineMatchInitializationFailed',
+                'This online match could not be initialized. Please start a new match.',
+              ));
+              window.location.href = window.location.pathname;
+            }, ONLINE_GAME_INITIALIZATION_TIMEOUT_MS);
+          }
+        } else if (isServerAuthorityEnabled()) {
+          // Non-host clients must also leave a lobby whose game record never
+          // appeared, but allow a short window for the host to initialize it.
+          if (!missingGameTimerRef.current) {
+            missingGameTimerRef.current = setTimeout(() => {
+              if (legacyGameRedirectRef.current) return;
+              legacyGameRedirectRef.current = true;
+              console.error('The online lobby has no game record.');
+              localStorage.removeItem('dyut_last_online_id');
+              clearAccountResumeGame().catch(() => {});
+              alert(t(
+                'onlineMatchInitializationFailed',
+                'This online match could not be initialized. Please start a new match.',
+              ));
+              window.location.href = window.location.pathname;
+            }, ONLINE_GAME_INITIALIZATION_TIMEOUT_MS);
+          }
         }
       });
-      return () => unsubscribe();
+      return () => {
+        unsubscribe();
+        if (missingGameTimerRef.current) {
+          clearTimeout(missingGameTimerRef.current);
+          missingGameTimerRef.current = null;
+        }
+      };
     }
   }, [state.isOnline, state.gameId, state.localUid, state.hostUid]);
 
@@ -939,7 +1113,9 @@ const dispatch = useCallback((action) => {
         
         const myPlayerId = state.localUid
           ? Object.keys(state.playerUids || {}).find(key => state.playerUids[key] === state.localUid)
-          : null;
+          : !state.isOnline
+            ? Object.keys(state.players || {}).find((playerId) => !state.bots?.includes(playerId))
+            : null;
         const localPlayerIsHuman = myPlayerId && !state.bots?.includes(myPlayerId);
         const winningTeamId = getWinningTeamId(state);
         let localUserWon = false;
@@ -960,7 +1136,16 @@ const dispatch = useCallback((action) => {
         // Calculate and push stats for the local user if they are playing
         if (localPlayerIsHuman && hasGameplayWinner && !statsUpdateAttemptedRef.current) {
           statsUpdateAttemptedRef.current = true;
-          updateUserStats(state.localUid, localUserWon);
+          if (state.isOnline && state.gameId && isServerAuthorityEnabled()) {
+            recordMatchCompletion({ gameId: state.gameId }).catch((error) => {
+              statsUpdateAttemptedRef.current = false;
+              console.error('Failed to record server-authoritative match completion:', error);
+            });
+          } else {
+            updateUserStats(state.localUid, localUserWon, {
+              mode: getMatchStatMode({ isOnline: state.isOnline, isPublic: state.isPublic }),
+            });
+          }
         }
 
         if (
@@ -1014,8 +1199,12 @@ const dispatch = useCallback((action) => {
           localStorage.removeItem('dyut_last_online_id');
           clearAccountResumeGame().catch(console.error);
           if (state.gameId && state.localUid === state.hostUid) {
-            update(ref(rtdb, 'games/' + state.gameId), { status: 'finished' }).catch(console.error);
-            remove(ref(rtdb, 'lobbies/' + state.gameId)).catch(console.error);
+            if (isServerAuthorityEnabled()) {
+              finalizeGameServer(state.gameId).catch(console.error);
+            } else {
+              update(ref(rtdb, 'games/' + state.gameId), { status: 'finished' }).catch(console.error);
+              remove(ref(rtdb, 'lobbies/' + state.gameId)).catch(console.error);
+            }
           }
         }
       } else if (!state.isOnline) {
@@ -1025,7 +1214,7 @@ const dispatch = useCallback((action) => {
     }
   }, [state, economyContext]);
 
-  return <GameContext.Provider value={{ state, dispatch, leaveGame }}>{children}</GameContext.Provider>;
+  return <GameContext.Provider value={{ state, dispatch, leaveGame, serverAuthorityEnabled: isServerAuthorityEnabled() }}>{children}</GameContext.Provider>;
 }
 
 // Custom hook for consuming the game state

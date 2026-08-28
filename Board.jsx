@@ -10,6 +10,8 @@ import { getEffectiveMuteState, playSound } from './audio';
 import { getPieceSkin } from './pieceSkins';
 
 const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
+const BOARD_STEP_DURATION_MS = 55;
+const BOARD_EVENT_DURATION_MS = 150;
 
 const getOccupantOffsetClass = (count, index, spreadPair = false) => {
   if (count === 2) {
@@ -157,12 +159,16 @@ const Piece = ({ color, skinId, isMovable, isHomeStretch, isBasePiece = false })
       data-piece-skin={skin.id}
       data-seat-color={color}
     >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none select-none font-serif text-[clamp(4px,min(1.1vw,1.6dvh),14px)] font-black leading-none text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]"
-      >
-        {skin.symbol}
-      </span>
+      {skin.id === 'classic' ? (
+        <span aria-hidden="true" className="pointer-events-none h-[24%] w-[24%] shrink-0 rounded-full bg-white/95 shadow-[0_0_2px_rgba(255,255,255,0.9)]" />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none flex h-full w-full items-center justify-center select-none font-serif text-[clamp(4px,min(1.1vw,1.6dvh),14px)] font-black leading-none text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]"
+        >
+          {skin.symbol}
+        </span>
+      )}
     </div>
   );
 };
@@ -401,7 +407,7 @@ const Board = ({ onGoToMenu, onNewGame, layoutMode = 'desktop', hideActiveBaseOn
       if (hasChanges) {
         timeoutId = setTimeout(() => {
           flushSync(() => setVisualPlayers(next));
-        }, needsForwardStep ? 90 : 250); // 90ms per hop, 250ms for spawns/captures/turn-changes
+        }, needsForwardStep ? BOARD_STEP_DURATION_MS : BOARD_EVENT_DURATION_MS);
       }
     }
 

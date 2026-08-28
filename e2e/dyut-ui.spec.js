@@ -164,7 +164,7 @@ test('long player names stay above the base and render with ellipsis', async ({ 
   await page.goto('/?qa=long-name', { waitUntil: 'domcontentloaded' });
 
   const baseCard = page.locator('[data-player-base-card="Player1"]');
-  const nameLabel = page.locator(`[title="${LONG_PLAYER_NAME}"]`);
+  const nameLabel = baseCard.locator('..').locator(`[title="${LONG_PLAYER_NAME}"]`);
   await expect(baseCard).toBeVisible();
   await expect(nameLabel).toBeVisible();
 

@@ -33,6 +33,7 @@ import {
   ArrowRight,
   Ellipsis,
   X,
+  Pencil,
   FileText,
   Menu,
   Home,
@@ -81,6 +82,7 @@ export const DYUT_ICONS = {
   next: ArrowRight,
   more: Ellipsis,
   close: X,
+  edit: Pencil,
   menu: Menu,
   home: Home,
 } as const;

@@ -1,5 +1,11 @@
 # Phase 29.2: Active Game RTDB Cost Optimization Plan
 
+## Current status (2026-08-12)
+
+**Partial:** active lobbies and games already use RTDB while persistent profile
+data uses Firestore. Presence, lifecycle cleanup, rules, monitoring, and the
+remaining cost/race audit are still required.
+
 ## Objective
 
 Keep high-frequency active game state in Firebase Realtime Database and reserve Firestore for persistent user/account data.

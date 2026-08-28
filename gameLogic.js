@@ -1,4 +1,4 @@
-import { PLAYER_PATHS, isSafeZone as isCellVisuallySafe } from './boardMapping';
+import { PLAYER_PATHS, isSafeZone as isCellVisuallySafe } from './boardMapping.js';
 
 /**
  * Returns the ID of the teammate if the current player is entirely finished.

@@ -9,6 +9,19 @@ const databaseMocks = vi.hoisted(() => ({
   remove: vi.fn()
 }));
 
+const firestoreMocks = vi.hoisted(() => ({
+  doc: vi.fn(),
+  onSnapshot: vi.fn(),
+}));
+
+const leaderboardMocks = vi.hoisted(() => ({
+  loadWebsiteLeaderboard: vi.fn(),
+}));
+
+const profileMocks = vi.hoisted(() => ({
+  updateUserName: vi.fn(),
+}));
+
 const economyMocks = vi.hoisted(() => ({
   balance: 500,
   status: 'ready',
@@ -32,8 +45,12 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(),
-  onSnapshot: vi.fn(() => () => {})
+  doc: firestoreMocks.doc,
+  onSnapshot: firestoreMocks.onSnapshot,
+}));
+
+vi.mock('./leaderboardService.js', () => ({
+  loadWebsiteLeaderboard: leaderboardMocks.loadWebsiteLeaderboard,
 }));
 
 vi.mock('firebase/database', () => ({
@@ -46,11 +63,12 @@ vi.mock('firebase/database', () => ({
 }));
 
 vi.mock('./firebaseSetup.js', () => ({
+  app: undefined,
   db: {},
   rtdb: {},
   signInWithGoogle: vi.fn(),
   logoutUser: vi.fn(),
-  updateUserName: vi.fn()
+  updateUserName: profileMocks.updateUserName,
 }));
 
 vi.mock('./matchmaking.js', () => ({
@@ -85,6 +103,10 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  firestoreMocks.doc.mockReset().mockReturnValue({});
+  firestoreMocks.onSnapshot.mockReset().mockImplementation(() => () => {});
+  leaderboardMocks.loadWebsiteLeaderboard.mockReset().mockResolvedValue([]);
+  profileMocks.updateUserName.mockReset().mockResolvedValue(undefined);
   databaseMocks.set.mockReset().mockResolvedValue(undefined);
   databaseMocks.update.mockReset().mockResolvedValue(undefined);
   databaseMocks.get.mockReset().mockResolvedValue({ exists: () => false });
@@ -261,6 +283,98 @@ describe('UnifiedLobby standalone menu', () => {
     expect(screen.getByRole('combobox', { name: 'Select Language' })).toBeInTheDocument();
   });
 
+  it('opens separate profile stats and website leaderboard rankings', async () => {
+    firestoreMocks.onSnapshot.mockImplementation((_ref, onData) => {
+      onData({
+        exists: () => true,
+        data: () => ({
+          displayName: 'Host',
+          gamesPlayed: 8,
+          wins: 5,
+          modeStats: {
+            offline: { gamesPlayed: 4, wins: 2 },
+            online: { gamesPlayed: 3, wins: 2 },
+            friends: { gamesPlayed: 1, wins: 1 },
+          },
+        }),
+      });
+      return () => {};
+    });
+    leaderboardMocks.loadWebsiteLeaderboard.mockResolvedValue([
+      { rank: 1, userId: 'champion', displayName: 'Champion', wins: 12, gamesPlayed: 20 },
+    ]);
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Host', { selector: 'span' }));
+    expect(screen.getByTestId('profile-stats-dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('profile-stat-offline')).toHaveTextContent('2W');
+    expect(screen.getByTestId('profile-stat-online')).toHaveTextContent('2W');
+    expect(screen.getByTestId('profile-stat-friends')).toHaveTextContent('1W');
+
+    fireEvent.click(screen.getByTestId('edit-profile-name'));
+    fireEvent.change(screen.getByLabelText('editName'), { target: { value: 'New Host' } });
+    fireEvent.click(screen.getByTestId('save-profile-name'));
+    await waitFor(() => expect(profileMocks.updateUserName).toHaveBeenCalledWith('New Host'));
+    expect(screen.getByRole('heading', { name: 'New Host' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('open-leaderboard-button'));
+    expect(screen.getByTestId('leaderboard-dialog')).toBeInTheDocument();
+    await waitFor(() => expect(leaderboardMocks.loadWebsiteLeaderboard).toHaveBeenCalledWith({ mode: 'total' }));
+    expect(screen.getByTestId('leaderboard-row-1')).toHaveTextContent('Champion');
+    expect(screen.getByTestId('leaderboard-row-1')).toHaveTextContent('12');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'offline' }));
+    await waitFor(() => expect(leaderboardMocks.loadWebsiteLeaderboard).toHaveBeenCalledWith({ mode: 'offline' }));
+  });
+
+  it('keeps the CrazyGames leaderboard view separate from website rankings', async () => {
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'true');
+    vi.resetModules();
+    const { LeaderboardDialog } = await import('./UnifiedLobby');
+
+    render(
+      <LeaderboardDialog
+        isPortal
+        stats={{ gamesPlayed: 6, wins: 3, modeStats: { friends: { gamesPlayed: 4, wins: 2 } } }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('leaderboard-dialog')).toHaveTextContent('crazyGamesLeaderboardDescription');
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(leaderboardMocks.loadWebsiteLeaderboard).not.toHaveBeenCalled();
+  });
+
+  it('shows the actual website leaderboard access problem and offers retry', async () => {
+    leaderboardMocks.loadWebsiteLeaderboard.mockRejectedValueOnce({ code: 'permission-denied' });
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
+    vi.resetModules();
+    const { LeaderboardDialog } = await import('./UnifiedLobby');
+
+    render(<LeaderboardDialog isPortal={false} stats={{}} onClose={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('leaderboardPermissionDenied'));
+    expect(screen.getByTestId('leaderboard-retry')).toBeInTheDocument();
+  });
+
   it('opens the rewards dialog from an icon and claims the available daily reward', async () => {
     economyMocks.dailyRewardAvailable = true;
     vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
@@ -401,6 +515,37 @@ describe('UnifiedLobby standalone menu', () => {
       Player2: 'lotus',
     });
     expect(new Set(gameConfig.playerColors).size).toBe(gameConfig.playerColors.length);
+  });
+
+  it('keeps a Collection-equipped Player 1 design out of the lobby selector', async () => {
+    vi.stubEnv('VITE_CRAZYGAMES_BUILD', 'false');
+    economyMocks.balance = 1000;
+    vi.resetModules();
+    const { default: UnifiedLobby } = await import('./UnifiedLobby');
+
+    render(
+      <UnifiedLobby
+        onStartGame={vi.fn()}
+        onResumeGame={vi.fn()}
+        onClearOfflineResume={vi.fn()}
+        onShowRules={vi.fn()}
+        onShowTutorial={vi.fn()}
+        onShowHistory={vi.fn()}
+        onShowAbout={vi.fn()}
+        hasCachedGame={false}
+        joinGameId={null}
+        user={{ uid: 'host-user', displayName: 'Host' }}
+        onReconnectOnline={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('collection-button'));
+    fireEvent.click(screen.getByRole('button', { name: 'buy 750' }));
+    await waitFor(() => expect(economyMocks.purchasePieceSkin).toHaveBeenCalledWith('lotus'));
+    fireEvent.click(screen.getByRole('button', { name: 'close' }));
+    fireEvent.click(screen.getByRole('button', { name: /localPlay/i }));
+
+    expect(screen.getAllByLabelText('pieceDesignForPlayer').filter((selector) => !selector.disabled)).toHaveLength(1);
   });
 
   it('labels the existing private setup flow as Play with Friends', async () => {

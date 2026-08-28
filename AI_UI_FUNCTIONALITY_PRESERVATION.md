@@ -60,7 +60,7 @@ The lobby header is fixed at the top of every `UnifiedLobby` state: main menu, c
 | --- | --- | --- |
 | Top, centred safe area | DYUT title and tagline | Always visible. It replaces the former duplicate central lobby title. |
 | Top utility group | Treasury control (Temple Coin balance + Rewards) | Always visible after economy loading. It combines the balance and Rewards trigger; the availability dot indicates a claimable daily reward and opens Daily Reward/Goals. Do not split it back into separate header controls. |
-| Top utility group | Collection | Always visible. It opens Piece Collection; it must not be folded into a non-obvious control or removed because seat cards also have design selectors. |
+| Top utility group | Collection | Always visible. It opens Piece Collection; it must not be folded into a non-obvious control or removed. When Player 1 explicitly equips a design here, Collection remains the source of truth and the conflicting Player 1 lobby selector is omitted; other seat selectors remain available. |
 | Top utility group | Player account and W/P | Standalone: placeholder while user data is unavailable, then profile/sign-in. Portal: CrazyGames sign-in/profile. A signed-in profile shows username and wins/played (`W / P`). |
 | Top utility group | Mute/unmute icon | Always visible. It reflects effective audio state and must remain usable in both build modes. |
 | Top-left, non-critical | Menu toggle | Opens the grouped navigation drawer. It must remain an actual toggle and never cover the top-right game utilities. |
@@ -156,7 +156,7 @@ Each active seat card must preserve:
 - Player label and the **YOU** indicator where applicable.
 - Human/Bot/Closed selector, subject to host/public-lobby edit permissions.
 - Name input when active/editable.
-- Piece-design selector for that player.
+- Piece-design selector for that player, except when Player 1 has explicitly equipped a design through Collection; in that case the Collection choice is shown in the match state and the conflicting lobby selector is omitted.
 - Available colour choices.
 - Claim Seat when an unclaimed private-online human seat can be claimed.
 - Taken state for another user’s claimed human seat.

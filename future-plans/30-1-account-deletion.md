@@ -1,5 +1,11 @@
 # Phase 30.1: Account Deletion Plan
 
+## Current status (2026-08-12)
+
+**Pending:** profile sign-in and logout exist, but there is no complete
+user-triggered deletion flow, reauthentication handling, backend cleanup, or
+active-game data policy.
+
 ## Objective
 
 Allow users to delete their account and associated personal data to satisfy app store and privacy requirements.

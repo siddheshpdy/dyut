@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const CRAZYGAMES_SDK_MOCK = `
   (() => {
-    const data = { dyut_stats: '{"displayName":"QA Player","gamesPlayed":1,"wins":1,"xp":100,"level":2,"coins":250,"ownedPieceSkinIds":["classic","faceted"]}' };
+    const data = { dyut_economy: '{"coins":1000,"ownedPieceSkinIds":["classic"],"events":{},"goalProgress":{"daily":{"periodKey":null,"wins":0,"captures":0,"claimed":{}},"weekly":{"periodKey":null,"wins":0,"captures":0,"claimed":{}}},"version":1}' };
     const joinListeners = new Set();
     window.__dyutCrazyGamesData = data;
     window.CrazyGames = {
@@ -43,9 +43,9 @@ test.beforeEach(async ({ page }) => {
 test('Basic Launch portal menu keeps the free flow visible and ads absent', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('button', { name: /play now/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /play online/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /custom game/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /play now|single player.*local/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /play online|online match/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^play with friends\b|^private match\b|^custom game\b/i })).toBeVisible();
   await expect(page.locator('#cg-lobby-banner-left')).toHaveCount(0);
   await expect(page.locator('#cg-lobby-banner-right')).toHaveCount(0);
 });
@@ -57,6 +57,9 @@ test('portal collection purchases a piece design using earned coins', async ({ p
   await expect(page.getByRole('dialog', { name: /piece collection/i })).toBeVisible();
   await page.getByRole('button', { name: 'Buy' }).first().click();
 
-  await expect(page.getByText(/600 coins/i)).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__dyutCrazyGamesData.dyut_piece_skin_id)).toBe('"halo"');
+  await expect(page.getByText(/250 temple coins/i)).toBeVisible();
+  await expect.poll(async () => {
+    const rawEconomy = await page.evaluate(() => window.__dyutCrazyGamesData.dyut_economy);
+    return JSON.parse(rawEconomy).ownedPieceSkinIds;
+  }).toContain('lotus');
 });

@@ -1,5 +1,22 @@
 # Phase 29.1: Server-Side Authority Plan
 
+> **Execution update (2026-08-14):** The detailed migration and staged
+> implementation checklist now live in
+> [29-3-firebase-functions-server-authority-plan.md](./29-3-firebase-functions-server-authority-plan.md)
+> and
+> [29-3-firebase-functions-server-authority-execplan.md](./29-3-firebase-functions-server-authority-execplan.md).
+> Keep this document as the conceptual authority plan; use the 29.3 documents
+> for implementation order and acceptance gates.
+
+## Current status (2026-08-15)
+
+**In progress:** the shared authoritative dice/move engine, auth/turn
+validation, idempotent actions, lobby/game lifecycle, server settlement, and
+client callable bridge are implemented behind a rollout flag. Emulator/two-
+client verification, rate limits, rewarded-ad proof, audit/reconciliation, and
+production deployment remain launch gates. The detailed execution record is in
+[29.3](./29-3-firebase-functions-server-authority-execplan.md).
+
 ## Objective
 
 Move online dice rolls and move validation to server-side authority to prevent cheating.

@@ -1,0 +1,28 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "lobbies": {
+      ".indexOn": ["status"],
+      "$lobbyId": {
+        ".read": "auth != null && (data.child('isPublic').val() == true && data.child('status').val() == 'waiting' || data.child('hostUid').val() == auth.uid || data.child('seats').child('Player1').child('uid').val() == auth.uid || data.child('seats').child('Player2').child('uid').val() == auth.uid || data.child('seats').child('Player3').child('uid').val() == auth.uid || data.child('seats').child('Player4').child('uid').val() == auth.uid)",
+        ".write": false
+      }
+    },
+    "games": {
+      "$gameId": {
+        ".read": "auth != null && (data.child('hostUid').val() == auth.uid || data.child('playerUids').child('Player1').val() == auth.uid || data.child('playerUids').child('Player2').val() == auth.uid || data.child('playerUids').child('Player3').val() == auth.uid || data.child('playerUids').child('Player4').val() == auth.uid || root.child('lobbies').child($gameId).child('hostUid').val() == auth.uid || root.child('lobbies').child($gameId).child('seats').child('Player1').child('uid').val() == auth.uid || root.child('lobbies').child($gameId).child('seats').child('Player2').child('uid').val() == auth.uid || root.child('lobbies').child($gameId).child('seats').child('Player3').child('uid').val() == auth.uid || root.child('lobbies').child($gameId).child('seats').child('Player4').child('uid').val() == auth.uid)",
+        ".write": false
+      }
+    },
+    "presence": {
+      "$gameId": {
+        "$uid": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.hasChildren(['lastSeen']) && newData.child('lastSeen').isNumber()"
+        }
+      }
+    }
+  }
+}

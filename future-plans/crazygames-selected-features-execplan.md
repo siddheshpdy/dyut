@@ -2,6 +2,15 @@
 
 **Scope:** features 1–4, 6, 7, and 9 selected from the CrazyGames feature list.
 
+## Current status (2026-08-12)
+
+Features 1–4 have the core portal/lobby/onboarding/bot paths implemented, with
+browser and viewport hardening still needed. Feature 6 has the gated rewarded
+provider surface but remains Basic-Launch disabled. Feature 7 has the free and
+earned piece-design Collection MVP. Feature 9 has deterministic progression
+helpers and leaderboard adapters, but authoritative ranking/progression is
+deferred until the backend work in Phase 29.1 is complete.
+
 This document defines the implementation order for the selected portal work. It
 does not alter Dyut's dice, movement, combat, or victory rules.
 

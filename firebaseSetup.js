@@ -1,10 +1,20 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, signInWithRedirect, linkWithRedirect, getRedirectResult } from 'firebase/auth';
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut, signInWithCredential, updateProfile, signInWithRedirect, linkWithRedirect, getRedirectResult, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
+import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
+import { connectFirestoreEmulator } from 'firebase/firestore';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
+import {
+  PLAYER_STAT_MODES,
+  createEmptyPlayerModeStats,
+  mergePlayerModeStats,
+  normalizePlayerStats,
+} from './playerStats.js';
+import { submitCrazyGamesWinScore } from './crazyGamesLeaderboard.js';
 
 const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
+const SERVER_AUTHORITY_ENABLED = import.meta.env.VITE_SERVER_AUTHORITY_ENABLED === 'true';
+const USE_FIREBASE_EMULATORS = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
 const SAVED_RESUME_GAME_FIELD = 'savedResumeGame';
 
 // TODO: Replace this with your actual Firebase project configuration from the console
@@ -20,7 +30,9 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
+  databaseURL: USE_FIREBASE_EMULATORS
+    ? `http://127.0.0.1:9000?ns=${import.meta.env.VITE_FIREBASE_PROJECT_ID}`
+    : import.meta.env.VITE_FIREBASE_DATABASE_URL
 };
 
 const isFirebaseConfigured = Boolean(firebaseConfig.apiKey);
@@ -34,9 +46,25 @@ if (!isFirebaseConfigured && import.meta.env.PROD) {
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 // Export initialized services
+export { app };
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const rtdb = app ? getDatabase(app) : null;
+
+// Keep browser authority tests fully isolated from production Firebase. The
+// flag is opt-in so normal development and portal builds retain their current
+// connection behavior.
+if (USE_FIREBASE_EMULATORS && app && auth && db && rtdb) {
+  try {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectDatabaseEmulator(rtdb, '127.0.0.1', 9000);
+  } catch (error) {
+    // Hot reload can evaluate this module more than once. Do not turn a
+    // harmless already-connected emulator into a blank application screen.
+    if (!String(error?.code || '').includes('emulator')) console.error('Failed to connect Firebase emulators:', error);
+  }
+}
 
 export const signInUserAnonymously = async () => {
   if (!auth) return;
@@ -80,6 +108,7 @@ export const initializeUserProfile = async (user) => {
       photoURL: bestPhoto || null,
       gamesPlayed: 0,
       wins: 0,
+      modeStats: createEmptyPlayerModeStats(),
       createdAt: serverTimestamp(),
       lastLogin: serverTimestamp()
     });
@@ -87,26 +116,38 @@ export const initializeUserProfile = async (user) => {
         const currentData = userSnap.data();
         await updateDoc(userRef, { 
           lastLogin: serverTimestamp(),
+      ...(!SERVER_AUTHORITY_ENABLED && !currentData.modeStats && { modeStats: createEmptyPlayerModeStats() }),
       ...(bestPhoto && !currentData.photoURL && { photoURL: bestPhoto }),
       ...(bestName && (!currentData.displayName || currentData.displayName === 'Anonymous Player') && { displayName: bestName })
         });
   }
 };
 
-export const updateUserStats = async (uid, isWin) => {
+export const updateUserStats = async (uid, isWin, { mode = 'offline' } = {}) => {
+  const statMode = PLAYER_STAT_MODES.includes(mode) ? mode : 'offline';
+
   if (IS_PORTAL) {
     if (window.CrazyGames?.SDK) {
       try {
         if (window.cgInitPromise) await window.cgInitPromise;
         const storedStats = await window.CrazyGames.SDK.data.getItem('dyut_stats');
-        const stats = parseCrazyGamesStoredValue(storedStats, {});
+        const stats = normalizePlayerStats(parseCrazyGamesStoredValue(storedStats, {}));
+        const currentModeStats = stats.modeStats[statMode];
         const updatedStats = {
           ...stats,
           gamesPlayed: (Number(stats.gamesPlayed) || 0) + 1,
           wins: (Number(stats.wins) || 0) + (isWin ? 1 : 0),
+          modeStats: {
+            ...stats.modeStats,
+            [statMode]: {
+              gamesPlayed: currentModeStats.gamesPlayed + 1,
+              wins: currentModeStats.wins + (isWin ? 1 : 0),
+            },
+          },
         };
 
         await window.CrazyGames.SDK.data.setItem('dyut_stats', serializeCrazyGamesStoredValue(updatedStats));
+        if (isWin) submitCrazyGamesWinScore(updatedStats.wins).catch((error) => console.error('Failed to submit CrazyGames leaderboard score:', error));
       } catch (e) { console.error("Failed to update portal stats:", e); }
     }
     return; // Bypass Firestore completely on Portals
@@ -117,7 +158,9 @@ export const updateUserStats = async (uid, isWin) => {
   try {
     await updateDoc(userRef, {
       gamesPlayed: increment(1),
-      ...(isWin && { wins: increment(1) })
+      ...(isWin && { wins: increment(1) }),
+      [`modeStats.${statMode}.gamesPlayed`]: increment(1),
+      ...(isWin && { [`modeStats.${statMode}.wins`]: increment(1) }),
     });
   } catch (error) {
     console.error("Failed to update user stats:", error);
@@ -125,10 +168,18 @@ export const updateUserStats = async (uid, isWin) => {
 };
 
 export const updateUserName = async (newName) => {
-  if (!auth || !db) return;
+  if (!auth) return;
   const user = auth.currentUser;
   if (!user) return;
   try {
+    if (SERVER_AUTHORITY_ENABLED) {
+      const { updateProfileName } = await import('./serverAuthorityClient.js');
+      await updateProfileName(newName);
+      await updateProfile(user, { displayName: newName });
+      await user.getIdToken(true);
+      return;
+    }
+    if (!db) return;
     await updateProfile(user, { displayName: newName });
     await user.getIdToken(true); // Force token refresh to sync App.jsx state
     const userRef = doc(db, 'users', user.uid);
@@ -154,7 +205,8 @@ export const mergeUserStats = async (oldUid, newUser) => {
         // Add old stats to the permanent account's stats
         await updateDoc(newRef, {
           gamesPlayed: increment(oldData.gamesPlayed || 0),
-          wins: increment(oldData.wins || 0)
+          wins: increment(oldData.wins || 0),
+          modeStats: mergePlayerModeStats(newSnap.data().modeStats, oldData.modeStats),
         });
       } else {
         // If the new user doesn't have a doc yet, create it populated with the old stats
@@ -164,6 +216,7 @@ export const mergeUserStats = async (oldUid, newUser) => {
           photoURL: newUser.photoURL || null,
           gamesPlayed: oldData.gamesPlayed || 0,
           wins: oldData.wins || 0,
+          modeStats: mergePlayerModeStats(oldData.modeStats),
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp()
         });

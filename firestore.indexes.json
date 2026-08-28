@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "leaderboardEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "wins", "order": "DESCENDING" },
+        { "fieldPath": "gamesPlayed", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "walletLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

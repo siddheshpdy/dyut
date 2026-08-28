@@ -26,18 +26,39 @@ export default defineConfig({
   projects: [
     {
       name: 'local-chrome',
+      testMatch: /(?:dyut-ui|lobby-smoke)\.spec\.js/,
       use: {
         ...devices['Desktop Chrome'],
         channel: 'chrome',
+        baseURL: 'http://127.0.0.1:4173',
+      },
+    },
+    {
+      name: 'crazygames-chrome',
+      testMatch: /portal-smoke\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        baseURL: 'http://127.0.0.1:4174',
       },
     },
   ],
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173',
-    url: baseURL,
-    reuseExistingServer: true,
-    timeout: 120_000,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173',
+      url: 'http://127.0.0.1:4173',
+      reuseExistingServer: true,
+      timeout: 120_000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+    {
+      command: 'node node_modules/vite/bin/vite.js --mode crazygames --host 127.0.0.1 --port 4174',
+      url: 'http://127.0.0.1:4174',
+      reuseExistingServer: true,
+      timeout: 120_000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+  ],
 });

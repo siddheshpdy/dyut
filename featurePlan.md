@@ -180,6 +180,78 @@
 
 ---
 
+## Current Implementation Audit (2026-08-12)
+
+The phases above describe the original build sequence. The following status is
+the current source-of-truth audit against the implementation, tests, and the
+preservation contract. A phase marked **Partial** has a usable client surface
+but still has launch-blocking hardening or backend work remaining.
+
+### Completed or usable now
+
+* Core Dyut rules: dice values, Void Rule, turn queues, movement priority,
+  combat, safe zones, Pair Shields, Assassin behaviour, Blood Debt, victory,
+  dual-spawn attacks, and bot decision-making.
+* Responsive lobby and gameplay UI across the documented CrazyGames viewport
+  matrix, including mobile/tablet trays, queue visibility, overlays, rewards,
+  Collection scrolling, and portal-specific layout branches.
+* Standalone authentication, anonymous fallback, Google account linking,
+  profile display-name editing, resume data, and mode-separated profile stats.
+* RTDB-backed online lobbies and active games, seat claiming, reconnect data,
+  host-only bot coordination, CrazyGames room updates, invites, mute handling,
+  and portal onboarding paths.
+* Temple Coin client MVP: daily reward, daily/weekly reward goals, optional
+  rewarded-ad multiplier surface, public-match entry/fee/payout/refund rules,
+  idempotency helpers, and free offline/friends/Instant Multiplayer paths.
+* Piece Collection client MVP: nine piece designs, coin purchases, ownership,
+  equip state, persistence adapters, duplicate-safe seat-color identity, and
+  match snapshot propagation.
+* Website leaderboard UI/query adapter and CrazyGames leaderboard score
+  adapter, with loading, retry, permission, and configuration feedback.
+* Localization, accessibility/SEO baseline, tutorial, informational screens,
+  and the documented UI preservation contract.
+
+### Partial or remaining work
+
+1. **Server authority and security (in progress):** the Functions 2nd-gen
+   foundation now owns online dice, movement validation, lobby/game lifecycle,
+   match completion, economy mutations, public settlement, and leaderboard
+   materialization behind `VITE_SERVER_AUTHORITY_ENABLED`. Remaining gates are
+   Emulator Suite/two-client verification, enforced App Check, rate limits,
+   audit/reconciliation reporting, rewarded-ad proof, and staged production
+   rules deployment. See the [29.3 migration plan](future-plans/29-3-firebase-functions-server-authority-plan.md)
+   and [29.3 execution plan](future-plans/29-3-firebase-functions-server-authority-execplan.md).
+2. **Leaderboard launch:** the website now reads the server-materialized,
+   leaderboard-safe `leaderboardEntries` collection. Configure and verify
+   CrazyGames leaderboard credentials in the portal; keep the encryption key
+   out of source control.
+3. **Progression:** integrate the existing XP/level helper into idempotent
+   match completion, add Victory/Profile level UI, and add milestone rewards.
+4. **Retention:** implement daily quests, quest assignment/reset, progress,
+   claims, localization, and server validation.
+5. **Social features:** quick-chat/emotes, shareable match summaries, and
+   abuse-resistant referral attribution/rewards.
+6. **Economy launch hardening:** replace client/local/Data-module authority
+   with a wallet ledger, trusted settlement, fraud controls, reconciliation,
+   zero-balance handling, and production privacy/compliance review before
+   treating coins or payouts as valuable.
+7. **Ads and purchases:** retain the no-ad Basic Launch path; add trusted
+   rewarded-ad crediting, consent gating, and verified Stripe/CrazyGames IAP
+   fulfillment only after platform approval.
+8. **Account/legal controls:** account deletion and related-data cleanup,
+   Terms, Privacy, consent preferences, and support/refund flows.
+9. **Platform delivery:** Android/Capacitor packaging, store configuration,
+   offline local multiplayer, and release signing/distribution.
+10. **QA and operations:** expand Playwright coverage for invites, host
+    migration, bot takeover, leaderboard errors, economy races, auth loading,
+    and all viewport captures; add monitoring for RTDB/Firestore usage and
+    production error reporting.
+
+The detailed implementation order and dependencies are maintained in
+`futureEnhancements.md` and the individual documents under `future-plans/`.
+
+---
+
 ## Suggested State Architecture Example
 ```javascript
 const initialState = {

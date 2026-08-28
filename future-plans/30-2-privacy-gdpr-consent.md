@@ -1,5 +1,11 @@
 # Phase 30.2: Privacy Policy & GDPR Consent Plan
 
+## Current status (2026-08-12)
+
+**Partial:** portal legal notice and About/Contact surfaces exist, but formal
+Privacy/Terms pages, consent state, analytics/ad gating, deletion guidance,
+and launch legal review remain.
+
 ## Objective
 
 Add Terms of Service, Privacy Policy, and consent handling for analytics, ads, authentication, and regional privacy expectations.

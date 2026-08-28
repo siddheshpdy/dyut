@@ -12,6 +12,18 @@ import {
   settlePublicMatch as applyPublicSettlement,
 } from './economy.js';
 import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData.js';
+import {
+  claimDailyReward as claimDailyRewardServer,
+  claimGoalReward as claimGoalRewardServer,
+  claimRewardMultiplier as claimRewardMultiplierServer,
+  getEconomyState as getEconomyStateServer,
+  isServerAuthorityEnabled,
+  purchasePieceSkin as purchasePieceSkinServer,
+  recordGoalProgress as recordGoalProgressServer,
+  refundPublicMatchEntry as refundPublicMatchEntryServer,
+  reservePublicMatchEntry as reservePublicMatchEntryServer,
+  settlePublicMatch as settlePublicMatchServer,
+} from './serverAuthorityClient.js';
 
 const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
 const PORTAL_ECONOMY_KEY = 'dyut_economy';
@@ -52,6 +64,13 @@ const getPortalDataModule = async () => {
 };
 
 const shouldUseLocalStorage = (user) => isQaEconomyMode() || !user || Boolean(user.isAnonymous);
+const shouldUseServerEconomy = (user) => (
+  !IS_PORTAL
+  && isServerAuthorityEnabled()
+  && Boolean(user?.uid)
+  && user.uid !== 'guest'
+  && user.uid !== 'qa-user'
+);
 
 const loadPortalState = async () => {
   const dataModule = await getPortalDataModule();
@@ -97,6 +116,10 @@ const mutateEconomy = async (user, mutation) => {
 export const loadEconomy = async (user) => {
   const portalState = await loadPortalState();
   if (portalState) return portalState;
+  if (shouldUseServerEconomy(user)) {
+    const result = await getEconomyStateServer();
+    return normalizeEconomyState(result.state);
+  }
   if (shouldUseLocalStorage(user)) return loadLocalState(user);
 
   const snapshot = await getDoc(doc(db, 'users', user.uid));
@@ -105,35 +128,51 @@ export const loadEconomy = async (user) => {
 };
 
 export const claimDailyReward = async (user, now = Date.now()) => (
-  mutateEconomy(user, (state) => applyDailyLoginReward(state, now))
+  shouldUseServerEconomy(user)
+    ? claimDailyRewardServer()
+    : mutateEconomy(user, (state) => applyDailyLoginReward(state, now))
 );
 
 export const recordOnlineGoalProgress = async (user, progress) => (
-  mutateEconomy(user, (state) => applyGoalProgress(state, progress))
+  shouldUseServerEconomy(user)
+    ? recordGoalProgressServer(progress)
+    : mutateEconomy(user, (state) => applyGoalProgress(state, progress))
 );
 
 export const claimGoalReward = async (user, reward) => (
-  mutateEconomy(user, (state) => applyGoalClaim(state, reward))
+  shouldUseServerEconomy(user)
+    ? claimGoalRewardServer(reward)
+    : mutateEconomy(user, (state) => applyGoalClaim(state, reward))
 );
 
 export const claimRewardMultiplier = async (user, reward) => (
-  mutateEconomy(user, (state) => applyRewardMultiplier(state, reward))
+  shouldUseServerEconomy(user)
+    ? claimRewardMultiplierServer(reward)
+    : mutateEconomy(user, (state) => applyRewardMultiplier(state, reward))
 );
 
 export const purchasePieceSkin = async (user, pieceSkinId) => (
-  mutateEconomy(user, (state) => applyPieceSkinPurchase(state, pieceSkinId))
+  shouldUseServerEconomy(user)
+    ? purchasePieceSkinServer(pieceSkinId)
+    : mutateEconomy(user, (state) => applyPieceSkinPurchase(state, pieceSkinId))
 );
 
 export const reservePublicMatchEntry = async (user, matchId, now = Date.now()) => (
-  mutateEconomy(user, (state) => applyPublicEntry(state, matchId, now))
+  shouldUseServerEconomy(user)
+    ? reservePublicMatchEntryServer(matchId)
+    : mutateEconomy(user, (state) => applyPublicEntry(state, matchId, now))
 );
 
 export const settlePublicMatch = async (user, settlement) => (
-  mutateEconomy(user, (state) => applyPublicSettlement(state, settlement))
+  shouldUseServerEconomy(user)
+    ? settlePublicMatchServer(settlement)
+    : mutateEconomy(user, (state) => applyPublicSettlement(state, settlement))
 );
 
 export const refundPublicMatchEntry = async (user, matchId, reason, now = Date.now()) => (
-  mutateEconomy(user, (state) => applyPublicMatchRefund(state, matchId, reason, now))
+  shouldUseServerEconomy(user)
+    ? refundPublicMatchEntryServer(matchId, reason)
+    : mutateEconomy(user, (state) => applyPublicMatchRefund(state, matchId, reason, now))
 );
 
 export const getQaEconomyStorageKey = () => `${LOCAL_ECONOMY_PREFIX}qa-user`;

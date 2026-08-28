@@ -1,0 +1,29 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "test",
+      "test-results"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "database": {
+    "instance": "onlinedyut-default-rtdb",
+    "rules": "database.rules.json"
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "functions": { "port": 5001 },
+    "firestore": { "port": 8080 },
+    "database": { "port": 9000 },
+    "ui": { "enabled": true, "port": 4000 }
+  }
+}

@@ -1,5 +1,12 @@
 # Phase 26.3: Ad Integration Plan
 
+## Current status (2026-08-12)
+
+**Partial:** rewarded-ad provider abstraction, CrazyGames/standalone gating,
+audio restoration, and the optional multiplier UI exist. Basic Launch remains
+no-ad. Trusted reward crediting, consent gating, platform approval, and
+production ad/payout verification remain.
+
 > **Superseded:** Use
 > [monetization-strategy.md](./monetization-strategy.md) and
 > [monetization-execution-plan.md](./monetization-execution-plan.md). Rewarded

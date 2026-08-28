@@ -1,5 +1,12 @@
 # Phase 27.3: Daily Quests Plan
 
+## Current status (2026-08-12)
+
+**Pending:** daily/weekly reward goals are implemented as the current smaller
+retention surface, but the separate rotating quest catalogue, assignment,
+progress tracking, claims, localization, and server validation are not yet
+implemented.
+
 ## Objective
 
 Add daily quests that reward coins or cosmetics for completing small gameplay goals.

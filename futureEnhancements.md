@@ -4,6 +4,56 @@ This document outlines the roadmap for transitioning Dyut into a publicly scalab
 
 ---
 
+## Roadmap Status (2026-08-12)
+
+The current client has a working Temple Coin, rewards, Collection, profile,
+leaderboard UI, and CrazyGames integration baseline. These features are useful
+for local and QA environments, but client-side persistence and direct profile
+stat writes are not trusted enough for valuable currency, competitive rankings,
+or public payouts.
+
+### Completed or available in the current client
+
+* Daily 500-coin reward, daily/weekly reward goals, claim feedback, and the
+  optional ad-multiplier surface.
+* Earned-coin public-match entry and idempotent client settlement model,
+  currently using 200 coins with ads disabled and 500 coins when the configured
+  ad-release flag is enabled.
+* Free offline, Play with Friends, and CrazyGames Instant Multiplayer paths.
+* Nine piece designs, coin purchase/equip flow, persistent ownership adapters,
+  and seat-color identity separation.
+* Profile stats separated by Offline, Online Match, and Vs Friends, plus the
+  website leaderboard and CrazyGames submission adapters.
+
+### Launch-blocking remaining work
+
+1. Deploy a trusted backend boundary for identity, match validation, wallet
+   ledger mutations, settlements, profile stats, XP, quests, and leaderboard
+   writes. Do not treat browser success callbacks or client-calculated outcomes
+   as proof of a reward, purchase, or win.
+2. Add and verify Firestore/RTDB security rules, App Check, rate limits,
+   idempotency keys, fraud detection, audit/reconciliation tooling, and
+   emulator/concurrency tests.
+3. Replace the website leaderboard's direct `users` query with a public-safe,
+   materialized leaderboard collection. Configure the CrazyGames leaderboard
+   in the Developer Portal and supply its runtime secret/configuration only
+   through deployment secrets.
+4. Integrate XP/levels into authoritative match completion and add Victory and
+   Profile presentation plus milestone rewards.
+5. Implement daily quests, quick chat/emotes, shareable summaries, and
+   referral attribution only with abuse controls and server-validated rewards.
+6. Complete account deletion, Privacy/Terms pages, consent storage/gating,
+   purchase/refund support, and regional/platform compliance review.
+7. Keep CrazyGames Basic Launch ads disabled; add rewarded ads, purchases, and
+   any premium currency only after the relevant platform approval and verified
+   fulfillment path.
+
+The detailed plans below are retained as implementation checklists. Their
+individual status notes identify which steps are already present and which
+remain blocked by backend, platform, legal, or QA dependencies.
+
+---
+
 ## Phase 26: Monetization Strategies (Revenue)
 
 > **Planning update (July 2026):** The authoritative cross-platform direction is

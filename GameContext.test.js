@@ -11,6 +11,7 @@ vi.mock('./boardMapping', () => ({
 }));
 
 vi.mock('./firebaseSetup.js', () => ({
+  app: null,
   db: {},
   rtdb: {},
   clearAccountResumeGame: vi.fn(async () => {}),

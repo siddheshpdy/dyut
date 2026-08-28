@@ -9,7 +9,7 @@ import { findRandomPublicGame } from './matchmaking.js';
 import { DYUT_ICONS } from './dyut-icons';
 import { dispatchMuteState, getEffectiveMuteState, toggleUserMutePreference } from './audio';
 import { getAdsConfig, requestRewardedAd } from './adProvider';
-import { parseCrazyGamesStoredValue, serializeCrazyGamesStoredValue } from './crazyGamesData';
+import { parseCrazyGamesStoredValue } from './crazyGamesData';
 import { useEconomy } from './EconomyContext';
 import {
   DAILY_LOGIN_REWARD_COINS,
@@ -18,6 +18,25 @@ import {
   requiresPublicMatchEntry,
 } from './economy';
 import { isPieceSkinOwned, PIECE_SKINS, normalizePieceSkinId } from './pieceSkins';
+import { loadWebsiteLeaderboard } from './leaderboardService.js';
+import {
+  PLAYER_STAT_MODE_LABELS,
+  PLAYER_STAT_MODES,
+  getPlayerModeStats,
+  normalizePlayerStats,
+} from './playerStats.js';
+import { isCrazyGamesLeaderboardConfigured } from './crazyGamesLeaderboard.js';
+import {
+  claimLobbySeat as claimLobbySeatServer,
+  createLobby as createLobbyServer,
+  findPublicLobby as findPublicLobbyServer,
+  getLobby as getLobbyServer,
+  heartbeatLobby as heartbeatLobbyServer,
+  isServerAuthorityEnabled,
+  leaveLobby as leaveLobbyServer,
+  startLobby as startLobbyServer,
+  updateLobby as updateLobbyServer,
+} from './serverAuthorityClient.js';
 
 const ALL_COLORS = [
   { name: 'ruby', tw: 'bg-ruby' },
@@ -27,6 +46,7 @@ const ALL_COLORS = [
 ];
 
 const IS_PORTAL = import.meta.env.VITE_CRAZYGAMES_BUILD === 'true';
+const SERVER_AUTHORITY_ENABLED = isServerAuthorityEnabled();
 const { enabled: ADS_ENABLED } = getAdsConfig();
 const INSTANT_MULTIPLAYER_CONFIG = {
   matchType: 'ffa',
@@ -170,7 +190,10 @@ export const EconomySummary = ({ compact = false, gameHeader = false }) => {
   const [multiplierResult, setMultiplierResult] = useState(null);
   const RewardsIcon = DYUT_ICONS.rewards;
   const CloseIcon = DYUT_ICONS.close;
-  const multiplierOfferEnabled = ADS_ENABLED;
+  // The current ad providers only give the browser a completion callback.
+  // Keep the offer available for the legacy client-owned economy, but do not
+  // present an unverified coin multiplier after server authority is enabled.
+  const multiplierOfferEnabled = ADS_ENABLED && !SERVER_AUTHORITY_ENABLED;
 
   const claimRewardAndOfferMultiplier = async (claimOperation, label) => {
     setClaimError(null);
@@ -220,16 +243,15 @@ export const EconomySummary = ({ compact = false, gameHeader = false }) => {
         data-testid="daily-reward-button"
         onClick={() => setIsRewardsOpen(true)}
         aria-label={t('treasuryAndRewards', 'Treasury and Rewards')}
-        title={t('treasuryAndRewards', 'Treasury and Rewards')}
-        className={`relative flex shrink-0 items-center rounded-full border font-bold transition-colors ${gameHeader ? 'h-8 gap-1 border-gold/55 bg-black/45 px-2 text-xs text-white/90 shadow-[inset_0_0_16px_rgba(234,179,8,0.05)] hover:border-gold/85 sm:h-10 sm:gap-2 sm:px-3.5 sm:text-base min-[1200px]:h-11 min-[1200px]:min-w-[7.25rem] min-[1200px]:justify-center min-[1200px]:px-4' : `${compact ? 'h-8 gap-1.5 px-2 text-[10px]' : 'h-9 gap-1.5 px-2.5 text-xs sm:text-sm'} ${dailyRewardAvailable ? 'border-emerald/60 bg-emerald/15 text-emerald shadow-[0_0_18px_rgba(52,211,153,0.22)] hover:bg-emerald/25' : 'border-gold/40 bg-black/65 text-gold shadow-[0_0_18px_rgba(234,179,8,0.16)] hover:border-gold/70 hover:bg-gold/10'}`}`}
+        title={dailyRewardAvailable ? t('claimableReward', 'Claimable reward available') : t('treasuryAndRewards', 'Treasury and Rewards')}
+        aria-pressed={isRewardsOpen}
+        className={`relative flex shrink-0 items-center rounded-full border font-bold transition-colors ${gameHeader ? 'h-8 gap-1 border-gold/55 bg-black/45 px-2 text-xs text-white/90 shadow-[inset_0_0_16px_rgba(234,179,8,0.05)] hover:border-gold/85 sm:h-10 sm:gap-2 sm:px-3.5 sm:text-base min-[1200px]:h-11 min-[1200px]:min-w-[7.25rem] min-[1200px]:justify-center min-[1200px]:px-4' : `${compact ? 'h-8 gap-1.5 px-2 text-[10px]' : 'h-9 gap-1.5 px-2.5 text-xs sm:text-sm'} ${dailyRewardAvailable ? 'border-emerald/70 bg-emerald/15 text-emerald shadow-[0_0_22px_rgba(52,211,153,0.3)] ring-1 ring-emerald/45 hover:bg-emerald/25' : 'border-gold/40 bg-black/65 text-gold shadow-[0_0_18px_rgba(234,179,8,0.16)] hover:border-gold/70 hover:bg-gold/10'}`}`}
       >
         {gameHeader ? (
           <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#ffe28b] bg-[radial-gradient(circle_at_35%_30%,#fff2a6_0%,#e9ad2e_35%,#9b5d05_100%)] text-[9px] text-[#6c3b00] shadow-[0_0_10px_rgba(234,179,8,0.28),inset_0_1px_1px_rgba(255,255,255,0.65)] max-[399px]:hidden sm:h-7 sm:w-7" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full border border-[#8a5209]/75"></span>
           </span>
-        ) : (
-          <RewardsIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden="true" />
-        )}
+        ) : null}
         <span data-testid="coin-balance" className="flex items-center gap-1 whitespace-nowrap" title={t('templeCoins', 'Temple Coins')}>
           {!gameHeader && <span aria-hidden="true" className="text-amber">◆</span>}
           <span>{status === 'loading' ? '…' : balance.toLocaleString()}</span>
@@ -382,7 +404,7 @@ export const EconomySummary = ({ compact = false, gameHeader = false }) => {
   );
 };
 
-const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onSkinChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic }) => {
+const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, onSkinChange, onClaim, activeColors, isHost, isOnline, userUid, t, hasClaimedSeat, lobbyStatus, isLobbyPublic, showSkinSelector = true }) => {
   const isActive = seat.type !== 'closed';
   const isBot = seat.type === 'bot';
   const typeColor = seat.type === 'human' ? 'text-[#fff4c7] bg-gold/10 border-gold/45' : seat.type === 'bot' ? 'text-[#dff4ff] bg-sapphire/10 border-sapphire/45' : 'text-white/65 bg-white/10 border-white/15';
@@ -445,19 +467,21 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         />
       )}
 
-      <select
-        aria-label={t('pieceDesignForPlayer', 'Piece design for {{player}}', { player: label })}
-        value={normalizePieceSkinId(seat.pieceSkinId)}
-        onChange={(event) => onSkinChange(event.target.value)}
-        disabled={!editable || !isActive || isUnclaimedHuman}
-        className={`mt-1.5 w-full rounded border border-gold/35 bg-black/55 px-1 py-1 text-center text-[9px] font-bold uppercase tracking-wider text-[#fff4c7] outline-none lg:text-[8px] ${!editable || !isActive || isUnclaimedHuman ? 'cursor-not-allowed opacity-65' : 'cursor-pointer hover:border-gold/65'}`}
-      >
-        {PIECE_SKINS.map((skin) => (
-          <option key={skin.id} value={skin.id} className="bg-charcoal text-gold">
-            {t(skin.nameKey, skin.fallbackName)}
-          </option>
-        ))}
-      </select>
+      {showSkinSelector && (
+        <select
+          aria-label={t('pieceDesignForPlayer', 'Piece design for {{player}}', { player: label })}
+          value={normalizePieceSkinId(seat.pieceSkinId)}
+          onChange={(event) => onSkinChange(event.target.value)}
+          disabled={!editable || !isActive || isUnclaimedHuman}
+          className={`mt-1.5 w-full rounded border border-gold/35 bg-black/55 px-1 py-1 text-center text-[9px] font-bold uppercase tracking-wider text-[#fff4c7] outline-none lg:text-[8px] ${!editable || !isActive || isUnclaimedHuman ? 'cursor-not-allowed opacity-65' : 'cursor-pointer hover:border-gold/65'}`}
+        >
+          {PIECE_SKINS.map((skin) => (
+            <option key={skin.id} value={skin.id} className="bg-charcoal text-gold">
+              {t(skin.nameKey, skin.fallbackName)}
+            </option>
+          ))}
+        </select>
+      )}
 
       <div className={`lobby-seat-colors mt-3 flex gap-1.5 transition-opacity lg:mt-2 ${isActive && !isUnclaimedHuman ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         {ALL_COLORS.map(color => {
@@ -474,7 +498,7 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
         })}
       </div>
 
-      {isOnline && !seat.uid && !hasClaimedSeat && lobbyStatus === 'waiting' && !isLobbyPublic && seat.type !== 'closed' && (
+      {isOnline && userUid && !seat.uid && !hasClaimedSeat && lobbyStatus === 'waiting' && !isLobbyPublic && seat.type !== 'closed' && (
         <button onClick={() => onClaim(id)} className="w-full mt-2 py-1 bg-emerald/20 text-emerald border border-emerald/30 rounded text-[10px] uppercase font-bold tracking-widest hover:bg-emerald/30 transition-colors">
           {t('claimSeat', 'Claim Seat')}
         </button>
@@ -488,16 +512,154 @@ const SeatCard = ({ id, label, seat, onTypeChange, onColorChange, onNameChange, 
   );
 };
 
+export const LeaderboardDialog = ({ isPortal, stats, onClose }) => {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState('total');
+  const [rows, setRows] = useState([]);
+  const [status, setStatus] = useState(isPortal ? 'platform' : 'loading');
+  const [loadError, setLoadError] = useState(null);
+  const [retryToken, setRetryToken] = useState(0);
+  const normalizedStats = normalizePlayerStats(stats || {});
+  const CloseIcon = DYUT_ICONS.close;
+  const LeaderboardIcon = DYUT_ICONS.leaderboard;
+  const modeOptions = [
+    { id: 'total', label: t('allMatches', 'All Matches') },
+    ...PLAYER_STAT_MODES.map((statMode) => ({
+      id: statMode,
+      label: t(
+        statMode === 'offline' ? 'offline' : statMode === 'online' ? 'onlineMatch' : 'vsFriends',
+        PLAYER_STAT_MODE_LABELS[statMode],
+      ),
+    })),
+  ];
+
+  useEffect(() => {
+    if (isPortal) return undefined;
+    let cancelled = false;
+    setStatus('loading');
+    setLoadError(null);
+    loadWebsiteLeaderboard({ mode })
+      .then((leaderboard) => {
+        if (cancelled) return;
+        setRows(leaderboard);
+        setStatus('ready');
+      })
+      .catch((error) => {
+        console.error('Failed to load website leaderboard:', error);
+        if (!cancelled) {
+          setLoadError(error);
+          setStatus('error');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPortal, mode, retryToken]);
+
+  const getLoadErrorMessage = () => {
+    if (loadError?.code === 'permission-denied') {
+      return t('leaderboardPermissionDenied', 'Website rankings are unavailable because leaderboard access is not enabled.');
+    }
+    if (loadError?.code === 'failed-precondition') {
+      return t('leaderboardIndexRequired', 'Website rankings need a database index. Please try again shortly.');
+    }
+    return t('leaderboardError', 'Could not load rankings right now.');
+  };
+
+  return renderDocumentPortal(
+    <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/90 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm" onClick={onClose}>
+      <section role="dialog" aria-modal="true" aria-labelledby="leaderboard-dialog-title" data-testid="leaderboard-dialog" onClick={(event) => event.stopPropagation()} className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-gold/50 bg-[#0b0c0d] p-4 text-left shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)] sm:p-6">
+        <button type="button" onClick={onClose} aria-label={t('close', 'Close')} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-[#191b1d] text-white/85 hover:border-gold/60 hover:text-gold">
+          <CloseIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <div className="flex items-center gap-3 pr-8">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-gold/45 bg-gold/10 text-gold">
+            <LeaderboardIcon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 id="leaderboard-dialog-title" className="font-display text-xl font-bold uppercase tracking-wider text-gold">{t('leaderboard', 'Leaderboard')}</h2>
+            <p className="mt-1 text-xs text-white/70">{isPortal ? t('crazyGamesLeaderboardDescription', 'CrazyGames rankings are kept separate from the website leaderboard.') : t('websiteLeaderboardDescription', 'Website rankings are based on wins recorded for this website.')}</p>
+          </div>
+        </div>
+
+        {isPortal ? (
+          <div className="mt-5 space-y-4">
+            <div className="rounded-xl border border-gold/35 bg-gold/10 p-4 text-center">
+              <div className="text-xs font-bold uppercase tracking-[0.22em] text-gold/70">{t('yourCrazyGamesScore', 'Your CrazyGames Score')}</div>
+              <div className="mt-2 font-display text-4xl font-bold text-gold">{normalizedStats.wins}</div>
+              <div className="mt-1 text-xs text-white/65">{t('wins', 'wins')} · {normalizedStats.gamesPlayed} {t('gamesPlayed', 'games played')}</div>
+            </div>
+            <div className="rounded-xl border border-sapphire/35 bg-sapphire/10 p-4 text-sm leading-relaxed text-white/80">
+              <div className="font-bold text-sapphire">{t('crazyGamesRanks', 'CrazyGames ranks')}</div>
+              <p className="mt-2">{isCrazyGamesLeaderboardConfigured
+                ? t('crazyGamesRanksConfigured', 'Your wins are submitted to the CrazyGames leaderboard. Its global, country, and friends ranks are shown by the CrazyGames platform leaderboard.')
+                : t('crazyGamesRanksNotConfigured', 'The CrazyGames leaderboard is not enabled for this build yet. Once enabled, the platform will show global, country, and friends ranks separately from this website.')}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              {PLAYER_STAT_MODES.map((statMode) => {
+                const modeStats = getPlayerModeStats(normalizedStats, statMode);
+                return <div key={statMode} className="rounded-lg border border-white/10 bg-black/30 p-2"><div className="font-bold text-white/60">{t(statMode === 'offline' ? 'offline' : statMode === 'online' ? 'onlineMatch' : 'vsFriends', PLAYER_STAT_MODE_LABELS[statMode])}</div><div className="mt-1 font-bold text-gold">{modeStats.wins}W</div></div>;
+              })}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label={t('leaderboardModes', 'Leaderboard modes')}>
+              {modeOptions.map((option) => (
+                <button key={option.id} type="button" role="tab" aria-selected={mode === option.id} onClick={() => setMode(option.id)} className={mode === option.id ? 'rounded-full border border-gold bg-gold/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gold' : 'rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/65 hover:border-gold/50 hover:text-gold'}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 overflow-hidden rounded-xl border border-white/15">
+              <div className="grid grid-cols-[3rem_minmax(0,1fr)_4.5rem_5.5rem] gap-2 border-b border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white/55">
+                <span>#</span><span>{t('player', 'Player')}</span><span className="text-right">{t('wins', 'Wins')}</span><span className="text-right">{t('played', 'Played')}</span>
+              </div>
+              {status === 'loading' && <p className="p-5 text-center text-sm text-white/60">{t('leaderboardLoading', 'Loading rankings...')}</p>}
+              {status === 'error' && (
+                <div className="space-y-3 p-5 text-center text-sm text-ruby">
+                  <p role="alert">{getLoadErrorMessage()}</p>
+                  <button type="button" data-testid="leaderboard-retry" onClick={() => setRetryToken((value) => value + 1)} className="rounded-full border border-gold/50 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-gold hover:bg-gold/10">
+                    {t('retry', 'Retry')}
+                  </button>
+                </div>
+              )}
+              {status === 'ready' && rows.length === 0 && <p className="p-5 text-center text-sm text-white/60">{t('leaderboardEmpty', 'No ranked players yet.')}</p>}
+              {status === 'ready' && rows.map((row) => (
+                <div key={row.userId} data-testid={'leaderboard-row-' + row.rank} className="grid grid-cols-[3rem_minmax(0,1fr)_4.5rem_5.5rem] items-center gap-2 border-b border-white/10 px-3 py-3 last:border-b-0">
+                  <span className="font-display text-lg font-bold text-gold">{row.rank}</span>
+                  <span className="truncate text-sm font-semibold text-white">{row.displayName}</span>
+                  <span className="text-right text-sm font-bold text-gold">{row.wins}</span>
+                  <span className="text-right text-xs text-white/65">{row.gamesPlayed}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+    </div>,
+  );
+};
+
 const PlayerProfile = ({ user }) => {
   const [stats, setStats] = useState(null);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const [statsLoadError, setStatsLoadError] = useState(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [cgUser, setCgUser] = useState(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const { t } = useTranslation();
   const ExitIcon = DYUT_ICONS.exit;
+  const CloseIcon = DYUT_ICONS.close;
+  const EditIcon = DYUT_ICONS.edit;
+  const LeaderboardIcon = DYUT_ICONS.leaderboard;
 
   useEffect(() => {
+    setIsStatsLoading(true);
+    setStatsLoadError(null);
     if (IS_PORTAL) {
       let authListener = null;
 
@@ -518,8 +680,13 @@ const PlayerProfile = ({ user }) => {
 
             const storedData = await window.CrazyGames.SDK.data.getItem('dyut_stats');
             const data = parseCrazyGamesStoredValue(storedData);
-            if (data) setStats(data);
-          } catch (e) { console.error(e); }
+            setStats(data || {});
+          } catch (e) {
+            console.error(e);
+            setStatsLoadError(e);
+          } finally {
+            setIsStatsLoading(false);
+          }
         }
       };
       const fetchPortalStatsTimeout = setTimeout(fetchPortalStats, 500); // Give SDK time to init
@@ -531,14 +698,20 @@ const PlayerProfile = ({ user }) => {
       };
     }
 
-    if (user && !user.isAnonymous) {
+    if (user && !user.isAnonymous && db) {
       const unsub = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
-        if (docSnap.exists()) {
-          setStats(docSnap.data());
-        }
+        setStats(docSnap.exists() ? docSnap.data() : {});
+        setIsStatsLoading(false);
+      }, (error) => {
+        console.error('Failed to load profile stats:', error);
+        setStatsLoadError(error);
+        setIsStatsLoading(false);
       });
       return () => unsub();
     }
+
+    setIsStatsLoading(false);
+    return undefined;
   }, [user]);
 
   if (!user && !IS_PORTAL) return <div className="h-10"></div>;
@@ -555,13 +728,13 @@ const PlayerProfile = ({ user }) => {
     };
 
     return (
-      <button type="button" aria-label={t('signInCrazyGames', 'Log in to save')} onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
+      <button type="button" aria-label={t('signIn', 'Sign in')} onClick={handleCgSignIn} disabled={isSigningIn} className={`h-9 sm:h-10 flex items-center gap-1.5 sm:gap-2 bg-white/5 transition-colors border border-white/10 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full z-20 shadow-sm animate-fade-in ${isSigningIn ? 'opacity-70 cursor-wait' : 'hover:bg-white/10'}`}>
         {isSigningIn ? (
           <svg className="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         ) : (
           <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
         )}
-        <span className="hidden text-[10px] font-bold uppercase tracking-wider text-white min-[480px]:inline">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInCrazyGames', 'Log in to save')}</span>
+        <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-white">{isSigningIn ? t('signingIn', 'Signing In...') : t('signIn', 'Sign in')}</span>
       </button>
     );
   } else if (user?.isAnonymous && !IS_PORTAL) {
@@ -587,29 +760,21 @@ const PlayerProfile = ({ user }) => {
             <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 15.02 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
           </svg>
         )}
-        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{isSigningIn ? t('signingIn', 'Signing In...') : t('signInGoogle', 'Sign in to save stats')}</span>
+        <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-white">{isSigningIn ? t('signingIn', 'Signing In...') : t('signIn', 'Sign in')}</span>
       </button>
     );
   }
 
   const displayName = cgUser?.username || stats?.displayName || user?.displayName || (IS_PORTAL ? 'Portal Player' : 'Player');
   const photoURL = cgUser?.profilePictureUrl || user?.photoURL || stats?.photoURL;
+  const normalizedStats = normalizePlayerStats(stats || {});
+  const canEditName = !IS_PORTAL && !user?.isAnonymous;
 
   const handleEditSave = async () => {
-    if (editName.trim() && editName.trim() !== displayName) {
-      if (IS_PORTAL) {
-        const newStats = { ...stats, displayName: editName.trim() };
-        setStats(newStats);
-        if (window.CrazyGames?.SDK) {
-          const saveStats = async () => {
-            if (window.cgInitPromise) await window.cgInitPromise;
-            await window.CrazyGames.SDK.data.setItem('dyut_stats', serializeCrazyGamesStoredValue(newStats));
-          };
-          saveStats().catch(console.error);
-        }
-      } else {
-        await updateUserName(editName.trim());
-      }
+    const nextName = editName.trim();
+    if (canEditName && nextName && nextName !== displayName) {
+      await updateUserName(nextName);
+      setStats((currentStats) => ({ ...(currentStats || {}), displayName: nextName }));
     }
     setIsEditing(false);
   };
@@ -618,49 +783,35 @@ const PlayerProfile = ({ user }) => {
     if (e.key === 'Enter') {
       handleEditSave();
     } else if (e.key === 'Escape') {
-      setIsEditing(false);
+      handleEditCancel();
     }
   };
 
+  const handleEditCancel = () => {
+    setEditName(displayName);
+    setIsEditing(false);
+  };
+
   return (
+    <>
     <div className="flex h-9 min-w-0 max-w-[clamp(9.5rem,25vw,18rem)] items-center justify-between gap-2 rounded-full border border-white/5 bg-black/20 py-1.5 pl-3 pr-2 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] animate-fade-in sm:h-10 sm:gap-4 sm:pl-4 sm:pr-3 sm:py-2">
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        {photoURL ? (
-          <img src={photoURL} alt="Profile" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-white/20 shadow-md object-cover" />
-        ) : (
-          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gold flex items-center justify-center text-charcoal font-bold text-xs sm:text-sm shadow-md">
-            {displayName.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="min-w-0 flex flex-col">
-          {isEditing ? (
-            <input 
-              type="text" 
-              value={editName} 
-              onChange={(e) => setEditName(e.target.value)} 
-              onKeyDown={handleEditKeyDown}
-              onBlur={handleEditSave}
-              autoFocus
-              maxLength={15}
-              className="w-24 bg-black/40 border border-gold/50 rounded px-1 py-0.5 text-xs font-bold text-white/90 focus:outline-none"
-            />
+      <button type="button" data-testid="profile-button" aria-label={t('openProfile', 'Open profile')} aria-haspopup="dialog" onClick={() => setIsProfileOpen(true)} className="flex min-w-0 items-center gap-2 text-left focus:outline-none focus:ring-2 focus:ring-gold sm:gap-3">
+          {photoURL ? (
+            <img src={photoURL} alt="Profile" className="h-6 w-6 rounded-full border border-white/20 object-cover shadow-md sm:h-8 sm:w-8" />
           ) : (
-            <div className={`flex items-center gap-1.5 ${cgUser ? '' : 'group cursor-pointer'}`} onClick={() => { if (!cgUser) { setEditName(displayName); setIsEditing(true); } }} title={cgUser ? '' : t('editName', 'Edit Name')}>
-              <span className="text-[10px] sm:text-xs font-bold text-white/90 leading-none truncate max-w-[80px] sm:max-w-[120px]">{displayName}</span>
-              {!cgUser && (
-                <svg className="w-3 h-3 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              )}
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gold text-xs font-bold text-charcoal shadow-md sm:h-8 sm:w-8 sm:text-sm">
+              {displayName.charAt(0).toUpperCase()}
             </div>
           )}
-          {stats && (
-            <span className="text-[10px] font-bold text-gold tracking-widest mt-1.5 leading-none drop-shadow-md">
-              {stats.wins}W / {stats.gamesPlayed}P
-            </span>
-          )}
-        </div>
-      </div>
+          <div className="min-w-0 flex flex-col">
+            <span className="text-[10px] leading-none text-white/90 sm:text-xs truncate max-w-[80px] sm:max-w-[120px]">{displayName}</span>
+            {!isStatsLoading && stats && (
+              <span className="mt-1.5 text-[10px] font-bold leading-none tracking-widest text-gold drop-shadow-md">
+                {normalizedStats.wins}W / {normalizedStats.gamesPlayed}P
+              </span>
+            )}
+          </div>
+      </button>
       {!IS_PORTAL && (
         <button 
           onClick={logoutUser} 
@@ -671,6 +822,43 @@ const PlayerProfile = ({ user }) => {
         </button>
       )}
     </div>
+    {isProfileOpen && renderDocumentPortal(
+      <div className="fixed inset-0 z-[310] flex items-center justify-center bg-black/90 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm" onClick={() => setIsProfileOpen(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby="profile-stats-dialog-title" data-testid="profile-stats-dialog" onClick={(event) => event.stopPropagation()} className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-gold/50 bg-[#0b0c0d] p-5 shadow-[0_0_60px_rgba(0,0,0,0.9),inset_0_0_28px_rgba(234,179,8,0.06)] sm:p-6">
+          <button type="button" onClick={() => setIsProfileOpen(false)} aria-label={t('close', 'Close')} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-[#191b1d] text-white/85 hover:border-gold/60 hover:text-gold"><CloseIcon className="h-4 w-4" aria-hidden="true" /></button>
+          <div className="pr-8">
+            <div className="text-xs font-bold uppercase tracking-[0.24em] text-gold/65">{IS_PORTAL ? t('crazyGamesProfile', 'CrazyGames Profile') : t('websiteProfile', 'Website Profile')}</div>
+            {isEditing ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input type="text" value={editName} onChange={(event) => setEditName(event.target.value)} onKeyDown={handleEditKeyDown} autoFocus maxLength={15} aria-label={t('editName', 'Edit name')} className="min-w-0 flex-1 rounded-lg border border-gold/60 bg-black/50 px-3 py-2 font-display text-xl font-bold text-gold focus:outline-none focus:ring-2 focus:ring-gold/40" />
+                <button type="button" data-testid="save-profile-name" onClick={handleEditSave} className="rounded-lg border border-emerald/50 px-3 py-2 text-xs font-bold uppercase tracking-wider text-emerald hover:bg-emerald/10">{t('save', 'Save')}</button>
+                <button type="button" data-testid="cancel-profile-name" onClick={handleEditCancel} className="rounded-lg border border-white/20 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/70 hover:bg-white/10">{t('cancel', 'Cancel')}</button>
+              </div>
+            ) : (
+              <div className="mt-1 flex items-center gap-2">
+                <h2 id="profile-stats-dialog-title" className="font-display text-2xl font-bold uppercase tracking-wider text-gold">{displayName}</h2>
+                {canEditName && <button type="button" data-testid="edit-profile-name" aria-label={t('editName', 'Edit name')} onClick={() => { setEditName(displayName); setIsEditing(true); }} className="rounded-md p-1.5 text-white/55 hover:bg-white/10 hover:text-gold"><EditIcon className="h-4 w-4" aria-hidden="true" /></button>}
+              </div>
+            )}
+            {IS_PORTAL && <p className="mt-1 text-[10px] text-white/45">{t('crazyGamesNameManaged', 'CrazyGames usernames are managed by CrazyGames.')}</p>}
+          </div>
+          {isStatsLoading ? (
+            <p role="status" data-testid="profile-stats-loading" className="mt-5 rounded-xl border border-white/10 bg-black/25 p-5 text-center text-sm text-white/60">{t('profileStatsLoading', 'Loading your game stats…')}</p>
+          ) : statsLoadError && !stats ? (
+            <p role="alert" data-testid="profile-stats-error" className="mt-5 rounded-xl border border-ruby/30 bg-ruby/10 p-5 text-center text-sm text-ruby">{t('profileStatsError', 'Could not load your game stats right now.')}</p>
+          ) : (
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[['total', t('allMatches', 'All Matches'), { gamesPlayed: normalizedStats.gamesPlayed, wins: normalizedStats.wins }], ...PLAYER_STAT_MODES.map((statMode) => [statMode, t(statMode === 'offline' ? 'offline' : statMode === 'online' ? 'onlineMatch' : 'vsFriends', PLAYER_STAT_MODE_LABELS[statMode]), getPlayerModeStats(normalizedStats, statMode)])].map(([statMode, label, modeStats]) => (
+                <div key={statMode} data-testid={'profile-stat-' + statMode} className="rounded-xl border border-white/15 bg-black/30 p-3 text-center"><div className="truncate text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</div><div className="mt-2 font-display text-xl font-bold text-gold">{modeStats.wins}W</div><div className="text-[10px] text-white/55">{modeStats.gamesPlayed} {t('gamesPlayed', 'games played')}</div></div>
+              ))}
+            </div>
+          )}
+          <button type="button" data-testid="open-leaderboard-button" onClick={() => { setIsProfileOpen(false); setIsLeaderboardOpen(true); }} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/50 bg-gold/12 px-4 py-3 font-display text-sm font-bold uppercase tracking-[0.16em] text-gold transition-colors hover:bg-gold/20"><LeaderboardIcon className="h-4 w-4" aria-hidden="true" />{t('viewLeaderboard', 'View Leaderboard')}</button>
+        </section>
+      </div>,
+    )}
+    {isLeaderboardOpen && <LeaderboardDialog isPortal={IS_PORTAL} stats={stats} onClose={() => setIsLeaderboardOpen(false)} />}
+    </>
   );
 };
 
@@ -731,7 +919,7 @@ const PieceCollection = ({ equippedSkinId, onEquip }) => {
   );
 };
 
-const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, autoStartPlayWithFriendsConfig = null, onPlayWithFriendsAutoStartConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
+const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowRules, onShowTutorial, onShowHistory, onShowAbout, hasCachedGame, resumeOnlineGameId = null, joinGameId, user, authReady = true, autoStartPortalIntro = false, onPortalAutoStartConsumed = null, autoStartInstantMultiplayer = false, onInstantMultiplayerConsumed = null, autoStartPlayWithFriendsConfig = null, onPlayWithFriendsAutoStartConsumed = null, onReconnectOnline, qaShowOfflineResume = false }) => {
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [seats, setSeats] = useState({
     Player4: { type: 'closed', color: 'amber', name: '', uid: null },
@@ -739,6 +927,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     Player1: { type: 'human', color: 'ruby', name: '', uid: null, pieceSkinId: normalizePieceSkinId() },
     Player2: { type: 'bot', color: 'sapphire', name: '', uid: null }
   });
+  const [isPlayer1SkinSelectedFromCollection, setIsPlayer1SkinSelectedFromCollection] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState('hard');
   const [isVoidRuleEnabled, setIsVoidRuleEnabled] = useState(() => !IS_PORTAL);
   const [isQuickGame, setIsQuickGame] = useState(false);
@@ -771,6 +960,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   } = useEconomy();
   const startingGameIdsRef = useRef(new Set());
   const canAffordPublicMatch = balance >= PUBLIC_MATCH_ENTRY_COINS;
+  const onlineEconomyReady = economyStatus === 'ready';
+  const showEconomyLoadingNotice = () => {
+    setEconomyNotice(t('economyLoading', 'Loading your Temple Coins…'));
+    return false;
+  };
 
   const toggleMute = () => {
     setIsMuted(toggleUserMutePreference());
@@ -835,10 +1029,9 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     
     setConnectionStatus('connecting');
 
-    const unsub = onValue(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), (snapshot) => {
-      if (snapshot.exists()) {
+    const applyLobbySnapshot = (data) => {
+      if (data) {
         setConnectionStatus('connected');
-        const data = snapshot.val();
         if (data.seats) setSeats(data.seats);
         if (data.botDifficulty !== undefined) setBotDifficulty(data.botDifficulty);
         if (data.isVoidRuleEnabled !== undefined) setIsVoidRuleEnabled(data.isVoidRuleEnabled);
@@ -862,6 +1055,31 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       } else {
         setConnectionStatus('notFound');
       }
+    };
+
+    if (SERVER_AUTHORITY_ENABLED) {
+      let cancelled = false;
+      const pollLobby = async () => {
+        try {
+          const result = await getLobbyServer(activeLobbyId);
+          if (!cancelled) applyLobbySnapshot(result?.lobby || null);
+        } catch (error) {
+          if (!cancelled) {
+            console.error('Lobby snapshot failed:', error);
+            setConnectionStatus(error?.code === 'functions/not-found' ? 'notFound' : 'error: ' + error.message);
+          }
+        }
+      };
+      pollLobby();
+      const interval = setInterval(pollLobby, 2000);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+      };
+    }
+
+    const unsub = onValue(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), (snapshot) => {
+      applyLobbySnapshot(snapshot.exists() ? snapshot.val() : null);
     }, (error) => {
       console.error("Lobby listener error:", error);
       setConnectionStatus('error: ' + error.message);
@@ -938,10 +1156,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
           }
         });
         try {
-          await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
+          if (SERVER_AUTHORITY_ENABLED) {
+            await startLobbyServer(activeLobbyId, finalSeats);
+          } else {
+            await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { status: 'playing', gameStarted: true, seats: finalSeats, openSeats: 0 });
+          }
           updateCrazyGamesRoom('start', finalSeats);
         } catch (e) {
           console.error("AutoStart sync error:", e);
+          setLobbyStatus('waiting');
+          isStartingRef.current = false;
+          return;
         }
         executeStart(true, activeLobbyId, { seats: finalSeats });
       };
@@ -956,7 +1181,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
         if (field === 'seats') {
           updates.openSeats = Object.values(value).filter(s => s.type === 'human' && !s.uid).length;
         }
-        await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates); 
+        if (SERVER_AUTHORITY_ENABLED) {
+          await updateLobbyServer(activeLobbyId, updates);
+        } else {
+          await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates);
+        }
         if (field === 'seats') {
           updateCrazyGamesRoom('update', value);
         }
@@ -982,10 +1211,21 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     setSeats(newSeats); pushUpdate('seats', newSeats);
   };
 
-  const handleClaimSeat = (playerId) => {
+  const handleClaimSeat = async (playerId) => {
+    if (!user?.uid) return;
     // Forcing type to 'human' allows joiners to overtake bot/closed slots
     const newSeats = { ...seats, [playerId]: { ...seats[playerId], type: 'human', uid: user.uid, name: localPlayerName } };
-    setSeats(newSeats); pushUpdate('seats', newSeats);
+    setSeats(newSeats);
+    if (SERVER_AUTHORITY_ENABLED) {
+      try {
+        const result = await claimLobbySeatServer(activeLobbyId, playerId, localPlayerName);
+        if (result?.seats) setSeats(result.seats);
+      } catch (error) {
+        console.error('Failed to claim lobby seat:', error);
+      }
+    } else {
+      pushUpdate('seats', newSeats);
+    }
   };
 
   useEffect(() => {
@@ -1011,14 +1251,22 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     if (!isHost || !activeLobbyId || lobbyStatus !== 'waiting') return;
 
     const pushPing = () => {
-      rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { lastPing: Date.now() }).catch(() => {});
+      if (SERVER_AUTHORITY_ENABLED) {
+        heartbeatLobbyServer(activeLobbyId).catch(() => {});
+      } else {
+        rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), { lastPing: Date.now() }).catch(() => {});
+      }
     };
 
     pushPing();
     const pingInterval = setInterval(pushPing, 10000);
 
     const handleUnload = () => {
-      rtdbRemove(rtdbRef(rtdb, 'lobbies/' + activeLobbyId)).catch(() => {});
+      if (SERVER_AUTHORITY_ENABLED) {
+        leaveLobbyServer(activeLobbyId).catch(() => {});
+      } else {
+        rtdbRemove(rtdbRef(rtdb, 'lobbies/' + activeLobbyId)).catch(() => {});
+      }
     };
     window.addEventListener('beforeunload', handleUnload);
 
@@ -1120,10 +1368,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   });
 
   const openPublicSetup = () => {
-    if (economyStatus === 'loading') {
-      setEconomyNotice(t('economyLoading', 'Loading your Temple Coins…'));
-      return;
-    }
+    if (!onlineEconomyReady) return showEconomyLoadingNotice();
     if (!canAffordPublicMatch) {
       setEconomyNotice(t(
         'publicMatchInsufficientCoins',
@@ -1147,17 +1392,24 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   };
 
   const handleCollectionSkinChange = (pieceSkinId) => {
+    setIsPlayer1SkinSelectedFromCollection(true);
     handleSeatSkinChange('Player1', pieceSkinId);
   };
 
-  const openPrivateSetup = () => promptForSavedResume('online', () => {
-    setSetupMode('private');
-    setSetupStep('config');
-  });
+  const openPrivateSetup = () => {
+    if (!onlineEconomyReady) return showEconomyLoadingNotice();
+    return promptForSavedResume('online', () => {
+      setSetupMode('private');
+      setSetupStep('config');
+    });
+  };
 
-  const openPlayWithFriends = () => promptForSavedResume('online', () => {
-    handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
-  });
+  const openPlayWithFriends = () => {
+    if (!onlineEconomyReady) return showEconomyLoadingNotice();
+    return promptForSavedResume('online', () => {
+      handleHostOnlineClick(false, INSTANT_MULTIPLAYER_CONFIG);
+    });
+  };
 
   const executeStart = async (isOnline = false, targetGameId = null, overrideData = null) => {
     const currentSeats = overrideData?.seats || seats;
@@ -1166,6 +1418,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const currentActiveColors = currentActiveSeats.map(([_, s]) => s.color);
     const bots = currentActiveSeats.filter(([_, s]) => s.type === 'bot').map(([id]) => id);
     const isPublicMatch = overrideData?.isPublic ?? isLobbyPublic;
+    const localUid = user?.uid || Object.values(currentSeats).find((seat) => seat?.uid)?.uid || null;
     
     if (!overrideData) { // Only validate if we are initiating the start locally
       if (currentActiveSeats.length < 2) return alert(t('needTwoPlayers', "Need at least 2 players."));
@@ -1181,7 +1434,10 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       if (new Set(currentActiveColors).size !== currentActiveColors.length) return alert(t('uniqueColorsRequired', "Each active player must have a unique color."));
     }
 
-    if (requiresPublicMatchEntry({ isOnline, isPublic: isPublicMatch })) {
+    // In server-authority mode the callable start command reserves every
+    // verified human entry atomically. The client must not pre-charge a
+    // single seat before that transaction completes.
+    if (requiresPublicMatchEntry({ isOnline, isPublic: isPublicMatch }) && !SERVER_AUTHORITY_ENABLED) {
       if (!targetGameId || startingGameIdsRef.current.has(targetGameId)) return;
       startingGameIdsRef.current.add(targetGameId);
 
@@ -1216,7 +1472,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
       isQuickGame: overrideData?.isQuickGame ?? isQuickGame, isTeamMode: overrideData?.isTeamMode ?? isTeamMode, isOnline, gameId: targetGameId,
       initialPiecePathIndex: overrideData?.initialPiecePathIndex ?? (isOnline ? 2 : null),
       matchType: currentMatchType,
-      hostUid: overrideData?.hostUid || user?.uid || null, localUid: user?.uid || null,
+      hostUid: overrideData?.hostUid || localUid, localUid,
       isPublic: isPublicMatch,
       economy: isPublicMatch ? getPublicEconomyMetadata(currentMatchType) : null
     });
@@ -1230,6 +1486,11 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   }, [autoStartPortalIntro, activeLobbyId, setupMode, localPlayerName, onPortalAutoStartConsumed]);
 
   const handleHostOnlineClick = async (isPublicLobby = false, overrideConfig = null) => {
+    if (!onlineEconomyReady) {
+      showEconomyLoadingNotice();
+      return;
+    }
+    if (SERVER_AUTHORITY_ENABLED && !user?.uid) return;
     const isPublic = typeof isPublicLobby === 'boolean' ? isPublicLobby : false;
     
     const currentMatchType = overrideConfig?.matchType || matchType;
@@ -1270,19 +1531,39 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const isTeamModeLocal = (currentMatchType === '2v2');
 
     try {
-      await rtdbSet(rtdbRef(rtdb, 'lobbies/' + newGameId), {
-        seats: newSeats, botDifficulty: currentBotDifficulty, isVoidRuleEnabled: currentIsVoidRuleEnabled, isQuickGame: currentIsQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
-        isPublic, status: 'waiting', expiresAt, matchType: currentMatchType,
-        version: 2,
-        lastPing: Date.now(),
-        openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length,
-        economy: isPublic ? getPublicEconomyMetadata(currentMatchType) : null
-      });
+      let createdLobbyId = newGameId;
+      if (SERVER_AUTHORITY_ENABLED) {
+        const result = await createLobbyServer({
+          seats: newSeats,
+          botDifficulty: currentBotDifficulty,
+          isVoidRuleEnabled: currentIsVoidRuleEnabled,
+          isQuickGame: currentIsQuickGame,
+          isTeamMode: isTeamModeLocal,
+          isPublic,
+          expiresAt,
+          matchType: currentMatchType,
+          economy: isPublic ? getPublicEconomyMetadata(currentMatchType) : null,
+        });
+        createdLobbyId = result.lobbyId;
+        // Use the server-sanitized seat ownership for the next game config.
+        // This keeps the host UID intact even if React auth state is one
+        // render behind the callable's authenticated token.
+        if (result.lobby?.seats) newSeats = result.lobby.seats;
+      } else {
+        await rtdbSet(rtdbRef(rtdb, 'lobbies/' + newGameId), {
+          seats: newSeats, botDifficulty: currentBotDifficulty, isVoidRuleEnabled: currentIsVoidRuleEnabled, isQuickGame: currentIsQuickGame, isTeamMode: isTeamModeLocal, hostUid: user?.uid || null, gameStarted: false,
+          isPublic, status: 'waiting', expiresAt, matchType: currentMatchType,
+          version: 2,
+          lastPing: Date.now(),
+          openSeats: Object.values(newSeats).filter(s => s.type === 'human' && !s.uid).length,
+          economy: isPublic ? getPublicEconomyMetadata(currentMatchType) : null
+        });
+      }
   
       setSeats(newSeats);
       setIsTeamMode(isTeamModeLocal);
-      setPendingGameId(newGameId);
-      await updateCrazyGamesRoom('update', newSeats, newGameId);
+      setPendingGameId(createdLobbyId);
+      await updateCrazyGamesRoom('update', newSeats, createdLobbyId);
       
       if (overrideConfig) {
         setMatchType(currentMatchType);
@@ -1331,7 +1612,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
   }, [autoStartPlayWithFriendsConfig, activeLobbyId, setupMode, user, isHosting, isSearching, localPlayerName, onPlayWithFriendsAutoStartConsumed]);
 
   const handleFindMatch = async (overrideConfig = null) => {
-    if (economyStatus === 'loading' || !canAffordPublicMatch) {
+    if (SERVER_AUTHORITY_ENABLED && !user?.uid) return;
+    if (!onlineEconomyReady) {
+      showEconomyLoadingNotice();
+      return;
+    }
+    if (!canAffordPublicMatch) {
       setEconomyNotice(t(
         'publicMatchInsufficientCoins',
         'Public Online Match requires {{entry}} coins. Check Rewards to claim your free daily coins.',
@@ -1345,12 +1631,15 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const currentIsQuickGame = overrideConfig?.isQuickGame ?? isQuickGame;
     const currentIsVoidRuleEnabled = IS_PORTAL ? false : (overrideConfig?.isVoidRuleEnabled ?? isVoidRuleEnabled);
 
-    const availableGameId = await findRandomPublicGame({
+    const lobbySearchConfig = {
       matchType: currentMatchType,
       isQuickGame: currentIsQuickGame,
       isTeamMode: currentMatchType === '2v2',
       isVoidRuleEnabled: currentIsVoidRuleEnabled
-    });
+    };
+    const availableGameId = SERVER_AUTHORITY_ENABLED
+      ? (await findPublicLobbyServer(lobbySearchConfig)).lobbyId
+      : await findRandomPublicGame(lobbySearchConfig);
 
     if (availableGameId) {
       try {
@@ -1402,9 +1691,17 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
     const updates = { status: 'playing', gameStarted: true, openSeats: 0 };
     if (finalSeats) updates.seats = finalSeats;
     try {
-      await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates);
+      if (SERVER_AUTHORITY_ENABLED) {
+        await startLobbyServer(activeLobbyId, finalSeats || seats);
+      } else {
+        await rtdbUpdate(rtdbRef(rtdb, 'lobbies/' + activeLobbyId), updates);
+      }
       updateCrazyGamesRoom('start', finalSeats || seats);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setLobbyStatus('waiting');
+      return;
+    }
     executeStart(true, activeLobbyId, finalSeats ? { seats: finalSeats } : null);
   };
 
@@ -1623,7 +1920,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                       title={isSearching ? t('searching', 'SEARCHING...') : t('playOnline', 'PLAY ONLINE')}
                       description={t('publicMatchCoinSubtitle', '{{entry}} coins · Winner receives 90% of the pool.', { entry: PUBLIC_MATCH_ENTRY_COINS })}
                       onClick={() => promptForSavedResume('online', () => handleFindMatch({ matchType: 'ffa', isQuickGame: false, isVoidRuleEnabled: true, botDifficulty: 'easy' }))}
-                      disabled={isSearching || isHosting}
+                      disabled={!onlineEconomyReady || isSearching || isHosting}
                   />
                   <LobbyModeCard
                     tone="sapphire"
@@ -1631,6 +1928,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                     title={t('playWithFriends', 'PLAY WITH FRIENDS')}
                     description={t('playWithFriendsSubtitle', 'Start an invite-only online game for your friends.')}
                     onClick={openPlayWithFriends}
+                    disabled={!onlineEconomyReady}
                   />
                 </div>
               </>
@@ -1652,6 +1950,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                       title={t('onlineMatch', 'ONLINE MATCH')}
                       description={t('publicMatchCoinSubtitle', '{{entry}} coins · Winner receives 90% of the pool.', { entry: PUBLIC_MATCH_ENTRY_COINS })}
                       onClick={openPublicSetup}
+                      disabled={!onlineEconomyReady}
                     />
                     <LobbyModeCard
                       tone="sapphire"
@@ -1659,6 +1958,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                       title={t('playWithFriends', 'PLAY WITH FRIENDS')}
                       description={t('playWithFriendsSubtitle', 'Start an invite-only online game for your friends.')}
                       onClick={openPrivateSetup}
+                      disabled={!onlineEconomyReady}
                     />
                   </div>
                 ) : (
@@ -1668,12 +1968,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                       <span className="text-sm leading-none uppercase tracking-widest">{t('localPlay', 'LOCAL PLAY')}</span>
                     </button>
 
-                    <button onClick={openPublicSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all" title={t('findPublicMatchTitle', 'Find Public Match')}>
+                    <button onClick={openPublicSetup} disabled={!onlineEconomyReady} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-emerald-500 hover:bg-white/5 transition-all disabled:cursor-not-allowed disabled:opacity-60" title={t('findPublicMatchTitle', 'Find Public Match')}>
                       <OnlineModeIcon className="h-6 w-6 text-emerald-500" aria-hidden="true" />
                       <span className="text-sm leading-none uppercase tracking-widest">{t('publicMatch', 'PUBLIC MATCH')}</span>
                     </button>
 
-                    <button onClick={openPrivateSetup} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all" title={t('playWithFriends', 'Play with Friends')}>
+                    <button onClick={openPrivateSetup} disabled={!onlineEconomyReady} className="w-full py-4 flex items-center justify-start gap-4 px-6 bg-[var(--color-panel-bg)] text-white font-sans font-semibold tracking-wide rounded-xl border-l-4 border-sky-400 hover:bg-white/5 transition-all disabled:cursor-not-allowed disabled:opacity-60" title={t('playWithFriends', 'Play with Friends')}>
                       <PrivateModeIcon className="h-6 w-6 text-sky-400" aria-hidden="true" />
                       <span className="text-sm leading-none uppercase tracking-widest">{t('playWithFriends', 'PLAY WITH FRIENDS')}</span>
                     </button>
@@ -1691,7 +1991,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                   </button>
                 )}
                 {resumeOnlineGameId && (
-                  <button onClick={() => onReconnectOnline(resumeOnlineGameId)} className="flex-1 py-3 bg-white/5 text-sapphire font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                  <button onClick={() => onlineEconomyReady && onReconnectOnline(resumeOnlineGameId)} disabled={!onlineEconomyReady} className="flex-1 py-3 bg-white/5 text-sapphire font-sans text-xs font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
                     <ReconnectIcon className="h-4 w-4" aria-hidden="true" />
                     {t('reconnectOnline', 'Reconnect')}
                   </button>
@@ -1824,12 +2124,12 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
                 </button>
               )}
               {setupMode === 'public' && (
-                <button onClick={() => handleFindMatch()} disabled={isSearching || isHosting} className={configPrimaryButtonClass}>
+                <button onClick={() => handleFindMatch()} disabled={!onlineEconomyReady || !authReady || !user?.uid || isSearching || isHosting} className={configPrimaryButtonClass}>
                   {isSearching ? t('searching', 'SEARCHING...') : t('findMatch', 'FIND MATCH')}
                 </button>
               )}
               {setupMode === 'private' && (
-                <button onClick={() => handleHostOnlineClick(false)} disabled={isHosting || isSearching} className={configPrimaryButtonClass}>
+                <button onClick={() => handleHostOnlineClick(false)} disabled={!onlineEconomyReady || !authReady || !user?.uid || isHosting || isSearching} className={configPrimaryButtonClass}>
                   {isHosting ? t('hostingMatch', 'CREATING LOBBY...') : t('createLobby', 'CREATE LOBBY')}
                 </button>
               )}
@@ -1851,7 +2151,7 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player4', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player3', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player1', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player1', skinId)} showSkinSelector={!isPlayer1SkinSelectedFromCollection} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player2', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
               </div>
             </div>
@@ -1870,14 +2170,14 @@ const UnifiedLobby = ({ onStartGame, onResumeGame, onClearOfflineResume, onShowR
               <div className="lobby-seat-grid grid w-full max-w-[280px] grid-cols-2 gap-4 lg:max-w-[220px] lg:gap-2.5">
                  <SeatCard id="Player4" label={`${t('player', 'Player')} 4`} seat={seats.Player4} onTypeChange={(type) => handleSeatTypeChange('Player4', type)} onColorChange={(c) => handleSeatColorChange('Player4', c)} onNameChange={(n) => handleSeatNameChange('Player4', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player4', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player3" label={`${t('player', 'Player')} 3`} seat={seats.Player3} onTypeChange={(type) => handleSeatTypeChange('Player3', type)} onColorChange={(c) => handleSeatColorChange('Player3', c)} onNameChange={(n) => handleSeatNameChange('Player3', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player3', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
-                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player1', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
+                 <SeatCard id="Player1" label={`${t('player', 'Player')} 1`} seat={seats.Player1} onTypeChange={(type) => handleSeatTypeChange('Player1', type)} onColorChange={(c) => handleSeatColorChange('Player1', c)} onNameChange={(n) => handleSeatNameChange('Player1', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player1', skinId)} showSkinSelector={!isPlayer1SkinSelectedFromCollection} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
                  <SeatCard id="Player2" label={`${t('player', 'Player')} 2`} seat={seats.Player2} onTypeChange={(type) => handleSeatTypeChange('Player2', type)} onColorChange={(c) => handleSeatColorChange('Player2', c)} onNameChange={(n) => handleSeatNameChange('Player2', n)} onSkinChange={(skinId) => handleSeatSkinChange('Player2', skinId)} onClaim={handleClaimSeat} activeColors={activeColors} isHost={isHost} isOnline={!!activeLobbyId} userUid={user?.uid} t={t} hasClaimedSeat={hasClaimedSeat} lobbyStatus={lobbyStatus} isLobbyPublic={isLobbyPublic} />
               </div>
             </div>
 
             <div className="lobby-active-actions mt-4 flex w-full flex-col gap-2 lg:mt-2.5">
             {isHost ? (
-                <button onClick={handleStartOnlineMatch} className="lobby-seat-primary-action flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 lg:py-2.5 lg:text-[0.95rem]">
+                <button onClick={handleStartOnlineMatch} disabled={!onlineEconomyReady} className="lobby-seat-primary-action flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 font-display text-lg font-bold text-charcoal shadow-[0_0_15px_rgba(251,191,36,0.4)] transition-all hover:scale-[1.02] hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60 lg:py-2.5 lg:text-[0.95rem]">
                   <StartIcon className="h-6 w-6" aria-hidden="true" />
                   {t('startMatch', 'START MATCH')}
                 </button>

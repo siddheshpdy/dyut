@@ -1,5 +1,12 @@
 # Phase 26.1: Virtual Currency & Wagers Plan
 
+## Current status (2026-08-12)
+
+**Partial:** the client economy, daily reward, goals, public entry, fee,
+payout, refund, and idempotency helpers are implemented. The wallet is still
+client/local/portal-storage backed, so trusted ledger, server settlement,
+fraud controls, and production rules remain required before valuable wagers.
+
 > **Superseded:** Use
 > [monetization-strategy.md](./monetization-strategy.md) and
 > [monetization-execution-plan.md](./monetization-execution-plan.md). The
