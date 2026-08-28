@@ -24,11 +24,12 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined
-            if (id.includes('node_modules/firebase/auth') || id.includes('node_modules/@firebase/auth')) return 'firebase-auth'
-            if (id.includes('node_modules/firebase/firestore') || id.includes('node_modules/@firebase/firestore')) return 'firebase-firestore'
-            if (id.includes('node_modules/firebase/database') || id.includes('node_modules/@firebase/database')) return 'firebase-rtdb'
-            if (id.includes('node_modules/firebase/app') || id.includes('node_modules/@firebase/app')) return 'firebase-core'
-            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase-shared'
+            // Firebase's modular packages have internal circular imports (for
+            // example app <-> util/component). Splitting those internals into
+            // firebase-core and firebase-shared creates a cross-chunk TDZ
+            // failure in browsers serving the production bundle. Keep the
+            // Firebase graph together and only split unrelated vendor groups.
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase'
             if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) return 'react-vendor'
             if (id.includes('node_modules/i18next')) return 'i18n'
             if (id.includes('node_modules/lucide-react')) return 'icons'
